@@ -1,0 +1,122 @@
+{
+  ".claude/settings.local.json": {
+    "mtime": 1786413173.084224,
+    "ast_hash": "c6bdffa168a60b48ccca24e3f397c8e4",
+    "semantic_hash": "c6bdffa168a60b48ccca24e3f397c8e4"
+  },
+  ".vscode/extensions.json": {
+    "mtime": 1786412379.322972,
+    "ast_hash": "74a56d7bbbf177ae6339c026934ee00b",
+    "semantic_hash": "74a56d7bbbf177ae6339c026934ee00b"
+  },
+  ".vscode/launch.json": {
+    "mtime": 1786412379.3250465,
+    "ast_hash": "c7826d06165bf4890ba638f23b066a6d",
+    "semantic_hash": "c7826d06165bf4890ba638f23b066a6d"
+  },
+  ".vscode/settings.json": {
+    "mtime": 1786412379.340796,
+    "ast_hash": "39dc44bd672f9ef8bd33a4140e7cd61c",
+    "semantic_hash": "39dc44bd672f9ef8bd33a4140e7cd61c"
+  },
+  "electron.vite.config.ts": {
+    "mtime": 1786412379.4346602,
+    "ast_hash": "dce4816fa480097254e10af10cc439bf",
+    "semantic_hash": "dce4816fa480097254e10af10cc439bf"
+  },
+  "eslint.config.mjs": {
+    "mtime": 1786412379.3711157,
+    "ast_hash": "a419b22d16eff2870d577f4f59a42aba",
+    "semantic_hash": "a419b22d16eff2870d577f4f59a42aba"
+  },
+  "package.json": {
+    "mtime": 1786412391.362247,
+    "ast_hash": "ab5901487a7467893abbc22e3b10b9fc",
+    "semantic_hash": "ab5901487a7467893abbc22e3b10b9fc"
+  },
+  "src/main/index.ts": {
+    "mtime": 1786412379.450847,
+    "ast_hash": "12337ded1386b1e5653d0ab882c6d414",
+    "semantic_hash": "12337ded1386b1e5653d0ab882c6d414"
+  },
+  "src/preload/index.d.ts": {
+    "mtime": 1786412379.4442382,
+    "ast_hash": "49212028271d72b7ff84b2893299c17f",
+    "semantic_hash": "49212028271d72b7ff84b2893299c17f"
+  },
+  "src/preload/index.ts": {
+    "mtime": 1786412379.452266,
+    "ast_hash": "4d8a1ff95e7181acf48dd18086114d60",
+    "semantic_hash": "4d8a1ff95e7181acf48dd18086114d60"
+  },
+  "src/renderer/src/App.tsx": {
+    "mtime": 1786412379.4685576,
+    "ast_hash": "0cc1381fc1652c457ec3f9ab01a36d10",
+    "semantic_hash": "0cc1381fc1652c457ec3f9ab01a36d10"
+  },
+  "src/renderer/src/components/Versions.tsx": {
+    "mtime": 1786412379.4743874,
+    "ast_hash": "3d1ca042c21cc4e564b2a9b6a105b054",
+    "semantic_hash": "3d1ca042c21cc4e564b2a9b6a105b054"
+  },
+  "src/renderer/src/env.d.ts": {
+    "mtime": 1786412379.438954,
+    "ast_hash": "0352474ba2918efe13895edbc3780d94",
+    "semantic_hash": "0352474ba2918efe13895edbc3780d94"
+  },
+  "src/renderer/src/main.tsx": {
+    "mtime": 1786412379.4710894,
+    "ast_hash": "33e2f401ba9e135c52718d3b480407ff",
+    "semantic_hash": "33e2f401ba9e135c52718d3b480407ff"
+  },
+  "tsconfig.json": {
+    "mtime": 1786412379.341873,
+    "ast_hash": "f78ff8c2e2efb59fcf218eac57774d94",
+    "semantic_hash": "f78ff8c2e2efb59fcf218eac57774d94"
+  },
+  "tsconfig.node.json": {
+    "mtime": 1786412379.346597,
+    "ast_hash": "9a09247aa797699e4223e0a9f78914dc",
+    "semantic_hash": "9a09247aa797699e4223e0a9f78914dc"
+  },
+  "tsconfig.web.json": {
+    "mtime": 1786412379.3521328,
+    "ast_hash": "dce90512df0486a7e5f2d59cf1ff5319",
+    "semantic_hash": "dce90512df0486a7e5f2d59cf1ff5319"
+  },
+  ".prettierrc.yaml": {
+    "mtime": 1786412379.4830854,
+    "ast_hash": "0494080f0af72e414e6fb29f89c49d89",
+    "semantic_hash": "0494080f0af72e414e6fb29f89c49d89"
+  },
+  "README.md": {
+    "mtime": 1786412391.362247,
+    "ast_hash": "0f22a76bd8c51c386a1553da25e660f4",
+    "semantic_hash": "0f22a76bd8c51c386a1553da25e660f4"
+  },
+  "electron-builder.yml": {
+    "mtime": 1786412391.3508668,
+    "ast_hash": "0a5017be51d5b5229564b87f73fed014",
+    "semantic_hash": "0a5017be51d5b5229564b87f73fed014"
+  },
+  "src/renderer/index.html": {
+    "mtime": 1786412379.1849139,
+    "ast_hash": "1dd9b1f70744db0e3413bc2c86d1e27b",
+    "semantic_hash": "1dd9b1f70744db0e3413bc2c86d1e27b"
+  },
+  "resources/icon.png": {
+    "mtime": 1786412379.3926568,
+    "ast_hash": "a2cf889708d9c4959c6808b4584848e4",
+    "semantic_hash": "a2cf889708d9c4959c6808b4584848e4"
+  },
+  "src/renderer/src/assets/electron.svg": {
+    "mtime": 1786412379.4019613,
+    "ast_hash": "7e350671f4993b01b6110e283cb7ab02",
+    "semantic_hash": "7e350671f4993b01b6110e283cb7ab02"
+  },
+  "src/renderer/src/assets/wavy-lines.svg": {
+    "mtime": 1786412379.4196055,
+    "ast_hash": "990cf549e920e993d4c1998c217661c6",
+    "semantic_hash": "990cf549e920e993d4c1998c217661c6"
+  }
+}

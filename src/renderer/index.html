@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Izze</title>
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+  </head>
+
+  <body>
+    <!--
+      THESIS: a Izze não é um chat — é a página de manual viva da sua própria
+      máquina. Recusa a coluna centralizada de balõezinhos que todo app de IA
+      entrega, e recusa também o HUD do Homem de Ferro em néon com brilho.
+
+      OWN-WORLD: chapa fosca grafite em três profundidades (#0E1116 fundo,
+      #161A21 chapa, #0A0C10 sulco), tinta quente de papel (#E4E1D8) sobre
+      metal frio, fio de cabelo de 1px no lugar de sombra e brilho. Âmbar
+      #E8A33D é a única cor de marca; verde/barro/azul-aço só aparecem quando
+      significam estado, na gramática do Process Explorer. Cascadia Mono para
+      estrutura e medida, Segoe UI Variable para prosa. Nada tem raio de canto.
+
+      STORY: o Pablo chama pelo Ctrl+Space, lê numa linha o que a Izze já sabe
+      (janela em foco, estado, cota), pergunta, e recebe uma resposta que se
+      parece com documentação da máquina dele.
+
+      FIRST VIEWPORT: barra de status no topo — IZZE, o anunciador de foco ao
+      vivo, a escada segmentada de cota, o estado. Corpo em calha suspensa:
+      rótulo versalete monoespaçado à esquerda, conteúdo pendurado à direita.
+      Vazio, o corpo é a abertura do manual (NOME/SINOPSE/DESCRIÇÃO/ATALHOS).
+      Prompt ancorado embaixo, na mesma calha.
+
+      FORM: candidato 3 da lista ordenada (manual/sysinternals), chave b36c5074.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with
+      the finish review, the verdict, and DESIGN.md
+    -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

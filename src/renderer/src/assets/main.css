@@ -1,0 +1,159 @@
+@import 'tailwindcss';
+
+/**
+ * IZZE — sistema visual "referência técnica viva".
+ *
+ * O mundo é a página de manual e o Process Explorer: tinta sobre chapa fosca,
+ * fio de cabelo no lugar de sombra, cor só onde ela SIGNIFICA estado. Nada de
+ * brilho, glow ou gradiente — instrumento de verdade não brilha, ele é lido.
+ *
+ * A CSP do index.html é 'self': nenhuma fonte externa carrega. As duas faces
+ * abaixo já vêm no Windows 11 — Cascadia é a fonte que este usuário lê o dia
+ * inteiro no terminal, então é escolha, não fallback.
+ */
+@theme {
+  /* Chapa: três profundidades, do fundo da janela ao sulco escavado. */
+  --color-fundo: #0e1116;
+  --color-chapa: #161a21;
+  --color-sulco: #0a0c10;
+
+  /* Tinta. A primária é quente (papel), as secundárias frias (metal). */
+  --color-tinta: #e4e1d8;
+  --color-tinta-2: #9aa1ac;
+  --color-tinta-3: #7c838e;
+
+  /* Sinal — o âmbar da Izze. Uma cor de marca, usada com avareza. */
+  --color-sinal: #e8a33d;
+
+  /* Estado, na gramática do Process Explorer: verde nasceu, vermelho morreu,
+     azul é informação. Nunca decoram — só aparecem quando o estado existe. */
+  --color-ok: #7fb069;
+  --color-perigo: #d1655b;
+  --color-info: #7ba6d1;
+
+  --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Fio de cabelo. Um valor só pra grade inteira: linha de instrumento tem
+   uma espessura, não cinco. */
+@theme {
+  --color-fio: #232830;
+  --color-fio-forte: #333a45;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fundo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Nenhum texto da UI é selecionável por acidente ao arrastar, mas o que a
+     Izze RESPONDE é — é conteúdo, e copiar resposta é uso normal. */
+  user-select: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-sinal) 30%, transparent);
+  color: var(--color-tinta);
+}
+
+/* Barra de rolagem no mesmo material do resto: sulco escavado, polegar de
+   metal. O padrão do Chrome é um cinza claro que não pertence a este mundo. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-fio-forte) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-fio-forte);
+  border: 3px solid var(--color-fundo);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-tinta-3);
+}
+
+/* Foco de teclado visível. O anel é âmbar porque é a cor de sinal, e fica
+   DENTRO do elemento pra não empurrar layout.
+
+   O textarea fica de fora: ele ocupa a largura toda, então o anel desenhava
+   uma caixa de formulário de 1000px no rodapé de uma interface que não tem
+   nenhuma outra. Lá quem indica o foco é o cursor âmbar (caret-sinal) e o
+   sinal de prompt, que acende junto — dois indicadores, não zero.
+
+   Regra fora de @layer vence utilitário do Tailwind por cascata, então
+   'focus-visible:outline-none' na classe NÃO resolveria isto. */
+:focus-visible:not(textarea) {
+  outline: 1px solid var(--color-sinal);
+  outline-offset: -1px;
+}
+
+/*
+ * O ÚNICO momento de movimento autorado do app: o anunciador de foco.
+ *
+ * Quando a janela que você está usando muda, o texto não troca seco — ele
+ * é revelado por uma varredura, como um mostrador eletromecânico virando.
+ * É o mecanismo da Izze (ela sabe onde você está) ficando visível por meio
+ * segundo. Todo o resto da interface é imóvel de propósito.
+ */
+@keyframes varrer {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.anunciador {
+  animation: varrer 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A linha de varredura da barra de status enquanto ela processa. Mesma
+   curva, mesmo vocabulário — é o anunciador em modo contínuo. */
+@keyframes rastrear {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.rastro {
+  animation: rastrear 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Cursor de digitação. Onda quadrada, como o do console — não pulsa suave. */
+@keyframes piscar {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.cursor {
+  animation: piscar 1.06s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anunciador,
+  .rastro,
+  .cursor {
+    animation: none;
+  }
+}
