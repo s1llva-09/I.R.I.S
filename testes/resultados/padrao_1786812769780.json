@@ -1,0 +1,15 @@
+{
+  "modelo": "padrao",
+  "resultados": [
+    {
+      "id": "nivel3-01",
+      "categoria": "confirmacao",
+      "chamadas": [
+        "rodar_powershell"
+      ],
+      "passou": true,
+      "motivo": "",
+      "ms": 7390
+    }
+  ]
+}

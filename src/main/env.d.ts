@@ -8,4 +8,10 @@ interface ImportMetaEnv {
   readonly MAIN_VITE_LLM_MODELO?: string
   /** Teto de chamadas de API por dia. Padrão 45 (free tier do OpenRouter). */
   readonly MAIN_VITE_TETO_DIARIO?: string
+  /**
+   * Chamadas do dia que ficam reservadas pro uso interativo — os gatilhos
+   * param antes disso. Padrão 15. Zerar aqui deixa um gatilho ruidoso capaz
+   * de consumir a cota inteira antes de você acordar.
+   */
+  readonly MAIN_VITE_RESERVA_GATILHO?: string
 }

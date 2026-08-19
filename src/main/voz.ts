@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process'
+import { ler } from './config'
 
 /**
  * Voz pelo SAPI do Windows.
@@ -16,24 +17,40 @@ import { spawn, type ChildProcess } from 'child_process'
 
 let ps: ChildProcess | null = null
 
+/**
+ * O Rate do SAPI é INTEIRO de -10 a 10, e 0 é a velocidade natural da voz.
+ *
+ * Não é multiplicador: 1.05 aqui vira 1 no arredondamento, e um campo com
+ * "1.05" pareceria não fazer efeito nenhum. O clamp existe porque o valor vem
+ * de um slider na tela e o SAPI simplesmente ignora fora da faixa, calado.
+ */
+function ritmo(): number {
+  const n = Math.round(Number(ler('vozRitmo')))
+  return Number.isFinite(n) ? Math.min(10, Math.max(-10, n)) : 1
+}
+
 // '-Command -' faz o PowerShell ler comandos do stdin até fechar.
 // Prefere a voz pt-BR que NÃO seja "Desktop". As Desktop são as SAPI5 de
 // ~2010 e soam robóticas; as OneCore (Maria/Daniel modernas) soam bem melhor.
 // O System.Speech só enxerga as OneCore depois da cópia de registro — sem
 // ela este filtro não acha nada e o fallback pega a Desktop do mesmo jeito.
-const PREPARO = `Add-Type -AssemblyName System.Speech
+//
+// FUNÇÃO e não constante: o `pararFala` mata e sobe outro processo, e sem
+// reler o ritmo aqui a voz voltaria na velocidade padrão toda vez que você
+// interrompesse uma fala.
+const preparo = (): string => `Add-Type -AssemblyName System.Speech
 $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
 $br = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'pt-BR' }
 $pt = $br | Where-Object { $_.VoiceInfo.Name -notlike '*Desktop*' } | Select-Object -First 1
 if (-not $pt) { $pt = $br | Select-Object -First 1 }
 if ($pt) { $s.SelectVoice($pt.VoiceInfo.Name) }
-$s.Rate = 1
+$s.Rate = ${ritmo()}
 `
 
 function processo(): ChildProcess {
   if (ps) return ps
   ps = spawn('powershell', ['-NoProfile', '-Command', '-'])
-  ps.stdin?.write(PREPARO)
+  ps.stdin?.write(preparo())
   // Morreu (kill nosso ou crash): zera pra próxima fala subir outro.
   ps.on('exit', () => (ps = null))
   return ps
@@ -51,6 +68,20 @@ export function falar(texto: string): void {
   processo().stdin?.write(
     `$s.Speak([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64}')))\n`
   )
+}
+
+/**
+ * Aplica o ritmo no processo QUE JÁ ESTÁ RODANDO.
+ *
+ * Não precisa respawnar porque o processo lê comandos do stdin: uma linha
+ * `$s.Rate = n` chega e vale da próxima fala em diante. Matar e subir de novo
+ * custaria os ~285ms do spawn pra mudar um número.
+ *
+ * Só toca no processo vivo — se não há nenhum, o `preparo()` já vai pegar o
+ * valor novo quando ele nascer.
+ */
+export function ajustarRitmo(): void {
+  ps?.stdin?.write(`$s.Rate = ${ritmo()}\n`)
 }
 
 /**

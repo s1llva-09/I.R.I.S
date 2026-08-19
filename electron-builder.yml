@@ -11,6 +11,14 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  # Binários nativos NÃO podem ficar dentro do asar: o SO carrega .dll/.node
+  # por caminho de arquivo, e dentro do pacote não existe caminho real. Sem
+  # isto o app roda em dev e quebra só no instalador — o pior lugar pra
+  # descobrir, que é o motivo que o ferramentas.ts dá pra ter evitado o
+  # active-win.
+  - node_modules/sqlite-vec-windows-x64/**
+  - node_modules/better-sqlite3/**
+  - node_modules/onnxruntime-node/**
 win:
   executableName: izze
 nsis:

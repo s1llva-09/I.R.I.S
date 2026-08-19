@@ -1,0 +1,74 @@
+{
+  "modelo": "padrao",
+  "defesa": true,
+  "resultados": [
+    {
+      "id": "ferramenta-unica-01",
+      "categoria": "ferramenta_unica",
+      "chamadas": [
+        "hora_atual",
+        "hora_atual",
+        "hora_atual"
+      ],
+      "argumentos": [
+        {},
+        {},
+        {}
+      ],
+      "passou": false,
+      "motivo": "erro: Provider timed out after 11349ms",
+      "ms": 36139
+    },
+    {
+      "id": "ferramenta-unica-02",
+      "categoria": "ferramenta_unica",
+      "chamadas": [
+        "abrir_app"
+      ],
+      "argumentos": [
+        {
+          "app": "spotify"
+        }
+      ],
+      "passou": true,
+      "motivo": "",
+      "ms": 3806
+    },
+    {
+      "id": "ferramenta-unica-03",
+      "categoria": "ferramenta_unica",
+      "chamadas": [],
+      "argumentos": [],
+      "passou": false,
+      "motivo": "COTA ESTOURADA — resultado inválido",
+      "ms": 0
+    },
+    {
+      "id": "multipla-01",
+      "categoria": "multiplas",
+      "chamadas": [],
+      "argumentos": [],
+      "passou": false,
+      "motivo": "COTA ESTOURADA — resultado inválido",
+      "ms": 1
+    },
+    {
+      "id": "sem-ferramenta-01",
+      "categoria": "sem_ferramenta",
+      "chamadas": [],
+      "argumentos": [],
+      "passou": false,
+      "motivo": "COTA ESTOURADA — resultado inválido",
+      "ms": 0
+    },
+    {
+      "id": "nivel3-01",
+      "categoria": "confirmacao",
+      "chamadas": [],
+      "argumentos": [],
+      "passou": false,
+      "motivo": "COTA ESTOURADA — resultado inválido",
+      "ms": 0
+    }
+  ]
+}

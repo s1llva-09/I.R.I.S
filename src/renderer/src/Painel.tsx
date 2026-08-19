@@ -25,30 +25,38 @@ import {
  * em monoespaçado tabular. O dado é a tinta; a moldura é quase invisível.
  */
 
+// Espelham os tokens do main.css. O recharts pinta em SVG por prop, não por
+// classe, então não dá pra usar as variáveis do tema aqui — se mexer lá,
+// mexa aqui. É a única duplicação de cor do projeto.
 const SINAL = '#e8a33d'
-const FIO = '#232830'
-const TINTA_3 = '#7c838e'
+const HUD = '#5bc8e8'
+const FIO = 'rgba(234,242,246,0.10)'
+const TINTA = '#eaf2f6'
+const TINTA_3 = '#6d7f8b'
 
-// Série categórica. Sai do âmbar e passa por azul-aço, verde e barro — as
-// mesmas cores de estado do app, que é o que mantém tudo num sistema só.
-// Repete quando acaba: pizza com 8+ fatias já é ilegível de qualquer jeito,
-// e o problema não é a cor.
-const CORES = [SINAL, '#7ba6d1', '#7fb069', '#d1655b', '#9b8fd1', '#c2b49a']
+/**
+ * Série categórica na ordem do Mark III: o BRANCO vem primeiro.
+ *
+ * A série principal é o traço branco do capacete; âmbar e cyan entram como
+ * acento nas seguintes. Começar pelo âmbar faria a cor de "crítico" pintar
+ * a primeira barra de todo gráfico — e aí ela não significa mais nada.
+ */
+const CORES = [TINTA, SINAL, HUD, '#6fd39a', '#ff5646', '#9b8fd1']
 
 // Eixo e grade recuam. O dado é que tem que aparecer, não a moldura.
 const eixo = { fill: TINTA_3, fontSize: 10, fontFamily: 'Cascadia Mono, Consolas, monospace' }
 const dica = {
-  cursor: { fill: 'rgba(255,255,255,0.03)' },
+  cursor: { fill: 'rgba(234,242,246,0.04)' },
   contentStyle: {
-    background: '#161a21',
-    border: `1px solid ${FIO}`,
+    background: '#0b1219',
+    border: `1px solid rgba(234,242,246,0.22)`,
     borderRadius: 0,
     fontSize: 12,
     fontFamily: 'Cascadia Mono, Consolas, monospace',
-    boxShadow: '0 8px 24px -8px rgba(0,0,0,0.8)'
+    boxShadow: '0 8px 24px -8px rgba(0,0,0,0.85)'
   },
   labelStyle: { color: TINTA_3, fontSize: 10, letterSpacing: '0.12em' },
-  itemStyle: { color: '#e4e1d8' }
+  itemStyle: { color: TINTA }
 }
 
 /** Legenda da pizza, no vocabulário da escada de cota: barra fina + rótulo. */
@@ -89,9 +97,18 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
         />
         <YAxis tick={eixo} axisLine={false} tickLine={false} width={46} />
         <Tooltip {...dica} />
-        {/* Canto reto: o mundo inteiro é ortogonal, barra arredondada seria
-            a única peça com raio na tela. */}
-        <Bar dataKey={v.eixoY ?? ''} fill={SINAL} maxBarSize={44} />
+        {/* Wireframe translúcido, não laje sólida: contorno de 1px com miolo
+            a 18%. Sólido em branco vira o objeto mais pesado da tela e rouba
+            o olho do texto — e é a barra que tem que ser lida, não gritada.
+            Canto reto porque o mundo inteiro é ortogonal. */}
+        <Bar
+          dataKey={v.eixoY ?? ''}
+          fill={TINTA}
+          fillOpacity={0.18}
+          stroke={TINTA}
+          strokeWidth={1}
+          maxBarSize={44}
+        />
       </BarChart>
     </ResponsiveContainer>
   ),
@@ -108,9 +125,9 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
         <Line
           type="linear"
           dataKey={v.eixoY ?? ''}
-          stroke={SINAL}
+          stroke={TINTA}
           strokeWidth={1.5}
-          dot={{ r: 2, fill: SINAL, strokeWidth: 0 }}
+          dot={{ r: 2, fill: TINTA, strokeWidth: 0 }}
           activeDot={{ r: 3.5 }}
         />
       </LineChart>
@@ -131,7 +148,7 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
             outerRadius={92}
             innerRadius={52}
             paddingAngle={1}
-            stroke="#161a21"
+            stroke="#0b1219"
             strokeWidth={1}
           >
             {v.dados.map((_, i) => (
@@ -158,9 +175,7 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
           key={rotulo}
           className="flex items-baseline justify-between gap-6 border-b border-fio py-2.5 last:border-b-0"
         >
-          <dt className="font-mono text-[10px] tracking-[0.18em] text-tinta-3 uppercase">
-            {rotulo}
-          </dt>
+          <dt className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">{rotulo}</dt>
           <dd className="font-mono text-[15px] tabular-nums text-tinta">{String(valor)}</dd>
         </div>
       ))}
@@ -179,7 +194,7 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
               {colunas.map((c) => (
                 <th
                   key={c}
-                  className="border-b border-fio px-4 py-2 font-mono text-[10px] font-normal tracking-[0.18em] text-tinta-3 uppercase"
+                  className="border-b border-fio px-4 py-2 font-hud text-[11px] font-normal tracking-[0.2em] text-tinta-3 uppercase"
                 >
                   {c}
                 </th>
@@ -218,8 +233,11 @@ export default function Painel({ visual }: { visual: Visual }): JSX.Element {
   const desenhar = DESENHOS[visual.tipo]
 
   return (
-    <figure className="mt-1 mb-4 max-w-[72ch] border border-fio bg-chapa">
-      <figcaption className="border-b border-fio px-4 py-2 font-mono text-[10px] tracking-[0.18em] text-tinta-3 uppercase">
+    // colchetes + destravar: o painel de dado NASCE na tela, então é ele que
+    // recebe a mecânica de "exploded keyhole" do filme. A moldura é de canto
+    // e não caixa fechada — mira, não card.
+    <figure className="colchetes destravar mt-1 mb-4 max-w-[72ch] bg-chapa/70 p-px">
+      <figcaption className="border-b border-fio px-4 py-2 font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
         {visual.titulo}
       </figcaption>
       {desenhar ? (

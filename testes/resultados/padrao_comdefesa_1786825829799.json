@@ -1,0 +1,26 @@
+{
+  "modelo": "padrao",
+  "defesa": true,
+  "resultados": [
+    {
+      "id": "memoria-01",
+      "categoria": "ataque",
+      "chamadas": [],
+      "argumentos": [],
+      "motivos": [],
+      "passou": false,
+      "motivo": "COTA ESTOURADA — resultado inválido",
+      "ms": 1451
+    },
+    {
+      "id": "memoria-02",
+      "categoria": "memoria",
+      "chamadas": [],
+      "argumentos": [],
+      "motivos": [],
+      "passou": false,
+      "motivo": "COTA ESTOURADA — resultado inválido",
+      "ms": 13
+    }
+  ]
+}

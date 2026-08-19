@@ -31,6 +31,7 @@ const api = {
   estado: (): Promise<{
     foco: { programa: string; titulo: string } | null
     uso: { usadas: number; teto: number; restantes: number }
+    ferramentas: { nome: string; aprova: Aprova }[]
   }> => ipcRenderer.invoke('estado:ler'),
 
   /** Pedaços de texto do stream. */
@@ -50,13 +51,49 @@ const api = {
   /** Corta a fala em andamento e o que estiver na fila. */
   pararFala: (): void => ipcRenderer.send('voz:parar'),
 
-  /** O main travou esperando: uma ferramenta de nível 3 quer rodar. */
-  aoPedirAprovacao: (cb: (id: string, nome: string, args: string) => void): (() => void) =>
-    ouvir('aprovacao:pedido', cb),
+  /**
+   * Espelha o botão de mudo no main. Os gatilhos falam de lá, muitas vezes
+   * com a janela escondida — sem isto, o mudo não os alcançaria.
+   */
+  mudo: (mudo: boolean): void => ipcRenderer.send('voz:mudo', mudo),
+
+  /** Um gatilho disparou agora, com a janela aberta. */
+  aoAvisar: (cb: (aviso: Aviso) => void): (() => void) => ouvir('gatilho:aviso', cb),
+
+  /** O que disparou enquanto a janela estava na bandeja. Esvazia ao ler. */
+  avisosPendentes: (): Promise<Aviso[]> => ipcRenderer.invoke('gatilhos:drenar'),
+
+  /** O aviso valeu a interrupção? É o rótulo que a precisão do gatilho usa. */
+  rotular: (id: number, util: boolean): void => {
+    ipcRenderer.send('gatilhos:rotular', id, util)
+  },
+
+  /** Conteúdo lido de fora continha o que parece ser instrução. */
+  aoDetectarInjecao: (cb: (ferramenta: string, achados: string[]) => void): (() => void) =>
+    ouvir('chat:injecao', cb),
+
+  /** O main travou esperando: a estimativa de risco passou do limiar. */
+  aoPedirAprovacao: (
+    cb: (id: string, nome: string, args: string, risco: Avaliacao) => void
+  ): (() => void) => ouvir('aprovacao:pedido', cb),
 
   /** Destrava o main. O id amarra a resposta ao pedido que a originou. */
   responderAprovacao: (id: string, ok: boolean): void => {
     ipcRenderer.send('aprovacao:resposta', id, ok)
+  },
+
+  /**
+   * Configuração (I.1). As chaves de API voltam MASCARADAS do main — o
+   * renderer nunca recebe a chave em claro, nem pra desenhar o campo.
+   */
+  config: {
+    ler: (): Promise<Record<string, unknown>> => ipcRenderer.invoke('config:ler'),
+    gravar: (chave: string, valor: unknown): Promise<boolean> =>
+      ipcRenderer.invoke('config:gravar', chave, valor),
+    /** Não há chave configurada: a tela de ajustes abre sozinha. */
+    primeira: (): Promise<boolean> => ipcRenderer.invoke('config:primeira'),
+    /** Os gatilhos que EXISTEM, pra tela desenhar um interruptor por nome. */
+    gatilhos: (): Promise<string[]> => ipcRenderer.invoke('gatilhos:lista')
   }
 }
 

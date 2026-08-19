@@ -16,6 +16,9 @@ let ligada = true
 
 export function alternarVoz(estado: boolean): void {
   ligada = estado
+  // O main precisa saber: quem fala num aviso de gatilho é ele, muitas vezes
+  // com esta janela escondida. O `ligada` daqui não alcançaria essa fala.
+  window.api.mudo(!estado)
   if (!estado) parar()
 }
 

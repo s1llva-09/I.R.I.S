@@ -12,6 +12,8 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
+    "teste": "electron-vite build && electron out/main/rodar.js",
+    "teste:gatilhos": "electron-vite build && electron out/main/teste-gatilhos.js",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
@@ -23,9 +25,12 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@huggingface/transformers": "^4.2.0",
     "better-sqlite3": "^13.0.3",
     "openai": "^7.4.0",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "sqlite-vec": "^0.1.9",
+    "systeminformation": "^5.33.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",

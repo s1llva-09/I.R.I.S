@@ -1,152 +1,136 @@
-# DESIGN — Izze
+# Sistema visual da Izze
 
-Escrito a partir do que foi **construído**, não do que foi planejado. Verdade
-do produto vive em [PRODUCT.md](PRODUCT.md); aqui é só o visual.
+Escrito a partir do que foi construído, não do que foi planejado. Fonte da
+verdade dos tokens: [src/renderer/src/assets/main.css](src/renderer/src/assets/main.css).
 
-Mundo: **referência técnica viva**. A Izze não é um chat — é a página de manual
-da sua própria máquina. Gramática do `man(1)` e do Process Explorer: tinta sobre
-chapa fosca, fio de cabelo no lugar de sombra, cor só onde ela significa estado.
+## A ideia: o HUD do Mark III
 
-Recusa explícita de duas coisas: a coluna centralizada de balõezinhos que todo
-app de IA entrega, e o HUD do Homem de Ferro em néon com brilho.
+A referência é o Jarvis dos filmes — mas o Jarvis **certo**.
 
-## Tokens
+O HUD cyan, carregado e cheio de anéis girando é o **Mark II**. Os próprios
+designers o abandonaram: no Mark III, Wesley Sewell trocou por
+*"predominantly white with accent colors"* porque *"cyan is passé"* e ele
+queria algo *"more unique and different"*. A equipe chegou a anotar que
+*"amber is kind of the 80s and cyan is the 90s"*.
 
-Todos em `src/renderer/src/assets/main.css`, no bloco `@theme` do Tailwind v4.
-Nenhuma cor é escrita à mão em componente — a exceção é `Painel.tsx`, que
-precisa de string literal porque o recharts pinta SVG por prop, não por classe.
+Então nem cyan nem âmbar governam a tela. **Quem governa é o traço branco**,
+e a cor entra só onde há informação crítica.
 
-### Chapa (três profundidades)
+A regra de corte que veio do set vale mais que qualquer paleta:
 
-| Token | Valor | Onde |
+> *"If it doesn't do something that would be real for somebody flying around
+> in this suit then we are taking it out."*
+
+Eles cortaram *"all this extra crap to make it futuristic and fancy"*. Anel
+que não mede, varredura que não indica processo e brilho que não é estado
+ficam de fora. No filme, a UI que exibe esse clichê é a do **vilão** — o Iron
+Monger é vermelho monocromático com a tipografia OCRA, escolhida de propósito
+por ser *"unimaginative"*.
+
+## Cor
+
+| Papel | Token | Valor |
 |---|---|---|
-| `fundo` | `#0E1116` | fundo da janela, corpo da conversa |
-| `chapa` | `#161A21` | barra de status, rodapé, painéis, modal |
-| `sulco` | `#0A0C10` | escavado: bloco de comando no modal |
+| Fundo (vidro escuro, viés azul) | `fundo` | `#05090E` |
+| Superfície elevada | `chapa` | `#0B1219` |
+| Sulco escavado | `sulco` | `#03070A` |
+| **O traço** | `tinta` | `#EAF2F6` |
+| Secundária | `tinta-2` | `#93A6B3` |
+| Rótulo | `tinta-3` | `#6D7F8B` |
+| **Acento crítico / marca** | `sinal` | `#E8A33D` |
+| Dado secundário (herança Mark II) | `hud` / `info` | `#5BC8E8` |
+| Sucesso | `ok` | `#6FD39A` |
+| Perigo / falha | `perigo` | `#FF5646` |
+| Fio de cabelo | `fio` / `fio-forte` | branco a 10% / 22% |
 
-### Tinta
+O fio é **branco transparente**, não cinza sólido: wireframe que ganha peso ao
+empilhar, como o do capacete.
 
-| Token | Valor | Contraste sobre `fundo` |
-|---|---|---|
-| `tinta` | `#E4E1D8` | 15.9:1 — prosa. Branco QUENTE, de papel |
-| `tinta-2` | `#9AA1AC` | 6.9:1 — secundário. Cinza FRIO, de metal |
-| `tinta-3` | `#7C838E` | 4.95:1 — rótulos e placeholder |
+Âmbar some da tela quando nada é crítico. Cyan é dado, nunca fundo nem brilho.
+Contraste: `tinta-3` está em 4.95:1 sobre `fundo` — se mexer, recalcule.
 
-`tinta-3` é o piso: qualquer coisa mais fraca cai abaixo de 4.5:1. Placeholder
-usa `tinta-3`, nunca menos.
-
-### Sinal e estado
-
-| Token | Valor | Significado |
-|---|---|---|
-| `sinal` | `#E8A33D` | âmbar da marca. Foco, cursor, ferramenta, cota |
-| `ok` | `#7FB069` | sucesso (declarado, ainda sem uso) |
-| `perigo` | `#D1655B` | aprovação, falha, cota no fim |
-| `info` | `#7BA6D1` | informativo (declarado, ainda sem uso) |
-
-Todos passam de 5:1 sobre `fundo`. Estado nunca decora — só aparece quando o
-estado existe.
-
-### Fio
-
-| Token | Valor | Uso |
-|---|---|---|
-| `fio` | `#232830` | divisória padrão. UMA espessura no app inteiro: 1px |
-| `fio-forte` | `#333A45` | separador vertical, borda de botão, segmento vazio |
-
-Não existe sombra na interface, com **uma** exceção: o modal de aprovação
-(`0 18px 50px -12px rgba(0,0,0,.75)`), que precisa flutuar acima do conteúdo.
-Instrumento não brilha — halo colorido, glow e gradiente estão fora.
+Dark não é padrão de categoria: é a cena de uso — sala fechada, à noite,
+chamada por cima de outra janela.
 
 ## Tipografia
 
-Duas faces, ambas já instaladas no Windows 11 — a CSP do `index.html` é
-`default-src 'self'` e **nenhuma fonte externa carrega**.
+- **Rótulos em versalete:** `Bahnschrift` → `Segoe UI Variable Display`.
+  Condensada e técnica: a voz do instrumento.
+- **Dado, número e código:** `Cascadia Mono` → `Consolas`.
+- **Prosa:** `Segoe UI Variable Text` → `Segoe UI`.
 
-- `--font-mono`: **Cascadia Mono** → Consolas. Estrutura e medida: rótulos de
-  calha, nomes de ferramenta, números, comando, cabeçalho de tabela. É a face
-  que este usuário lê o dia inteiro no terminal — escolha, não fallback.
-- `--font-sans`: **Segoe UI Variable Text** → Segoe UI. Só prosa.
+As três já vêm no Windows 11, e a CSP do `index.html` é `default-src 'self'`
+— **nenhuma fonte externa carrega**. Adicionar uma face exige empacotá-la.
 
-Monoespaçado **nunca** é fantasia de "técnico": ele carrega dado, medida ou
-código, ou não é usado. A resposta da Izze é prosa e sai em sans.
+Medida do texto corrido travada em `max-w-[72ch]`.
 
-Escala em uso:
+## Composição
 
-| Papel | Tamanho | Tracking |
-|---|---|---|
-| rótulo de calha, versalete | 10px mono | `0.18em` |
-| wordmark IZZE | 12px mono 600 | `0.30em` |
-| ferramenta, número de cota, comando | 11–12px mono | — |
-| prosa | 16px sans, `line-height 1.65` | — |
+**Calha suspensa** — sobreviveu da direção anterior porque funciona, e é o que
+substitui a coluna de balõezinhos:
 
-Medida da prosa travada em `max-w-[72ch]`. A janela tem 1100px e uma linha de
-1000px não se lê, se varre.
+```
+      NOME  izze — assistente que enxerga a máquina...
+   SINOPSE  abrir_app  listar_pasta  rodar_powershell ⚠
+```
 
-## Composição — a calha
+Rótulo à direita numa calha de `104px`, conteúdo pendurado à esquerda.
+Componentes `Calha` e `Secao` em [App.tsx](src/renderer/src/App.tsx).
 
-A gramática única do app: **rótulo versalete monoespaçado à esquerda numa calha
-de 104px alinhada à direita, conteúdo pendurado à direita, `gap-5`.** É a cabeça
-de seção da página de manual, e substitui a coluna de balões.
+**Colchetes de canto** (`.colchetes`) — quatro cantos em L, não caixa fechada.
+É a diferença entre uma mira e um card: o retângulo completo é vocabulário de
+página web. Feito com oito gradientes num `background` só, porque `::before` +
+`::after` dariam só dois cantos. `.colchetes-vivo` acende em âmbar, e só o
+modal de aprovação usa.
 
-Usada em quatro lugares, com o MESMO alinhamento: mensagens (`VOCÊ`/`IZZE`),
-abertura do estado vazio (`NOME`/`SINOPSE`/`DESCRIÇÃO`/`ATALHOS`), seções do
-modal (`O QUE FAZ`/`COMANDO`) e o rodapé do prompt. O que você digita nasce na
-mesma coluna em que ela responde.
-
-Componente: `Calha` em `App.tsx`.
-
-Nada tem raio de canto. O mundo é ortogonal — barra de gráfico incluída.
+**Barra de status** (`h-10`) é a barra de título: `titleBarStyle: 'hidden'` +
+`titleBarOverlay` pintam os botões nativos do Windows na chapa. A altura do
+overlay em [index.ts](src/main/index.ts) e o `h-10` + `pr-[140px]` do header
+andam juntos.
 
 ## Peças
 
-- **Barra de status** (`h-10`, casa com `titleBarOverlay` do main): wordmark ·
-  anunciador de foco · escada de cota · estado · voz. Toda ela arrasta a janela;
-  os controles são `no-drag`. `pr-[140px]` reserva os botões nativos do Windows.
-- **Anunciador**: a peça central. Mostra o programa em foco (âmbar, mono) e o
-  título da janela (sans, `tinta-2`, truncado). É o mecanismo do produto
-  visível — antes ele só existia dentro do prompt do modelo.
-- **Escada de cota**: 14 segmentos de 3×12px. Régua de LED, não anel de
-  progresso nem número gigante. Vira `perigo` no último quinto.
-- **Painel de visual** (`Painel.tsx`): moldura de fio, legenda em versalete
-  mono. O `kpi` é uma **tabela de campos** — rótulo à esquerda, valor tabular à
-  direita, fio entre linhas — e não o número gigante com rótulo pequeno.
-- **Modal de aprovação**: entrada de manual completa do comando. `RECUSAR` é o
-  foco inicial e o padrão do Esc; `EXECUTAR` é contornado em `perigo` e só
-  preenche no hover — a ação perigosa exige intenção, não reflexo.
-
-## Ícones
-
-`icones.tsx`, autorais. Grade de 16, traço 1.5, ponta reta, sem preenchimento,
-`currentColor`. **Nenhum emoji**: emoji muda de desenho por sistema, vem
-colorido de fábrica e ignora `currentColor` — três motivos pra nunca pertencer
-a um sistema visual.
+- **Anunciador** — a janela em foco, ao vivo. O mecanismo do produto visível.
+- **Escada** — a cota do dia como régua de LED segmentada. Vira `perigo` no
+  último quinto. Não é anel de progresso.
+- **Masthead** — o estado vazio como abertura de manual. A SINOPSE sai do
+  `catalogo()` do main, nunca de lista escrita à mão.
+- **Transmissão** — o aviso que ela dá sem ninguém pedir: a única coisa que
+  aparece na tela sem você ter feito nada. Corpo próprio, não a resposta com um
+  enfeite. Vem em **colchetes** porque é leitura de instrumento e não fala, e
+  em **cyan** porque âmbar é acento crítico e some quando nada é crítico —
+  gastá-lo num disco enchendo o esvazia pro modal de aprovação, que é onde ele
+  precisa gritar. Traz a **hora** absoluta: o aviso pode ter esperado horas na
+  bandeja, e sem marca de tempo a interface mente sobre quando aquilo foi lido.
+  No pé, `ÚTIL` / `RUÍDO` — a única peça do app que existe pela medição e não
+  pelo uso; some depois de respondida, e não responder é resposta válida.
+- **`Pulso`** — o ícone da transmissão: fonte no centro, ondas pros dois lados.
+  O `Som` irradia só pra direita porque tem um alto-falante apontando; o
+  gatilho não aponta pra lugar nenhum, parte do meio. É o que separa os dois
+  nos 11px em que ambos vivem.
+- **Gráficos** — barra é wireframe translúcido (contorno 1px, miolo 18%), não
+  laje sólida. A série categórica começa no **branco**: se começasse no âmbar,
+  a cor de "crítico" pintaria a primeira barra de todo gráfico e deixaria de
+  significar algo.
 
 ## Movimento
 
-**Um** momento autorado, não efeitos espalhados: o **anunciador**. Quando o
-programa em foco muda, o texto é revelado por varredura
-(`clip-path`, 420ms, `cubic-bezier(.16,1,.3,1)`), como um mostrador
-eletromecânico virando. Ele roda no `key={foco.programa}` — troca de aba não
-dispara, senão viraria estrobo.
+- **`.destravar`** — a mecânica *"exploded keyhole"* do filme: gira, destrava,
+  abre em leque. Só em coisa que **nasce** na tela (painel de dado, modal).
+- **`.anunciador`** — varredura quando o programa em foco muda. Roda porque um
+  dado mudou.
+- **`.arco`** — gira só enquanto ela processa. Some em espera.
+- **`.cursor`** — onda quadrada, como a do console.
 
-Derivados do mesmo vocabulário, ambos funcionais: `.rastro` (a varredura em
-modo contínuo enquanto ela processa) e `.cursor` (onda quadrada, `step-end`,
-como o cursor do console). Tudo desligado sob `prefers-reduced-motion`.
+Tudo respeita `prefers-reduced-motion`. Fora isso a interface é imóvel.
 
-## Estados cobertos
+## Ao estender
 
-Vazio (abertura de manual, centrada na vertical) · processando (rastro + cursor)
-· ferramenta em execução · visual · aprovação pendente + fila · falha (nomeia o
-problema E a saída, em `Falha`) · cota no fim · foco de teclado.
-
-O anel de foco é âmbar, `outline-offset: -1px`, em tudo **menos** `textarea`:
-lá ele desenharia uma caixa de formulário de 1000px no rodapé. O campo indica
-foco pelo `caret-sinal` e pelo sinal de prompt que acende junto.
-
-## Pendências
-
-- `ok` e `info` estão declarados e sem uso. Primeiro consumidor natural: marcar
-  ferramenta que falhou vs. que deu certo no log de invocação.
-- Sem responsivo real. É desktop Windows, janela 1100×720. A calha de 104px e
-  o `pr-[140px]` assumem largura de desktop.
+1. Peça nova entra na calha. Não invente segunda gramática de layout.
+2. Cor de estado só quando há estado. Se está decorando, use `tinta-*`.
+3. **O teste do set:** se o elemento não faz algo real, ele sai.
+4. Ícone novo se desenha em [icones.tsx](src/renderer/src/icones.tsx), na
+   mesma mão (grade 16, traço 1.5, `currentColor`). Nunca emoji nem glifo.
+5. Nada de raio de canto, gradiente, glass ou glow.
+6. As cores dos gráficos são a única duplicação de token do projeto (o recharts
+   pinta por prop, não por classe). Mexeu no `main.css`, mexa no `Painel.tsx`.

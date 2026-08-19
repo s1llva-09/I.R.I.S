@@ -6,7 +6,8 @@ import {
   Menu,
   globalShortcut,
   nativeImage,
-  ipcMain
+  ipcMain,
+  Notification
 } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
@@ -14,13 +15,29 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import icon from '../../resources/icon.png?asset'
 import { conversar } from './llm'
-import { vigiarFoco, pararVigiaFoco, janelaEmFoco, primeiraLeitura } from './ferramentas'
-import { usoHoje } from './banco'
-import { aquecerVoz, falar, pararFala } from './voz'
+import { vigiarFoco, pararVigiaFoco, janelaEmFoco, primeiraLeitura, catalogo } from './ferramentas'
+import { rotular, usoHoje } from './banco'
+import { ajustarRitmo, aquecerVoz, falar, pararFala } from './voz'
+import { GATILHOS, iniciarGatilhos, pararGatilhos } from './gatilhos'
+import { gravar, ler, lerTudo, primeiraExecucao } from './config'
 
 let janela: BrowserWindow | null = null
 let tray: Tray | null = null // module-scope de propósito: se for local, o GC come o ícone
 let saindoDeVerdade = false
+
+/**
+ * Um turno de chat está no ar? É o que impede o gatilho de disparar uma
+ * segunda chamada ao provedor por cima da sua.
+ */
+let conversando = false
+
+/**
+ * O botão de mudo mora no renderer, mas quem fala num gatilho é o main — e
+ * com a janela escondida não existe renderer nenhum pra consultar. Sem este
+ * espelho, silenciar a Izze silenciaria tudo MENOS a única fala que você não
+ * pediu, que é o pior jeito possível de um mudo funcionar.
+ */
+let vozMuda = false
 
 // ---------- instância única ----------
 if (!app.requestSingleInstanceLock()) {
@@ -43,7 +60,7 @@ function criarJanela(): void {
     height: 720,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0E1116', // evita o flash branco antes do React montar
+    backgroundColor: '#05090E', // evita o flash branco antes do React montar
 
     /**
      * A barra de título nativa do Windows é clara e não pertence ao mundo
@@ -57,7 +74,7 @@ function criarJanela(): void {
      * mexer na outra.
      */
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#161a21', symbolColor: '#9aa1ac', height: 40 },
+    titleBarOverlay: { color: '#0b1219', symbolColor: '#93a6b3', height: 40 },
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -112,6 +129,30 @@ function alternarJanela(): void {
   else mostrarJanela()
 }
 
+/**
+ * Registra o atalho global, devolvendo se pegou.
+ *
+ * O try/catch não é decoração: o acelerador vem de um campo de TEXTO na tela
+ * de configurações, e o `register` do Electron LANÇA em string inválida —
+ * "Ctrl Space" sem o '+', por exemplo. Sem isto, um erro de digitação numa
+ * caixinha derruba o processo main inteiro e o app some da bandeja.
+ *
+ * Falhou? Volta pro Control+Space. Ficar sem atalho nenhum é pior que ficar
+ * com o antigo: a Izze vive escondida, e o atalho é como se chega nela.
+ */
+function registrarAtalho(acelerador: string): boolean {
+  globalShortcut.unregisterAll()
+  try {
+    if (globalShortcut.register(acelerador, alternarJanela)) return true
+    console.warn(`${acelerador} já está em uso por outro programa`)
+  } catch {
+    console.warn(`${acelerador} não é um atalho válido`)
+  }
+
+  if (acelerador !== 'Control+Space') return registrarAtalho('Control+Space')
+  return false
+}
+
 // ---------- bandeja ----------
 function criarTray(): void {
   const img = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
@@ -119,7 +160,7 @@ function criarTray(): void {
   tray.setToolTip('Izze')
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Abrir  (Ctrl+Space)', click: mostrarJanela },
+      { label: `Abrir  (${ler('atalho')})`, click: mostrarJanela },
       { type: 'separator' },
       {
         label: 'Iniciar com o Windows',
@@ -138,6 +179,45 @@ function criarTray(): void {
     ])
   )
   tray.on('click', alternarJanela)
+}
+
+// ---------- avisos dos gatilhos ----------
+
+/**
+ * Avisos que aconteceram com a janela fechada.
+ *
+ * A Izze vive na bandeja: a maior parte dos disparos acontece sem renderer
+ * pra receber o evento. Sem esta fila o aviso existiria só como notificação
+ * do Windows — some em 5 segundos e nunca entra na conversa, então abrir a
+ * janela depois mostraria um histórico que mente por omissão.
+ *
+ * Teto de 20 porque isto é um buffer, não um segundo banco: quem quiser o
+ * registro completo lê a tabela `execucoes`, onde todo disparo é gravado.
+ */
+const avisosPendentes: Aviso[] = []
+
+function entregarAviso(aviso: Aviso): void {
+  const visivel = janela && !janela.isDestroyed() && janela.isVisible()
+
+  if (visivel) janela!.webContents.send('gatilho:aviso', aviso)
+  else {
+    avisosPendentes.push(aviso)
+    if (avisosPendentes.length > 20) avisosPendentes.shift()
+  }
+
+  if (!vozMuda) falar(aviso.texto)
+
+  /**
+   * A notificação é o caminho principal, não um extra: com a janela na
+   * bandeja ela é a única coisa que aparece. O clique abre a Izze, que é
+   * onde o texto inteiro está — o body é cortado porque o Windows trunca
+   * sem avisar de qualquer jeito.
+   */
+  if (Notification.isSupported()) {
+    const n = new Notification({ title: 'Izze', body: aviso.texto.slice(0, 200) })
+    n.on('click', mostrarJanela)
+    n.show()
+  }
 }
 
 // ---------- ponte com o renderer ----------
@@ -160,14 +240,55 @@ function registrarIPC(): void {
     const foco = janelaEmFoco()
     return {
       foco: foco && { programa: foco.programa, titulo: foco.titulo },
-      uso: usoHoje()
+      uso: usoHoje(),
+      // Sai do catálogo e não de uma lista escrita na tela: a SINOPSE do
+      // estado vazio ANUNCIA o que a Izze sabe fazer, e lista digitada à
+      // mão vira mentira na primeira ferramenta nova.
+      ferramentas: catalogo()
     }
+  })
+
+  ipcMain.handle('config:ler', () => lerTudo())
+  ipcMain.handle('config:primeira', () => primeiraExecucao())
+
+  // A tela de ajustes desenha um interruptor por gatilho, e a lista sai daqui
+  // pelo mesmo motivo do `catalogo()`: lista escrita à mão no renderer vira
+  // mentira no primeiro gatilho novo.
+  ipcMain.handle('gatilhos:lista', () => GATILHOS.map((g) => g.nome))
+
+  ipcMain.handle('config:gravar', (_e, chave: string, valor: unknown) => {
+    // O cast é a fronteira: o renderer manda string de um <input>, e o
+    // `gravar` é quem sabe o tipo de cada chave. Validar de novo aqui seria
+    // duplicar o esquema do config.ts em outro arquivo.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gravar(chave as any, valor as any)
+
+    // Os dois que precisam VALER AGORA e não no próximo boot. O resto é lido
+    // por função a cada uso, então já vale sozinho.
+    if (chave === 'atalho') return registrarAtalho(String(valor))
+    if (chave === 'vozAtiva') {
+      vozMuda = !valor
+      if (vozMuda) pararFala()
+    }
+    // O processo da voz já está no ar e lê comandos do stdin: dá pra mudar a
+    // velocidade sem matá-lo, então o slider vale na frase seguinte.
+    if (chave === 'vozRitmo') ajustarRitmo()
+    return true
   })
 
   ipcMain.on('aprovacao:resposta', (_e, id: string, ok: boolean) => {
     pendentes.get(id)?.(ok)
     pendentes.delete(id)
   })
+
+  // splice esvazia e devolve na mesma operação: se o renderer recarregar no
+  // meio (F5 em dev), o pior caso é perder um aviso da tela — ele continua
+  // na tabela `execucoes`.
+  ipcMain.handle('gatilhos:drenar', () => avisosPendentes.splice(0))
+
+  // O único julgamento que a Izze não consegue fazer sozinha: se o aviso
+  // valeu a interrupção.
+  ipcMain.on('gatilhos:rotular', (_e, id: number, util: boolean) => rotular(id, util))
 
   /**
    * ipcMain.handle = o renderer chama e espera uma Promise.
@@ -178,6 +299,7 @@ function registrarIPC(): void {
    * (Era isso que causava "eventos.aoReceberTexto is not a function".)
    */
   ipcMain.handle('chat:enviar', async (evento, historico: ChatCompletionMessageParam[]) => {
+    conversando = true
     try {
       const completo = await conversar(historico, {
         // evento.sender = a janela que chamou. Usar isso em vez de
@@ -189,11 +311,14 @@ function registrarIPC(): void {
         // Único ponto do projeto onde o fluxo inverte: o main pergunta ao
         // renderer e fica esperando. A Promise só resolve quando chega o
         // 'aprovacao:resposta' com o mesmo id.
-        aoPedirAprovacao: (nome, args) =>
+        aoDetectarInjecao: (ferramenta, achados) =>
+          evento.sender.send('chat:injecao', ferramenta, achados),
+
+        aoPedirAprovacao: (nome, args, risco) =>
           new Promise<boolean>((resolve) => {
             const id = randomUUID()
             pendentes.set(id, resolve)
-            evento.sender.send('aprovacao:pedido', id, nome, args)
+            evento.sender.send('aprovacao:pedido', id, nome, args, risco)
 
             // Sem timeout, uma janela fechada no meio trava o loop pra
             // sempre. O delete devolve false só se ninguém respondeu antes.
@@ -207,12 +332,17 @@ function registrarIPC(): void {
       // Rede, chave inválida, timeout do provedor... tudo cai aqui.
       // Devolve como valor em vez de throw pro renderer exibir bonito.
       return { ok: false, erro: (erro as Error).message }
+    } finally {
+      // finally e não depois do return: uma exceção deixaria o flag ligado
+      // pra sempre e os gatilhos nunca mais rodariam nesta sessão.
+      conversando = false
     }
   })
 
   // .on e não .handle: o renderer dispara e segue, não espera a fala acabar.
   ipcMain.on('voz:falar', (_e, texto: string) => falar(texto))
   ipcMain.on('voz:parar', () => pararFala())
+  ipcMain.on('voz:mudo', (_e, mudo: boolean) => (vozMuda = mudo))
 }
 
 // ---------- ciclo de vida ----------
@@ -224,9 +354,13 @@ app.whenReady().then(() => {
   criarJanela()
   criarTray()
   aquecerVoz()
+  iniciarGatilhos(GATILHOS, entregarAviso, () => conversando)
 
-  const ok = globalShortcut.register('Control+Space', alternarJanela)
-  if (!ok) console.warn('Ctrl+Space já está em uso por outro programa')
+  // O mudo persiste entre sessões: desligar a voz e reencontrá-la falando
+  // no boot seguinte é a definição de configuração que não configura nada.
+  vozMuda = !ler('vozAtiva')
+
+  registrarAtalho(ler('atalho'))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) criarJanela()
@@ -245,6 +379,7 @@ app.on('window-all-closed', () => {})
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  pararGatilhos()
   // Sem isso os PowerShell da voz e do vigia de foco ficam de zumbi
   // depois que o app fecha.
   pararFala()
