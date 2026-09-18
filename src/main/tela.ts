@@ -50,7 +50,7 @@ export async function capturar(): Promise<{ base64: string; mime: string }> {
    * legível.
    *
    * Nada disso toca o disco: o Buffer vira base64 em memória, é consumido uma
-   * vez pelo turno e some. Print é o dado mais sensível que a Izze manipula, e
+   * vez pelo turno e some. Print é o dado mais sensível que a Íris manipula, e
    * um arquivo temporário seria uma cópia que ninguém apaga.
    */
   return { base64: tela.thumbnail.toJPEG(75).toString('base64'), mime: 'image/jpeg' }

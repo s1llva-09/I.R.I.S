@@ -9,7 +9,7 @@ import { ler } from './config'
 /**
  * GATILHOS POR EVENTO.
  *
- * Até aqui a Izze só REAGE: existe um turno porque alguém digitou. Um gatilho
+ * Até aqui a Íris só REAGE: existe um turno porque alguém digitou. Um gatilho
  * é o primeiro caminho em que ela fala primeiro — uma condição verificada de
  * tempos em tempos e, quando ela vira verdadeira, uma mensagem que entra no
  * MESMO laço de agente do chat.
@@ -26,7 +26,7 @@ import { ler } from './config'
  *   2. CATÁLOGO FECHADO. Ele nem enxerga as ferramentas que escrevem (ver
  *      FERRAMENTAS_DO_GATILHO).
  *   3. RESERVA DE COTA. Ele para de rodar antes de a cota acabar, pra nunca
- *      ser o motivo de a Izze não responder quando você pergunta.
+ *      ser o motivo de a Íris não responder quando você pergunta.
  */
 
 /**
@@ -56,7 +56,7 @@ export const FERRAMENTAS_DO_GATILHO = new Set([
  *
  * Sem isto o recurso se autodestrói: o teto é 45/dia (banco.ts), e um gatilho
  * que investiga com ferramentas gasta 2-3 chamadas por disparo. Uma manhã de
- * avisos automáticos deixaria a Izze respondendo "cheguei ao limite diário" na
+ * avisos automáticos deixaria a Íris respondendo "cheguei ao limite diário" na
  * primeira pergunta de verdade — trocando a assistente que funciona por uma
  * notificação de bateria.
  */
@@ -66,7 +66,7 @@ export const RESERVA = Number(import.meta.env.MAIN_VITE_RESERVA_GATILHO ?? 15)
 const SILENCIO_PADRAO = 3600000
 
 /**
- * BRAÇO DE CONTROLE do experimento. `IZZE_GATILHO_CRU=1 npm run dev` entrega
+ * BRAÇO DE CONTROLE do experimento. `ÍRIS_GATILHO_CRU=1 npm run dev` entrega
  * o texto do `verificar` direto, sem passar pelo modelo.
  *
  * Mesma chave do DEFESA_LIGADA, e pelo mesmo motivo: a pergunta desta seção
@@ -75,12 +75,12 @@ const SILENCIO_PADRAO = 3600000
  * limiar burro que qualquer script faria?".
  *
  * Sem o braço cru, a precisão medida não tem contra o que ser comparada, e o
- * capítulo vira "a Izze avisou 12 vezes" — número sem leitura.
+ * capítulo vira "a Íris avisou 12 vezes" — número sem leitura.
  *
  * As linhas do braço cru vão pro banco com sufixo ':cru', então o GROUP BY do
  * relatório separa os dois sozinho, sem coluna nova.
  */
-const CRU = process.env.IZZE_GATILHO_CRU === '1'
+const CRU = process.env.ÍRIS_GATILHO_CRU === '1'
 
 /**
  * O teto de voltas do gatilho. Bem abaixo do MAX_VOLTAS=8 do chat: aqui cada
@@ -363,7 +363,7 @@ export function iniciarGatilhos(
       ` · reserva de cota ${RESERVA} · tique ${TIQUE / 1000}s`
   )
 
-  // Um tique imediato deixaria a Izze avisando de disco cheio antes de a
+  // Um tique imediato deixaria a Íris avisando de disco cheio antes de a
   // janela existir, e ainda disputaria CPU com o boot (spawn da voz, do vigia
   // de foco e o React montando). O primeiro ciclo vem no minuto seguinte.
 }
@@ -507,7 +507,7 @@ const PAUSA_S = 600
 const GIT_DIAS = 7
 
 /**
- * Onde ficam os repositórios. `IZZE_REPOS` sobrepõe.
+ * Onde ficam os repositórios. `ÍRIS_REPOS` sobrepõe.
  *
  * O padrão é um chute na organização da máquina, e é o tipo de coisa que
  * falha CALADO: apontando pra pasta errada, o Get-ChildItem devolve vazio, o
@@ -517,7 +517,7 @@ const GIT_DIAS = 7
  * importado pelo index.ts antes do whenReady. A mesma armadilha que o
  * `pastasReais()` do llm.ts já contorna.
  */
-const raizRepos = (): string => process.env.IZZE_REPOS ?? join(app.getPath('home'), 'CODES')
+const raizRepos = (): string => process.env.ÍRIS_REPOS ?? join(app.getPath('home'), 'CODES')
 
 /** Começo da rajada de atividade atual. Ver o gatilho 'sessao'. */
 let inicioAtividade = Date.now()
@@ -612,7 +612,7 @@ export const GATILHOS: Gatilho[] = [
     /**
      * 4h e não 2h por conta de cota, que é o recurso escasso aqui: a 2h isto
      * podia disparar 12 vezes num dia, e 12 avisos × ~2,5 chamadas comem 30
-     * das 45 do dia inteiro. A RESERVA impediria a Izze de emudecer, mas o
+     * das 45 do dia inteiro. A RESERVA impediria a Íris de emudecer, mas o
      * gatilho teria gastado dois terços da cota pra dizer que o Chrome está
      * pesado — coisa que ninguém precisa ouvir seis vezes.
      */
@@ -649,7 +649,7 @@ export const GATILHOS: Gatilho[] = [
 
       return {
         /**
-         * O MELHOR diferencial do conjunto: a Izze recebe a janela em foco no
+         * O MELHOR diferencial do conjunto: a Íris recebe a janela em foco no
          * system prompt a cada turno, então ela sabe o que você está fazendo
          * AGORA. "O Chrome está com 3 GB" é dado; "o Chrome está com 3 GB e
          * você está no Figma há duas horas" é a informação que muda a decisão.

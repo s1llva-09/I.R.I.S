@@ -14,6 +14,11 @@ export default defineConfig({
           index: resolve('src/main/index.ts'),
           rodar: resolve('testes/rodar.ts'),
           sonda: resolve('testes/sonda.ts'),
+          // 'fila-teste' pelo mesmo motivo do 'teste-gatilhos': src/main/fila.ts
+          // já disputa o nome 'fila' como chunk.
+          'fila-teste': resolve('testes/fila.ts'),
+          rede: resolve('testes/rede.ts'),
+          'teste-servidor': resolve('testes/servidor.ts'),
           // 'teste-gatilhos' e não 'gatilhos': a entrada vira out/main/<nome>.js,
           // e src/main/gatilhos.ts já disputa esse nome como chunk compartilhado.
           'teste-gatilhos': resolve('testes/gatilhos.ts')

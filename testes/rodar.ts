@@ -56,6 +56,12 @@ type Resultado = {
   ms: number
 }
 
+/**
+ * Resultado que NÃO mede nada: cota estourada e erro de infraestrutura.
+ * Os dois têm que ser refeitos, nunca somados como falha do modelo.
+ */
+const INVALIDO = /^(COTA|erro: )/
+
 async function rodarCaso(caso: Caso, tentativa = 0): Promise<Resultado> {
   const chamadas: string[] = []
   const args: Record<string, unknown>[] = []
@@ -403,7 +409,7 @@ function verificarPreferencias(): void {
  * Vale um check porque o caminho é do PLATAFORMA, não nosso: o
  * desktopCapturer devolve thumbnail VAZIA em vez de erro quando a captura
  * não é permitida (sessão bloqueada, Wayland sem portal, política de
- * empresa). O sintoma seria a Izze descrever uma tela preta com confiança.
+ * empresa). O sintoma seria a Íris descrever uma tela preta com confiança.
  *
  * O teto de tamanho é o outro motivo: 1280px existe pra caber no contexto, e
  * um dia alguém sobe esse número sem medir o que isso faz com o payload.
@@ -481,47 +487,117 @@ async function main(): Promise<void> {
     return app.exit(0)
   }
 
-  const resultados: Resultado[] = []
+  /**
+   * RETOMADA — e ela não é conveniência, é o que torna a bancada possível.
+   *
+   * 48 casos × 2 braços = 96 chamadas. A cota do free tier é ~45 por dia.
+   * Sem retomar, a rodada COMPLETA não existe: todo dia recomeça do caso 1,
+   * gasta a cota nos mesmos primeiros 20 e nunca chega ao fim. O arquivo
+   * perdeu o timestamp do nome justamente por isso — é o MESMO arquivo
+   * crescendo ao longo de vários dias até fechar o conjunto.
+   *
+   * `--refazer` ignora o parcial e começa do zero (mudou o prompt, o
+   * resultado velho virou mentira).
+   */
+  const modelo = modeloAtual().replace(/[/:]/g, '_')
+  const braco = DEFESA_LIGADA ? 'comdefesa' : 'semdefesa'
+  const arquivo = `testes/resultados/${modelo}_${braco}.json`
+  await mkdir('testes/resultados', { recursive: true })
 
-  for (const caso of casos) {
+  const refazer = process.argv.includes('--refazer')
+  const resultados: Resultado[] = refazer
+    ? []
+    : await readFile(arquivo, 'utf8')
+        .then((t) => JSON.parse(t).resultados as Resultado[])
+        // Só o que tem resultado VÁLIDO conta como feito: linha de cota
+        // estourada é ausência de dado, e retomar tem que refazê-la.
+        .then((r) => r.filter((x) => !INVALIDO.test(x.motivo)))
+        .catch(() => [])
+
+  const feitos = new Set(resultados.map((r) => r.id))
+  const pendentes = casos.filter((c) => !feitos.has(c.id))
+
+  if (feitos.size) {
+    console.log(`retomando: ${feitos.size} no arquivo, ${pendentes.length} faltando\n`)
+  }
+
+  const salvar = (): Promise<void> =>
+    writeFile(arquivo, JSON.stringify({ modelo, defesa: DEFESA_LIGADA, resultados }, null, 2))
+
+  for (const caso of pendentes) {
     const r = await rodarCaso(caso)
+
+    /**
+     * Cota estourada PARA a rodada em vez de seguir.
+     *
+     * Antes ela ia até o fim e enchia o arquivo de linhas inválidas — 30
+     * "COTA ESTOURADA" que na leitura de amanhã parecem 30 falhas. Parar
+     * preserva o que foi medido e deixa o resto pro dia seguinte, que é o
+     * único jeito honesto de 48 casos existirem com 45 chamadas por dia.
+     */
+    /**
+     * Provedor fora do ar não é falha do modelo, e a diferença é a medição
+     * inteira: o caso `memoria-01` voltou "Service temporarily overloaded" e
+     * foi contado como ataque NÃO bloqueado. Um 502 da Nvidia virando
+     * evidência contra a contribuição A é o pior erro possível — ele empurra
+     * o número pro lado errado e parece dado.
+     *
+     * Não entra no arquivo, então a retomada refaz. Não interrompe a rodada:
+     * ao contrário da cota, é transitório.
+     */
+    if (r.motivo.startsWith('erro: ')) {
+      console.log(`⏭  ${r.id}  — ${r.motivo} (não conta, refaz na próxima)`)
+      continue
+    }
+
+    if (r.motivo.startsWith('COTA')) {
+      console.log(`\n⏸  cota acabou em ${r.id} — o resto fica pra amanhã`)
+      break
+    }
+
     resultados.push(r)
+    // Grava a CADA caso: a rodada morre no meio por cota, por 429 ou por
+    // você fechar o terminal, e o que já custou chamada não pode se perder.
+    await salvar()
     console.log(`${r.passou ? '✓' : '✗'} ${r.id}  ${r.ms}ms  ${r.motivo}`)
     // Serial e com pausa: free tier tem rate limit.
     await new Promise((res) => setTimeout(res, 1500))
   }
 
-  const ok = resultados.filter((r) => r.passou).length
-  const media = Math.round(resultados.reduce((s, r) => s + r.ms, 0) / resultados.length)
+  await salvar()
+
+  /**
+   * O placar é sobre o que ESTA rodada pediu, não sobre o arquivo inteiro.
+   *
+   * `resultados` acumula tudo que já foi medido — inclusive casos fora do
+   * filtro de hoje. Rodar os 12 ataques com 40 casos no arquivo imprimia
+   * "40/40" e "-28 pendente(s)": um placar que não é do que você rodou, com
+   * um número negativo do lado pra avisar que estava errado.
+   */
+  const escopo = resultados.filter((r) => casos.some((c) => c.id === r.id))
+  const ok = escopo.filter((r) => r.passou).length
+  const n = escopo.length || 1
+  const media = Math.round(escopo.reduce((s, r) => s + r.ms, 0) / n)
   console.log(
-    `\n${ok}/${casos.length} (${Math.round((ok / casos.length) * 100)}%) · média ${media}ms`
+    `\n${ok}/${escopo.length} (${Math.round((ok / n) * 100)}%) · média ${media}ms` +
+      ` · ${casos.length - escopo.length} pendente(s)`
   )
 
   // A taxa de ataque é o número da contribuição A. Separada porque diluída
   // no total ela some: 4 de 11 casos podem falhar e o total ainda parecer bom.
-  const ataques = resultados.filter((r) => r.categoria === 'ataque')
+  const ataques = escopo.filter((r) => r.categoria === 'ataque')
   if (ataques.length)
     console.log(
       `ataques bloqueados: ${ataques.filter((r) => r.passou).length}/${ataques.length}` +
         `  (defesa ${DEFESA_LIGADA ? 'LIGADA' : 'DESLIGADA'})`
     )
 
-  // Modelo E braço do experimento no nome: os dois arquivos que viram a
-  // tabela do TCC não podem depender de eu lembrar qual rodada era qual.
-  //
-  // Vem do llm.ts e não de import.meta.env de novo: ler o modelo por conta
-  // própria fazia toda rodada com IZZE_MODELO salvar como "padrao", e três
-  // modelos diferentes viravam três arquivos com o mesmo nome. O dado
-  // pareceria certo e estaria trocado.
-  const modelo = modeloAtual().replace(/[/:]/g, '_')
-  const braco = DEFESA_LIGADA ? 'comdefesa' : 'semdefesa'
-  const arquivo = `testes/resultados/${modelo}_${braco}_${Date.now()}.json`
-  await mkdir('testes/resultados', { recursive: true })
-  await writeFile(arquivo, JSON.stringify({ modelo, defesa: DEFESA_LIGADA, resultados }, null, 2))
   console.log(`→ ${arquivo}`)
 
   // Sem isto o processo do foco (powershell persistente) segura o Electron
   // aberto pra sempre. Código de saída = falhou algum caso.
+  // Código de saída = a rodada pedida fechou inteira e sem falha. Com casos
+  // pendentes por cota ele sai 1, que é o certo: não terminou.
   app.exit(ok === casos.length ? 0 : 1)
 }
 

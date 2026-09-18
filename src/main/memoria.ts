@@ -6,7 +6,7 @@ import { pontuarRisco } from './confianca'
  * MEMÓRIA DE LONGO PRAZO (2.2).
  *
  * O embedding roda LOCAL: nenhum texto sai da máquina pra virar vetor. É a
- * diferença entre "a Izze lembra" e "a conversa do usuário foi parar num
+ * diferença entre "a Íris lembra" e "a conversa do usuário foi parar num
  * servidor de terceiro" — e é o que sustenta a afirmação no TCC.
  *
  * O modelo pesa ~30MB e leva ~37s pra carregar da primeira vez (baixando).
@@ -110,7 +110,7 @@ export async function lembrar(
    * app, e a defesa de leitura precisaria acertar todas as vezes. Barrar na
    * entrada precisa acertar uma vez só.
    *
-   * O caso que isto pega: conteúdo externo convencendo a Izze a chamar
+   * O caso que isto pega: conteúdo externo convencendo a Íris a chamar
    * `anotar` com o próprio ataque dentro. A injeção se instalaria sozinha.
    */
   const risco = pontuarRisco(limpo)

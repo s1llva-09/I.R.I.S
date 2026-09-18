@@ -1,5 +1,14 @@
 // O 'type JSX' é obrigatório no React 19: o namespace JSX global sumiu,
 // agora vem do pacote. Sem ele, "Cannot find namespace 'JSX'".
+import {
+  capturarDescritor,
+  definirGaleria,
+  definirLimiar,
+  iniciarPresenca,
+  receberQuadro
+} from './presenca'
+import Seguranca from './Seguranca'
+import Porta from './Porta'
 import { useEffect, useRef, useState, type JSX } from 'react'
 import Painel from './Painel'
 import { Arco, Atencao, Mudo, Prompt, Pulso, Seta, Som } from './icones'
@@ -15,7 +24,7 @@ type Mensagem = {
   visuais?: Visual[]
   /** Mensagem crua da falha. Presente = esta resposta não aconteceu. */
   erro?: string
-  /** Nome do gatilho, quando a Izze falou sem ninguém ter perguntado. */
+  /** Nome do gatilho, quando a Íris falou sem ninguém ter perguntado. */
   gatilho?: string
   /** Linha em `execucoes` deste aviso. É o que o rótulo atualiza. */
   avisoId?: number
@@ -89,7 +98,7 @@ function Escada({ uso }: { uso: Estado['uso'] }): JSX.Element {
 /**
  * O ANUNCIADOR — a peça mais importante da tela.
  *
- * A Izze sabe em que janela você está; até agora isso vivia só no prompt do
+ * A Íris sabe em que janela você está; até agora isso vivia só no prompt do
  * modelo e não aparecia em lugar nenhum. Aqui ele é o mostrador central da
  * barra: o mecanismo do produto, visível. A varredura só roda quando o
  * PROGRAMA muda, não a cada título — senão viraria estrobo enquanto você
@@ -157,12 +166,170 @@ export default function App(): JSX.Element {
    */
   const [capturando, setCapturando] = useState(false)
 
+  /** O painel de segurança está aberto? Abre por voz, fecha no botão. */
+  const [seguranca, setSeguranca] = useState(false)
+
+  /**
+   * MODO PORTA, e ele nasce lido do hash.
+   *
+   * `#porta` na URL entra direto na tela do dispositivo, sem passar pelo
+   * chat. É o que permite abrir uma segunda janela dedicada — ou apontar um
+   * display pro app — em vez de ter que navegar até lá com o mouse todo
+   * boot. Um kiosk que precisa de dois cliques pra virar kiosk não serve.
+   */
+  const [porta, setPorta] = useState(() => window.location.hash === '#porta')
+
+  /**
+   * MODO SEGURANÇA — o recorte que o trabalho apresenta.
+   *
+   * Muda a abertura (identidade e escopo, em vez da lista de 25 comandos) e
+   * abre direto no painel. Não desliga nada: as ferramentas do dia a dia
+   * continuam funcionando se você pedir, só param de OCUPAR a tela — numa
+   * defesa, o que está na tela é o que a banca acha que o trabalho é.
+   */
+  const [modoSeguranca, setModoSeguranca] = useState(false)
+
+  /**
+   * Muda quando a câmera é ligada/desligada por fala. Serve só de gatilho
+   * pro efeito do sensor: o laço vive num useEffect e não relê a config
+   * sozinho, então sem isto "liga a câmera" só valeria no próximo boot.
+   */
+  const [cameraGeracao, setCameraGeracao] = useState(0)
+
+  /** A última leitura da câmera. rostos -1 = desligada ou indisponível. */
+  const [visao, setVisao] = useState({ rostos: -1, desconhecidos: 0, conhecidos: [] as string[] })
+
   useEffect(() => {
     window.api.config.primeira().then((primeira) => primeira && setConfig(true))
     // O mudo do cabeçalho nasce da config, senão ele volta ligado a cada boot
     // e o interruptor dos ajustes vira decoração.
-    window.api.config.ler().then((c) => setVozAtiva(Boolean(c.vozAtiva)))
+    window.api.config.ler().then((c) => {
+      setVozAtiva(Boolean(c.vozAtiva))
+
+      if (c.modoSeguranca) {
+        setModoSeguranca(true)
+        // Abre no painel, e só no primeiro boot: reabrir a cada render faria
+        // o "fechar" não fechar nada.
+        setSeguranca(true)
+      }
+    })
   }, [])
+
+  /**
+   * ESC fecha a tela que estiver por cima.
+   *
+   * As duas são overlays em `absolute inset-0`: sem isto o único jeito de
+   * voltar é achar o "fechar" no canto, e a tecla que todo mundo aperta
+   * primeiro não fazia nada. Segurança antes de ajustes porque ela abre por
+   * cima — a de cima é a que fecha.
+   */
+  useEffect(() => {
+    const esc = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      if (porta) setPorta(false)
+      else if (seguranca) setSeguranca(false)
+      else if (config) setConfig(false)
+    }
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [porta, seguranca, config])
+
+  /**
+   * O hash acompanha o estado nos dois sentidos: fechar o modo porta tira o
+   * `#porta` da URL, senão recarregar a janela voltaria pra ele — e o
+   * usuário que fechou a tela a veria de novo sem entender por quê.
+   */
+  useEffect(() => {
+    const alvo = porta ? '#porta' : ''
+    if (window.location.hash !== alvo) {
+      history.replaceState(null, '', window.location.pathname + alvo)
+    }
+  }, [porta])
+
+  useEffect(() => {
+    const pararAbrir = window.api.seguranca.aoAbrir(() => setSeguranca(true))
+    const pararPorta = window.api.seguranca.aoAbrirPorta(() => setPorta(true))
+
+    // Os quadros da câmera de rede chegam aqui e não no painel: a câmera da
+    // porta tem que continuar sendo lida com o painel fechado, senão o
+    // alarme só funcionaria com alguém olhando a tela.
+    const pararFrames = window.api.camera.aoFrame(receberQuadro)
+
+    const pararCamera = window.api.seguranca.aoMudarCamera(() => {
+      setCameraGeracao((g) => g + 1)
+      // O modo pode ter mudado por fala junto: relê em vez de adivinhar.
+      window.api.config.ler().then((c) => setModoSeguranca(Boolean(c.modoSeguranca)))
+    })
+
+    const pararGaleria = window.api.seguranca.aoMudarGaleria(() => {
+      window.api.rostos.galeria().then(definirGaleria)
+    })
+
+    /**
+     * A Íris pediu um descritor pra cadastrar por voz.
+     *
+     * Fica no App e não no painel porque a câmera roda aqui: cadastrar por
+     * voz precisa funcionar com o painel FECHADO, que é o caso inteiro —
+     * "cadastra o João" dito de longe, sem ninguém no teclado.
+     */
+    const pararRosto = window.api.seguranca.aoPedirRosto(async () => {
+      const d = await capturarDescritor()
+      return typeof d === 'string' ? d : [...d]
+    })
+
+    return () => {
+      pararAbrir()
+      pararPorta()
+      pararFrames()
+      pararRosto()
+      pararCamera()
+      pararGaleria()
+    }
+  }, [])
+
+  /**
+   * SENSOR DE PRESENÇA (2.6).
+   *
+   * Mora no renderer porque `getUserMedia` só existe aqui, e sobe pra main
+   * só a contagem. Amarrado ao `cameraAtiva`: desligar nos Ajustes apaga a
+   * luz da webcam de verdade, não só o efeito.
+   */
+  useEffect(() => {
+    let parar: (() => void) | null = null
+    let morto = false
+
+    window.api.config.ler().then(async (c) => {
+      if (!c.cameraAtiva || morto) return setVisao({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+
+      // O cadastro ANTES do primeiro tique: começar com a galeria vazia
+      // faria todo mundo — você inclusive — aparecer como desconhecido no
+      // primeiro segundo, e isso é um alarme de vigilância disparado por
+      // ordem de carregamento.
+      definirLimiar(Number(c.limiarFacial))
+      definirGaleria(await window.api.rostos.galeria())
+      if (morto) return
+
+      iniciarPresenca(
+        (l) => {
+          setVisao(l)
+          window.api.presenca(l)
+        },
+        String(c.cameraId ?? '')
+      ).then((p) => {
+        // A janela pode ter desmontado enquanto o modelo carregava.
+        if (morto) p()
+        else parar = p
+      })
+    })
+
+    return () => {
+      morto = true
+      parar?.()
+      // A main não pode continuar achando que tem olho depois que a janela
+      // fechou: -1 é 'desconhecida', que não escala nada.
+      window.api.presenca({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+    }
+  }, [config, cameraGeracao])
   const fimDaLista = useRef<HTMLDivElement>(null)
   const campo = useRef<HTMLTextAreaElement>(null)
 
@@ -389,7 +556,7 @@ export default function App(): JSX.Element {
       {/*
         BARRA DE STATUS — a linha de estado de uma janela de console.
         Wordmark, o que ela está vendo, o que ela está fazendo, quanto resta.
-        Tudo que a Izze sabe sobre agora, numa linha só.
+        Tudo que a Íris sabe sobre agora, numa linha só.
       */}
       {/*
         h-10 e pr-[140px] casam com o titleBarOverlay do main: a barra tem
@@ -397,9 +564,20 @@ export default function App(): JSX.Element {
         dos três botões do Windows. Mexer num número exige mexer no outro.
         A faixa inteira arrasta a janela, menos os controles.
       */}
+      {/*
+        O ALARME NA MOLDURA DA JANELA.
+        O ponto de 6px no cabeçalho continua, mas ele é para quem já está
+        lendo a barra. Este é para quem está com a Íris num canto da tela e
+        olhando outra coisa — e, no modo porta, para quem passa pela sala.
+        Estado puro: acende só enquanto a leitura atual tem desconhecido.
+      */}
+      {visao.desconhecidos > 0 && (
+        <div className="alarme pointer-events-none absolute inset-0 z-30" aria-hidden />
+      )}
+
       <header className="relative h-10 shrink-0 border-b border-fio bg-chapa [-webkit-app-region:drag]">
         <div className="flex h-full items-center gap-4 pr-[140px] pl-5">
-          <h1 className="font-mono text-[12px] font-semibold tracking-[0.3em] text-tinta">IZZE</h1>
+          <h1 className="font-mono text-[12px] font-semibold tracking-[0.3em] text-tinta">ÍRIS</h1>
 
           <div className="h-3.5 w-px bg-fio-forte" />
 
@@ -411,6 +589,48 @@ export default function App(): JSX.Element {
             </span>
             <Anunciador foco={estado?.foco ?? null} />
           </div>
+
+          {/*
+            INDICADOR DE CÂMERA (2.6). Obrigatório, não decorativo: uma
+            câmera ligada sem sinal visível é a coisa que faz um usuário
+            desinstalar o app — e a LGPD trata transparência como requisito,
+            não cortesia. Some por completo com o sensor desligado, porque
+            um ícone apagado ainda parece uma câmera.
+          */}
+          {visao.rostos >= 0 && (
+            <button
+              onClick={() => setSeguranca(true)}
+              className="flex shrink-0 items-center gap-1.5 [-webkit-app-region:no-drag]"
+              title={
+                visao.desconhecidos > 0
+                  ? `${visao.desconhecidos} pessoa(s) não cadastrada(s) — clique para abrir a segurança`
+                  : visao.rostos === 0
+                    ? 'Ninguém em frente à câmera — clique para abrir a segurança'
+                    : `Reconhecido: ${visao.conhecidos.join(', ')} — clique para abrir a segurança`
+              }
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  visao.desconhecidos > 0
+                    ? 'bg-perigo'
+                    : visao.rostos === 0
+                      ? 'bg-tinta-3'
+                      : 'bg-sinal'
+                }`}
+              />
+              <span
+                className={`font-hud text-[11px] tracking-[0.2em] ${
+                  visao.desconhecidos > 0 ? 'text-perigo' : 'text-tinta-3'
+                }`}
+              >
+                {visao.desconhecidos > 0
+                  ? `${visao.desconhecidos} NÃO CADASTRADO`
+                  : visao.rostos === 0
+                    ? 'AUSENTE'
+                    : visao.conhecidos.join(' · ').toUpperCase() || `${visao.rostos} PESSOAS`}
+              </span>
+            </button>
+          )}
 
           {estado && <Escada uso={estado.uso} />}
 
@@ -456,6 +676,33 @@ export default function App(): JSX.Element {
             </span>
           )}
 
+          {/*
+            SEGURANÇA no cabeçalho, e não só por voz.
+            O indicador ao lado some quando a câmera está desligada — que é
+            justamente quando você precisa entrar pra ligá-la. Um caminho que
+            só existe depois de a feature estar ligada não serve pra ligar a
+            feature.
+          */}
+          <button
+            onClick={() => setSeguranca(true)}
+            title="Segurança"
+            className={`[-webkit-app-region:no-drag] shrink-0 font-hud text-[11px] tracking-[0.2em] transition-colors ${
+              visao.desconhecidos > 0
+                ? 'text-perigo hover:text-perigo'
+                : 'text-tinta-3 hover:text-sinal'
+            }`}
+          >
+            SEGURANÇA
+          </button>
+
+          <button
+            onClick={() => setPorta(true)}
+            title="Modo porta — rosto e câmera em tela cheia"
+            className="[-webkit-app-region:no-drag] shrink-0 font-hud text-[11px] tracking-[0.2em] text-tinta-3 transition-colors hover:text-sinal"
+          >
+            PORTA
+          </button>
+
           <button
             onClick={() => setConfig(true)}
             title="Ajustes"
@@ -479,14 +726,14 @@ export default function App(): JSX.Element {
         }`}
       >
         {mensagens.length === 0 ? (
-          <Masthead ferramentas={estado?.ferramentas ?? []} />
+          <Masthead seguranca={modoSeguranca} />
         ) : (
           <div className="space-y-7">
             {mensagens.map((m, i) => (
               <article key={i} className="flex gap-5">
                 {/* A calha é onde a interface diz QUEM falou, então é onde a
                     diferença tem que aparecer: um aviso automático não é uma
-                    resposta, e ler os dois como "IZZE" apagaria a única coisa
+                    resposta, e ler os dois como "ÍRIS" apagaria a única coisa
                     que o usuário precisa saber — que ninguém perguntou nada. */}
                 <Calha>
                   {m.role === 'user' ? (
@@ -494,7 +741,7 @@ export default function App(): JSX.Element {
                   ) : m.gatilho ? (
                     <span className="text-hud">GATILHO</span>
                   ) : (
-                    'IZZE'
+                    'ÍRIS'
                   )}
                 </Calha>
 
@@ -587,7 +834,7 @@ export default function App(): JSX.Element {
             onKeyDown={aoTeclar}
             rows={1}
             placeholder="Manda o comando…"
-            aria-label="Comando para a Izze"
+            aria-label="Comando para a Íris"
             className="max-h-40 min-w-0 flex-1 resize-none border-none bg-transparent py-1.5 leading-[1.65] text-tinta caret-sinal outline-none select-text placeholder:text-tinta-3 focus-visible:outline-none"
           />
           <button
@@ -603,6 +850,16 @@ export default function App(): JSX.Element {
       {/* Só o primeiro da fila. Ao responder, ele sai e o próximo aparece. */}
       {aprovacoes[0] && (
         <Aprovacao pedido={aprovacoes[0]} naFila={aprovacoes.length - 1} onResponder={responder} />
+      )}
+
+      {porta && <Porta visao={visao} aoFechar={() => setPorta(false)} />}
+
+      {seguranca && (
+        <Seguranca
+          visao={visao}
+          aoFechar={() => setSeguranca(false)}
+          aoTrocarFonte={() => setCameraGeracao((g) => g + 1)}
+        />
       )}
 
       {config && (
@@ -626,9 +883,18 @@ export default function App(): JSX.Element {
 
 /**
  * O estado vazio aparece toda vez que você chama pelo Ctrl+Space, ou seja,
- * dezenas de vezes por dia. "Aguardando comando." desperdiça essa tela.
- * Aqui ele é a abertura de uma página de manual: o que ela é e o que ela
- * sabe fazer, na mesma calha do resto da interface.
+ * dezenas de vezes por dia — e é justamente por isso que ele encolheu.
+ *
+ * Era uma página de manual: os 25 nomes de ferramenta em monospace, mais um
+ * parágrafo explicando os dois triângulos de aprovação. Parecia completude e
+ * era ruído. Ninguém lê 25 identificadores pra decidir o que digitar — você
+ * digita; e a diferença entre os triângulos se aprende na primeira vez que
+ * um modal aparece, não relendo a legenda na trigésima abertura do dia.
+ *
+ * Ficou o que responde as duas perguntas que a tela vazia tem: o que é isto,
+ * e como eu falo com ela. O catálogo continua vivo no main — a Íris responde
+ * "o que você sabe fazer?" quando a pergunta existir, em vez de responder
+ * sempre, pra ninguém.
  */
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }): JSX.Element {
   return (
@@ -644,60 +910,25 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 // de verdade e o navegador inclinaria a fonte na marra.
 const termo = 'text-tinta not-italic'
 
-function Masthead({ ferramentas }: { ferramentas: Estado['ferramentas'] }): JSX.Element {
+function Masthead({ seguranca }: { seguranca: boolean }): JSX.Element {
   return (
     <div className="space-y-5">
-      <Secao titulo="NOME">izze — assistente que enxerga a máquina e age nela</Secao>
+      <Secao titulo="NOME">
+        {seguranca
+          ? 'íris — interface de resposta inteligente e segura'
+          : 'íris — assistente que enxerga a máquina e age nela'}
+      </Secao>
 
-      {/* A lista vem do catálogo do main, não daqui: ela tem que envelhecer
-          junto com as ferramentas de verdade. Enquanto o primeiro IPC não
-          volta, a seção some inteira em vez de mostrar lista vazia. */}
-      {ferramentas.length > 0 && (
-        <Secao titulo="SINOPSE">
-          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 font-mono text-[13px]">
-            {ferramentas.map((f) => (
-              <li key={f.nome} className="flex items-center gap-1.5">
-                <span className={f.aprova === 'nunca' ? 'text-tinta' : 'text-tinta-2'}>
-                  {f.nome}
-                </span>
-                {/* O que para e pede aprovação fica marcado. É a informação
-                    que muda o que você espera do comando — e é o mesmo
-                    triângulo que vai aparecer no modal, então quem viu aqui
-                    reconhece lá.
-
-                    Esmaecido para o 'as-vezes': a diferença entre "sempre
-                    trava" e "trava dependendo do que ela leu antes" é
-                    exatamente o que a contribuição B introduziu, e um
-                    triângulo só para os dois casos apagaria isso. */}
-                {f.aprova !== 'nunca' && (
-                  <Atencao
-                    width={11}
-                    height={11}
-                    className={
-                      f.aprova === 'sempre' ? 'shrink-0 text-perigo' : 'shrink-0 text-tinta-3'
-                    }
-                    aria-label={
-                      f.aprova === 'sempre'
-                        ? 'pede aprovação antes de rodar'
-                        : 'pede aprovação depois de ler conteúdo externo'
-                    }
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
+      {/* A LINHA QUE A BANCA LÊ PRIMEIRO, e a única que sobrou de prosa.
+          No modo normal não aparece: o dia a dia não precisa de tese,
+          precisa de campo de texto. */}
+      {seguranca && (
+        <Secao titulo="ESCOPO">
+          Reconhecimento facial local com decisão de risco <em className={termo}>auditável</em>.
+          Presença física entra no cálculo de confiança, e toda recusa guarda a própria cadeia
+          causal — quais sinais, quanto cada um pesou, qual era o limiar.
         </Secao>
       )}
-
-      <Secao titulo="DESCRIÇÃO">
-        Ela lê a janela em que você está a cada meio segundo, então <em className={termo}>isso</em>,{' '}
-        <em className={termo}>aqui</em> e <em className={termo}>o que eu tô fazendo</em> já têm
-        referente. O que estiver marcado com{' '}
-        <Atencao width={11} height={11} className="inline-block translate-y-px text-perigo" /> para
-        e pede aprovação antes de rodar; com{' '}
-        <Atencao width={11} height={11} className="inline-block translate-y-px text-tinta-3" /> só
-        pede depois que ela leu algo de fora — arquivo, página, título de janela.
-      </Secao>
 
       <Secao titulo="ATALHOS">
         Ctrl+Space abre e esconde · Enter envia · Shift+Enter quebra linha

@@ -1,4 +1,4 @@
-# Sistema visual da Izze
+# Sistema visual da Íris
 
 Escrito a partir do que foi construído, não do que foi planejado. Fonte da
 verdade dos tokens: [src/renderer/src/assets/main.css](src/renderer/src/assets/main.css).

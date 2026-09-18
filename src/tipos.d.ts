@@ -26,13 +26,28 @@ type Aprova = 'sempre' | 'as-vezes' | 'nunca'
 type Avaliacao = {
   confirma: boolean
   escore: number
+  /** Os mesmos sinais em texto, que é o que o modal desenha. */
   motivos: string[]
+  /**
+   * A CADEIA CAUSAL, sinal a sinal, com o peso de cada um.
+   *
+   * `motivos` responde "por quê" pra uma pessoa lendo um modal. Isto
+   * responde "por quê" pra uma auditoria: qual sinal entrou, quanto pesou,
+   * e como a soma passou do limiar. É o que a LGPD Art. 20 chama de direito
+   * à revisão de decisão automatizada — sem os pesos, "recusei porque era
+   * arriscado" não é explicação, é opinião.
+   */
+  sinais: { sinal: string; peso: number }[]
+  /** O ponto de partida: o nível declarado da ferramenta. */
+  nivel: number
+  /** Acima disto, confirma. Configurável, então precisa ir junto. */
+  limiar: number
 }
 
 /**
  * Um aviso disparado por gatilho, sem o usuário ter pedido nada. Atravessa o
  * IPC: nasce no gatilhos.ts e vira uma mensagem na conversa — marcada como
- * automática, porque "a Izze falou" e "a Izze respondeu" não são a mesma
+ * automática, porque "a Íris falou" e "a Íris respondeu" não são a mesma
  * coisa e a interface não pode deixar as duas com a mesma cara.
  */
 type Aviso = {

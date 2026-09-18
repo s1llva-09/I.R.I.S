@@ -1,6 +1,7 @@
 import { NIVEIS } from './ferramentas'
 import { historico } from './banco'
 import { ler } from './config'
+import type { Presenca } from './presenca'
 
 /**
  * CONFIRMAÇÃO ADAPTATIVA (contribuição B).
@@ -44,6 +45,38 @@ function limiar(): number {
  * No lugar, as duas formas que realmente apagam disco: o cmdlet
  * `Format-Volume` e o `format D:` do prompt.
  */
+/**
+ * LEITURA PURA: devolve texto e não muda nada — nem no PC, nem na memória,
+ * nem no que a Íris vai acreditar amanhã.
+ *
+ * Estas não sobem por contaminação, e o motivo apareceu medindo a fila
+ * (2.4): uma tarefa de pesquisa faz `buscar_web`, o retorno contamina o
+ * contexto, e a SEGUNDA busca virava 1 + 2 (contaminado) + 2 (sem usuário) =
+ * 5. Sem ninguém pra aprovar, toda tarefa de pesquisa morria na etapa 2 —
+ * o pedido do usuário sendo negado por ter sido atendido uma vez.
+ *
+ * A escalada continua inteira pro que AGE: `abrir_app` é nível 1 e não está
+ * aqui, então "vi um nome de arquivo suspeito e agora quero abrir um
+ * programa" segue parando. Ler mais texto não faz nada; é só mais texto,
+ * e ele já entra envelopado.
+ *
+ * `ver_tela` fica DE FORA de propósito: não age, mas captura o que estiver
+ * na tela — o risco dele é privacidade, não efeito colateral.
+ */
+const SEM_EFEITO = new Set([
+  'hora_atual',
+  'buscar_web',
+  'listar_pasta',
+  'analisar_pasta',
+  'minhas_estatisticas',
+  'meu_consumo',
+  'lembrancas',
+  'minhas_preferencias',
+  'minhas_tarefas',
+  'estado_do_pc',
+  'processos_pesados'
+])
+
 const DESTRUTIVO =
   /remove-item|\bdel\s|\brm\s+-|format-volume|\bformat\s+[a-z]:|clear-|stop-computer|restart-|uninstall|drop\s+table|-force/i
 
@@ -53,6 +86,8 @@ type Contexto = {
   /** Houve conteúdo externo no contexto? Vem da contribuição A. */
   contaminado: boolean
   origem: 'local' | 'remoto' | 'gatilho'
+  /** Quem está fisicamente na frente da máquina (2.6). */
+  presenca?: Presenca
 }
 
 /**
@@ -75,6 +110,22 @@ export function normalizar(args: string): string {
 
 export function avaliar(ctx: Contexto): Avaliacao {
   const motivos: string[] = []
+  const sinais: { sinal: string; peso: number }[] = []
+
+  /**
+   * Um lugar só pra somar, em vez de `escore += n` espalhado com um
+   * `motivos.push` do lado.
+   *
+   * O motivo é a auditabilidade: enquanto o peso e o texto eram duas linhas
+   * independentes, nada impedia que divergissem — e uma explicação que diz
+   * "+2 por conteúdo externo" quando o código somou 3 é pior que explicação
+   * nenhuma, porque parece verificada.
+   */
+  const pesar = (peso: number, sinal: string): void => {
+    escore += peso
+    motivos.push(sinal)
+    sinais.push({ sinal, peso })
+  }
 
   // Ausente = 3, a mesma regra do llm.ts e do catalogo(). Um padrão menor
   // aqui seria uma porta dos fundos: bastaria esquecer a linha no NIVEIS
@@ -85,21 +136,58 @@ export function avaliar(ctx: Contexto): Avaliacao {
   // --- o que SOBE o risco ---
 
   if (DESTRUTIVO.test(ctx.args)) {
-    escore += 3
-    motivos.push('comando com verbo destrutivo')
+    pesar(3, 'comando com verbo destrutivo')
   }
 
   // Herdado da contribuição A: conteúdo externo no contexto significa que a
-  // ação pode ter sido sugerida por terceiro, não pelo usuário.
-  if (ctx.contaminado) {
-    escore += 2
-    motivos.push('surgiu após leitura de conteúdo externo')
+  // AÇÃO pode ter sido sugerida por terceiro, não pelo usuário. Ler de novo
+  // não é ação: ver SEM_EFEITO.
+  if (ctx.contaminado && !SEM_EFEITO.has(ctx.ferramenta)) {
+    pesar(2, 'surgiu após leitura de conteúdo externo')
+  }
+
+  /**
+   * PRESENÇA (2.6) — o segundo sinal FÍSICO do modelo de risco.
+   *
+   * Até aqui o único era `origem`, que é lógico: diz de onde o comando
+   * veio, não onde VOCÊ está. São coisas diferentes e a diferença importa,
+   * porque a confirmação só protege quem está lá pra ler o modal. Um
+   * comando local com a cadeira vazia tem exatamente a mesma proteção
+   * nominal e proteção real nenhuma.
+   *
+   * 'desconhecida' não mexe em nada, e isso é decisão, não esquecimento:
+   * quem não tem webcam, negou a permissão ou desligou a câmera continua com
+   * o comportamento anterior à 2.6. Escalar por ausência de sensor puniria
+   * quem não usa o sensor — e faria a feature ser desligada no primeiro dia,
+   * que é como uma camada de segurança morre de verdade.
+   */
+  if (ctx.presenca === 'ausente') {
+    pesar(2, 'ninguém na frente da máquina')
+  } else if (ctx.presenca === 'nao_autorizado') {
+    /**
+     * Alguém em frente à câmera que não está no cadastro.
+     *
+     * +3 põe qualquer nível 2 acima do limiar sozinho, e é proposital: com
+     * um desconhecido na sala, "executa direto porque você já rodou isso 10
+     * vezes" deixa de valer — o histórico é sobre o COMANDO, e o que mudou
+     * foi a sala.
+     */
+    pesar(3, 'pessoa não cadastrada em frente à câmera')
+  } else if (ctx.presenca === 'acompanhado') {
+    /**
+     * Mais de um rosto. Não sabemos de quem — de propósito, é o que mantém
+     * isto fora da biometria (ver `presenca.ts` no renderer).
+     *
+     * +1 e não +2 porque o caso comum é inofensivo (alguém passou atrás) e
+     * o caso ruim é você aprovando algo sensível com plateia. Um degrau de
+     * atrito serve; dois viram motivo pra desligar a câmera.
+     */
+    pesar(1, 'mais de uma pessoa em frente à câmera')
   }
 
   // Longe da máquina você não vê o que está aberto nem cancela a tempo.
   if (ctx.origem === 'remoto') {
-    escore += 1
-    motivos.push('comando remoto')
+    pesar(1, 'comando remoto')
   }
 
   /**
@@ -119,8 +207,7 @@ export function avaliar(ctx: Contexto): Avaliacao {
    * certo pra uma sugestão que veio de um nome de arquivo.
    */
   if (ctx.origem === 'gatilho') {
-    escore += 2
-    motivos.push('disparado por gatilho, sem pedido do usuário')
+    pesar(2, 'disparado por gatilho, sem pedido do usuário')
   }
 
   // --- o que DESCE o risco ---
@@ -129,20 +216,17 @@ export function avaliar(ctx: Contexto): Avaliacao {
   const sucessos = h.usos - h.falhas
 
   if (sucessos >= 10 && h.falhas === 0) {
-    escore -= 2
-    motivos.push(`executado ${sucessos}x sem falha`)
+    pesar(-2, `executado ${sucessos}x sem falha`)
   } else if (sucessos >= 3 && h.falhas === 0) {
-    escore -= 1
-    motivos.push(`executado ${sucessos}x sem falha`)
+    pesar(-1, `executado ${sucessos}x sem falha`)
   } else if (h.usos === 0) {
     // Inédito não sobe o risco por si só — só não ganha o desconto.
-    motivos.push('comando inédito')
+    pesar(0, 'comando inédito')
   }
 
   // Falha recente é sinal de que algo mudou no ambiente.
   if (h.falhas > 0 && h.falhas / h.usos > 0.3) {
-    escore += 1
-    motivos.push(`falhou ${h.falhas} de ${h.usos} vezes`)
+    pesar(1, `falhou ${h.falhas} de ${h.usos} vezes`)
   }
 
   /**
@@ -159,9 +243,13 @@ export function avaliar(ctx: Contexto): Avaliacao {
    */
   const teto = limiar()
   if (nivel === 3 && escore <= teto) {
+    // O peso aqui é o quanto o piso ERGUEU, não um número fixo: é isso que
+    // a auditoria precisa ver pra saber que o histórico foi sobreposto.
+    const erguido = teto + 1 - escore
     escore = teto + 1
     motivos.push('nível 3 — confirmação não é dispensável por histórico')
+    sinais.push({ sinal: 'piso do nível 3', peso: erguido })
   }
 
-  return { confirma: escore > teto, escore, motivos }
+  return { confirma: escore > teto, escore, motivos, sinais, nivel, limiar: teto }
 }

@@ -20,14 +20,19 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "teste:seguranca": "electron-vite build && electron out/main/fila-teste.js",
+    "rede": "electron-vite build && electron out/main/rede.js",
+    "teste:servidor": "electron-vite build && electron out/main/teste-servidor.js"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@huggingface/transformers": "^4.2.0",
+    "@vladmandic/face-api": "^1.7.15",
     "better-sqlite3": "^13.0.3",
     "openai": "^7.4.0",
+    "qrcode": "^1.5.4",
     "recharts": "^3.10.1",
     "sqlite-vec": "^0.1.9",
     "systeminformation": "^5.33.1"

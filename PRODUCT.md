@@ -1,4 +1,4 @@
-2# Izze
+2# Íris
 
 > Escrito a partir do código (o usuário delegou: "vc decide"). Corrija o que
 > estiver errado — este arquivo é a verdade do produto, não do visual.

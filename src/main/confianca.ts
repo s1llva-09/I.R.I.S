@@ -1,7 +1,7 @@
 /**
  * Marcação de origem.
  *
- * Todo conteúdo que a Izze NÃO recebeu do usuário direto é dado, não
+ * Todo conteúdo que a Íris NÃO recebeu do usuário direto é dado, não
  * instrução. Vale pra retorno de ferramenta, título de janela, arquivo —
  * qualquer coisa que outra pessoa possa ter escrito.
  *
@@ -35,7 +35,7 @@ export const FONTES_EXTERNAS = new Set([
    * INJEÇÃO MULTIMODAL, e ela é menos óbvia que as três de cima.
    *
    * O `ver_tela` não devolve texto de fora — devolve uma imagem, e o texto de
-   * fora está DENTRO dela. Com um site malicioso aberto, "izze, o que tá
+   * fora está DENTRO dela. Com um site malicioso aberto, "íris, o que tá
    * errado nessa tela?" entrega o payload por um caminho onde nenhuma
    * heurística de string chega: a defesa por regex do pontuarRisco lê o
    * retorno da ferramenta, e o retorno é "print capturado".
@@ -87,3 +87,30 @@ export function pontuarRisco(texto: string): { escore: number; achados: string[]
  * código na mão, e ninguém reproduz um número que depende disso.
  */
 export const DEFESA_LIGADA = process.env.IZZE_SEM_DEFESA !== '1'
+
+/**
+ * Ferramentas que gravam algo que volta CONFIÁVEL no futuro: o `anotar` vira
+ * vetor da memória e o `aprender_preferencia` vira linha fixa do system
+ * prompt — nas próximas conversas os dois voltam sem envelope. O `esquecer`
+ * entra porque apagar memória também é escrita, e "esqueça o que você sabe
+ * sobre mim" é payload barato.
+ *
+ * Com contexto contaminado elas não são escaladas pra confirmação, são
+ * RECUSADAS: um modal aqui só transfere pro usuário a decisão de deixar uma
+ * injeção virar permanente.
+ */
+export const SO_COM_CONTEXTO_LIMPO = new Set([
+  'anotar',
+  'aprender_preferencia',
+  'esquecer',
+
+  /**
+   * A base biométrica entra pela mesma porta e pelo mesmo motivo, elevado:
+   * o que ela grava não volta só pro prompt, volta pra decisão de QUEM é
+   * estranho. Uma página que convença a Íris a cadastrar um rosto criou uma
+   * pessoa autorizada — e um modal seria pior que a recusa, porque a
+   * pergunta "posso cadastrar o João?" parece inofensiva pra quem lê.
+   */
+  'cadastrar_rosto',
+  'esquecer_rosto'
+])

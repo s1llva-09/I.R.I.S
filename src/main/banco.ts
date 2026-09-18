@@ -16,7 +16,7 @@ import { join } from 'path'
  * execução e memória num, o app no outro, e as duas metades do dado do TCC
  * nunca se viam. Pior, o teto diário de chamadas era contado em dobro — a
  * bancada gastava cota do provedor sem que o contador do app soubesse, que é
- * justamente o número que a guarda usa pra não deixar a Izze emudecer.
+ * justamente o número que a guarda usa pra não deixar a Íris emudecer.
  *
  * Descoberto porque um gatilho gravou no app e o relatório da bancada disse
  * que não havia nada.
@@ -75,6 +75,18 @@ if (!colunas.has('confirmou'))
   db.exec('ALTER TABLE execucoes ADD COLUMN confirmou INTEGER DEFAULT 0')
 
 /**
+ * A decisão INTEIRA, serializada: nível de partida, cada sinal com seu peso,
+ * limiar e resultado. `escore_risco` guarda o número; isto guarda como o
+ * número foi formado.
+ *
+ * Existe por causa do Art. 20 da LGPD (revisão de decisão automatizada): sem
+ * os pesos, "recusei porque era arriscado" não é explicação, é opinião. Com
+ * eles, a recusa de ontem pode ser reconstruída e contestada — inclusive por
+ * quem não escreveu o código.
+ */
+if (!colunas.has('decisao')) db.exec('ALTER TABLE execucoes ADD COLUMN decisao TEXT')
+
+/**
  * O veredito do usuário sobre um aviso de gatilho: 1 = útil, 0 = ruído.
  *
  * NULL é o terceiro estado e o mais importante: "não rotulado". Sem ele,
@@ -117,9 +129,9 @@ export function historico(
 // pra SQLite local e não polui o loop do agente com promises.
 const inserir = db.prepare(`
   INSERT INTO execucoes
-    (momento, ferramenta, argumentos, resultado, erro, duracao_ms, escore_risco, confirmou)
+    (momento, ferramenta, argumentos, resultado, erro, duracao_ms, escore_risco, confirmou, decisao)
   VALUES
-    (@momento, @ferramenta, @argumentos, @resultado, @erro, @duracao, @escore, @confirmou)
+    (@momento, @ferramenta, @argumentos, @resultado, @erro, @duracao, @escore, @confirmou, @decisao)
 `)
 
 /**
@@ -135,6 +147,8 @@ export function registrar(r: {
   /** Contribuição B: o que a estimativa deu, e se ela parou pra perguntar. */
   escore?: number
   confirmou?: boolean
+  /** A cadeia causal inteira (Avaliacao), em JSON. Ver a coluna `decisao`. */
+  decisao?: Avaliacao
 }): number {
   const info = inserir.run({
     momento: new Date().toISOString(),
@@ -147,7 +161,8 @@ export function registrar(r: {
     // null e não 0: distingue "não medido" (linha antiga, ou registro que
     // não passou pela estimativa) de "medido e deu zero".
     escore: r.escore ?? null,
-    confirmou: r.confirmou ? 1 : 0
+    confirmou: r.confirmou ? 1 : 0,
+    decisao: r.decisao ? JSON.stringify(r.decisao) : null
   })
 
   return Number(info.lastInsertRowid)
@@ -275,7 +290,14 @@ export function resumir(l: {
  * apagaria meses de execução real.
  */
 export function limparRegistrosDeTeste(): number {
-  return db.prepare("DELETE FROM execucoes WHERE ferramenta LIKE 'gatilho:teste%'").run().changes
+  return (
+    db.prepare("DELETE FROM execucoes WHERE ferramenta LIKE 'gatilho:teste%'").run().changes +
+    // O self-check da fila (2.4) escreve na tabela de verdade, porque é a
+    // transição de status que ele testa. Mesmo prefixo fixo, mesmo motivo:
+    // sem isto a tarefa de mentira aparece na sua lista por 24h.
+    db.prepare("DELETE FROM tarefas WHERE descricao LIKE '[teste]%'").run().changes +
+    db.prepare("DELETE FROM execucoes WHERE ferramenta LIKE '[teste]%'").run().changes
+  )
 }
 
 /**
@@ -387,7 +409,7 @@ const apagarVetor = db.prepare('DELETE FROM memoria_vec WHERE rowid = ?')
 /**
  * Apaga as duas linhas. Devolve se achou alguma coisa — sem isso, apagar um
  * id que não existe pareceria ter funcionado, e o usuário sairia achando que
- * a Izze esqueceu algo que ela continua sabendo.
+ * a Íris esqueceu algo que ela continua sabendo.
  */
 export const esquecerMemoria = db.transaction((id: number): boolean => {
   const n = apagarTexto.run(id).changes
@@ -533,7 +555,7 @@ db.exec(`
  */
 function tetoDiario(): number {
   const n = Number(lerConfig('tetoDiario') ?? import.meta.env.MAIN_VITE_TETO_DIARIO ?? 45)
-  // Um teto zerado ou negativo emudeceria a Izze pra sempre, e o campo é um
+  // Um teto zerado ou negativo emudeceria a Íris pra sempre, e o campo é um
   // input de texto na tela — dá pra apagar sem querer.
   return Number.isFinite(n) && n > 0 ? n : 45
 }
@@ -729,4 +751,185 @@ export function listarPreferencias(): { padrao: string; evidencias: number; ativ
  */
 export function esquecerPreferencia(padrao: string): boolean {
   return db.prepare('DELETE FROM preferencias WHERE chave = ?').run(chaveDe(padrao)).changes > 0
+}
+
+// ---------------------------------------------------------------
+// Fila de tarefas (2.4)
+// ---------------------------------------------------------------
+
+/**
+ * Mora AQUI e não num `fila.ts` com a sua própria conexão, pelo mesmo motivo
+ * das preferências: uma segunda `new Database(...)` não enxerga o WAL nem as
+ * migrações deste arquivo, e ainda erraria o nome — o banco é
+ * `izze.sqlite`, não `jarvis.db`.
+ */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tarefas (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    descricao    TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'pendente',
+    resultado    TEXT,
+    criada_em    TEXT NOT NULL,
+    concluida_em TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_tarefa_status ON tarefas(status);
+`)
+
+export type Tarefa = { id: number; descricao: string; status: string }
+
+export function enfileirarTarefa(descricao: string): number {
+  const info = db
+    .prepare('INSERT INTO tarefas (descricao, criada_em) VALUES (?, ?)')
+    .run(descricao, new Date().toISOString())
+  return Number(info.lastInsertRowid)
+}
+
+/**
+ * A próxima da fila, já marcada como rodando.
+ *
+ * Pegar e marcar são uma coisa só: entre o SELECT e o UPDATE separados, um
+ * segundo worker pegaria a MESMA tarefa. Hoje o worker é um só — a
+ * transação é o que garante que continue verdade se algum dia não for.
+ */
+export const pegarTarefa = db.transaction((): Tarefa | undefined => {
+  const t = db
+    .prepare(
+      "SELECT id, descricao, status FROM tarefas WHERE status = 'pendente' ORDER BY id LIMIT 1"
+    )
+    .get() as Tarefa | undefined
+  if (t) db.prepare("UPDATE tarefas SET status = 'rodando' WHERE id = ?").run(t.id)
+  return t
+})
+
+export function concluirTarefa(id: number, resultado: string, erro: boolean): void {
+  db.prepare('UPDATE tarefas SET status = ?, resultado = ?, concluida_em = ? WHERE id = ?').run(
+    erro ? 'falhou' : 'concluida',
+    resultado.slice(0, 4000),
+    new Date().toISOString(),
+    id
+  )
+}
+
+/**
+ * O que ficou 'rodando' quando o app morreu volta pra fila.
+ *
+ * Sem isto a tarefa fica órfã pra sempre: ninguém a executa (não está
+ * pendente) e ela aparece eternamente como "rodando" na listagem.
+ */
+export function reabrirTarefasOrfas(): number {
+  return db.prepare("UPDATE tarefas SET status = 'pendente' WHERE status = 'rodando'").run().changes
+}
+
+/** Ativas sempre; concluídas só as do último dia — o resto é arquivo. */
+export function listarTarefas(): Tarefa[] {
+  return db
+    .prepare(
+      `SELECT id, descricao, status FROM tarefas
+       WHERE status IN ('pendente', 'rodando') OR concluida_em > datetime('now', '-1 day')
+       ORDER BY id DESC LIMIT 20`
+    )
+    .all() as Tarefa[]
+}
+
+/** Só pendente cancela: o que já está rodando não tem como ser interrompido. */
+export function cancelarTarefa(id: number): boolean {
+  return db.prepare("DELETE FROM tarefas WHERE id = ? AND status = 'pendente'").run(id).changes > 0
+}
+
+/**
+ * A explicação de uma recusa, reconstruída do log (LGPD Art. 20).
+ *
+ * Filtra por ferramenta quando você lembra QUAL comando foi, e cai pras
+ * últimas decisões quando você só lembra que "ontem ela recusou alguma
+ * coisa" — que é como a pergunta realmente chega.
+ */
+export function decisoes(
+  ferramenta?: string,
+  soRecusas = true,
+  limite = 10
+): { id: number; momento: string; ferramenta: string; argumentos: string; decisao: string }[] {
+  return db
+    .prepare(
+      `SELECT id, momento, ferramenta, argumentos, decisao FROM execucoes
+       WHERE decisao IS NOT NULL
+         AND (@ferramenta IS NULL OR ferramenta = @ferramenta)
+         AND (@soRecusas = 0 OR confirmou = 1)
+       ORDER BY id DESC LIMIT @limite`
+    )
+    .all({ ferramenta: ferramenta ?? null, soRecusas: soRecusas ? 1 : 0, limite }) as {
+    id: number
+    momento: string
+    ferramenta: string
+    argumentos: string
+    decisao: string
+  }[]
+}
+
+// ---------------------------------------------------------------
+// Cadastro de rostos autorizados (2.6 — vigilância)
+// ---------------------------------------------------------------
+
+/**
+ * SÓ QUEM AUTORIZOU ENTRA AQUI.
+ *
+ * O `descritor` é um vetor de 128 floats — a saída do FaceNet, não uma
+ * imagem. Não existe caminho de volta: não dá pra reconstruir o rosto a
+ * partir dele. Ainda é dado biométrico (LGPD Art. 5º-II), e por isso a
+ * tabela guarda `criado_em`: consentimento tem data, e uma base biométrica
+ * sem data de coleta não tem como provar que houve consentimento.
+ *
+ * Quem NÃO está aqui nunca é gravado. O descritor de um desconhecido é
+ * calculado em memória, comparado, e descartado no mesmo tique — o sistema
+ * registra QUE havia um desconhecido, nunca QUEM era.
+ */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS rostos (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome      TEXT NOT NULL UNIQUE,
+    descritor BLOB NOT NULL,
+    criado_em TEXT NOT NULL
+  );
+`)
+
+export function cadastrarRosto(nome: string, descritor: number[]): void {
+  // Recadastrar sobrescreve: cortou o cabelo, botou óculos, o vetor mudou.
+  db.prepare(
+    `INSERT INTO rostos (nome, descritor, criado_em) VALUES (?, ?, ?)
+     ON CONFLICT(nome) DO UPDATE SET descritor = excluded.descritor, criado_em = excluded.criado_em`
+  ).run(nome, Buffer.from(new Float32Array(descritor).buffer), new Date().toISOString())
+}
+
+export function rostosCadastrados(): { nome: string; descritor: number[]; criado_em: string }[] {
+  return (
+    db.prepare('SELECT nome, descritor, criado_em FROM rostos ORDER BY nome').all() as {
+      nome: string
+      descritor: Buffer
+      criado_em: string
+    }[]
+  ).map((r) => ({
+    nome: r.nome,
+    // O Buffer pode ser uma VISTA sobre um buffer maior — byteOffset
+    // explícito, mesmo cuidado do vetor da memória.
+    descritor: [...new Float32Array(r.descritor.buffer, r.descritor.byteOffset, 128)],
+    criado_em: r.criado_em
+  }))
+}
+
+/** O direito ao esquecimento, que numa base biométrica não é opcional. */
+export function esquecerRosto(nome: string): boolean {
+  return db.prepare('DELETE FROM rostos WHERE nome = ?').run(nome).changes > 0
+}
+
+/** Os alarmes de vigilância, do mais recente pro mais antigo (2.6). */
+export function eventosVigilancia(limite = 20): {
+  id: number
+  momento: string
+  resultado: string
+}[] {
+  return db
+    .prepare(
+      `SELECT id, momento, resultado FROM execucoes
+       WHERE ferramenta LIKE 'vigilancia:%' ORDER BY id DESC LIMIT ?`
+    )
+    .all(limite) as { id: number; momento: string; resultado: string }[]
 }

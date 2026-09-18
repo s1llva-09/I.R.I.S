@@ -4,7 +4,7 @@ import { gravarConfig, lerConfig, lerTudoConfig } from './banco'
 /**
  * CONFIGURAÇÃO EM RUNTIME (I.1).
  *
- * O que isto destrava: rodar a Izze em outra máquina sem editar arquivo e
+ * O que isto destrava: rodar a Íris em outra máquina sem editar arquivo e
  * rebuildar. As `import.meta.env.MAIN_VITE_*` são resolvidas em tempo de
  * BUILD — a chave fica ASSADA no bundle. Instalar no PC da apresentação
  * significava clonar o repo, escrever um .env e compilar lá, o que não é
@@ -26,6 +26,14 @@ type Config = {
   tetoDiario: number
   limiarRisco: number
   vozAtiva: boolean
+  /** Sensor de presença por câmera (2.6). Opt-in. */
+  cameraAtiva: boolean
+  /** Qual câmera usar. Vazio = a padrão do sistema. */
+  cameraId: string
+  /** Distância máxima entre descritores pra ser a mesma pessoa (2.6). */
+  limiarFacial: number
+  /** Apresentar só o que é segurança, e abrir direto nela. */
+  modoSeguranca: boolean
   vozRitmo: number
   gatilhosDesligados: string[]
 }
@@ -50,11 +58,50 @@ const PADRAO: Config = {
    */
   llmModeloVisao: 'google/gemma-4-31b-it:free',
   llmReservas: ['google/gemma-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free'],
-  tavilyChave: '',
+  // Lê do .env igual à chave do LLM: sem isto, colar a chave no .env não
+  // fazia nada e a única entrada era o campo em Ajustes.
+  tavilyChave: import.meta.env.MAIN_VITE_TAVILY_KEY ?? '',
   atalho: 'Control+Space',
   tetoDiario: Number(import.meta.env.MAIN_VITE_TETO_DIARIO ?? 45),
   limiarRisco: 3,
   vozAtiva: true,
+
+  /**
+   * DESLIGADA por padrão, e isto é a decisão de LGPD antes de ser
+   * preferência: câmera que liga sozinha na instalação é o oposto de
+   * consentimento. Quem quiser o sinal de presença liga em Ajustes, sabendo
+   * o que ligou.
+   */
+  cameraAtiva: false,
+
+  /**
+   * Máquina com uma webcam só nunca precisa disto. Duas — a do notebook e um
+   * celular como câmera — e a escolha do sistema é aleatória do ponto de
+   * vista de quem está usando.
+   */
+  cameraId: '',
+
+  /**
+   * 0,6 é o padrão do face-api, herdado do FaceNet — e é onde a bancada de
+   * reconhecimento começa, não onde ela termina. Medir com as SUAS fotos,
+   * na SUA luz, é o que transforma este número de chute em escolha; a tela
+   * de segurança tem o botão que faz isso.
+   */
+  limiarFacial: 0.6,
+
+  /**
+   * MODO SEGURANÇA — o recorte que o TCC apresenta.
+   *
+   * Não é um modo "reduzido" por capricho: a tela de abertura listava as 25
+   * ferramentas, e 18 delas são conveniência do dia a dia. Numa defesa isso
+   * não é riqueza, é ruído — a banca lê "assistente pessoal com uma câmera
+   * pregada do lado" em vez do argumento, que é a camada de decisão
+   * auditável com presença física como sinal.
+   *
+   * Desligado por padrão porque o uso normal dele é o dia a dia. Liga por
+   * fala ("modo segurança"), e é reversível na mesma frase.
+   */
+  modoSeguranca: false,
 
   /**
    * Rate do SAPI: inteiro de -10 a 10, onde 0 é a velocidade natural da voz.
@@ -155,7 +202,7 @@ export function lerTudo(): Record<string, unknown> {
   return tudo
 }
 
-/** Sem chave não há Izze: é o gancho que abre a tela sozinha no primeiro boot. */
+/** Sem chave não há Íris: é o gancho que abre a tela sozinha no primeiro boot. */
 export function primeiraExecucao(): boolean {
   return !ler('llmChave')
 }

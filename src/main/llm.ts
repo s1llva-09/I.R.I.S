@@ -15,7 +15,16 @@ import {
   temMemoria,
   usoHoje
 } from './banco'
-import { ABRE, DEFESA_LIGADA, FECHA, FONTES_EXTERNAS, envelopar, pontuarRisco } from './confianca'
+import {
+  ABRE,
+  DEFESA_LIGADA,
+  FECHA,
+  FONTES_EXTERNAS,
+  SO_COM_CONTEXTO_LIMPO,
+  envelopar,
+  pontuarRisco
+} from './confianca'
+import { presencaAtual } from './presenca'
 import { avaliar } from './risco'
 import { recordar } from './memoria'
 import { ler } from './config'
@@ -58,7 +67,7 @@ function obterCliente(): OpenAI {
     defaultHeaders: {
       // Opcionais — só colocam teu app no ranking do OpenRouter.
       'HTTP-Referer': 'http://localhost',
-      'X-Title': 'Izze'
+      'X-Title': 'Íris'
     }
   })
 }
@@ -90,7 +99,7 @@ export function modeloAtual(): string {
  * Reservas. Modelo grátis some do catálogo sem aviso e cai por rate limit
  * na hora do rush — o OpenRouter desce esta lista sozinho quando o
  * principal falha. Todos precisam ter capacidade "Tools", senão as
- * ferramentas são simplesmente ignoradas e o Izze vira só um chat.
+ * ferramentas são simplesmente ignoradas e a Íris vira só um chat.
  */
 // Ordenadas por CONFIABILIDADE, não por tamanho: quem cai aqui já está num
 // pedido que falhou, e a última coisa que ajuda é o modelo mais lento da
@@ -101,9 +110,9 @@ function reservas(): string[] {
 }
 
 // Feminino porque é assim que o resto do projeto e o próprio usuário falam
-// dela ("a Izze", "ela", "geizinha"). Estava "o Izze" aqui, e ela respondia
-// "Obrigado" — o único lugar do app que discordava.
-const SISTEMA = `Você é a Izze, assistente pessoal do Pablo, desenvolvedor frontend.
+// dela ("a Íris", "ela"). Já esteve no masculino aqui, e ela respondia
+// "Obrigado" — era o único lugar do app que discordava.
+const SISTEMA = `Você é a Íris, assistente pessoal do Pablo, desenvolvedor frontend.
 Responda em português do Brasil, referindo-se a si mesma no feminino.
 Seja direto: sem preâmbulo, sem reformular o pedido antes de responder, sem
 resumo do que acabou de falar.
@@ -125,7 +134,23 @@ Se não puder ou não for executar, diga isso. Nunca descreva um sucesso que nã
 aconteceu. Se a ferramenta falhou ou foi recusada, diga que falhou.
 
 Quando uma ferramenta gerar gráfico ou tabela, o usuário já vê os dados na tela.
-Não liste números; comente em uma frase o que o dado mostra.`
+Não liste números; comente em uma frase o que o dado mostra.
+
+ANTES de agir, conte as etapas. Se o pedido precisar de MAIS DE UMA chamada de
+ferramenta para ficar completo, ele vai pra agendar_tarefa — não execute a
+primeira etapa "pra adiantar".
+Vão pra fila: comparar várias opções pesquisando cada uma, varrer uma pasta
+item a item, juntar informação de mais de uma busca, qualquer "pesquisa X e
+depois me diga Y".
+Não vão: uma busca só, abrir um app, ver o estado do PC, ler a memória.
+Ao enfileirar, avise em uma frase e pare — a descrição precisa ser autocontida,
+porque quem executa não vê esta conversa.
+
+Câmera e segurança são um assunto só: "quem tá aí", "abre a segurança", "tem
+alguém estranho", "cadastra meu rosto", "por que você parou" — tudo isso vai
+pra seguranca, cadastrar_rosto, rostos_autorizados ou por_que_recusei. Nunca
+mande o usuário abrir Ajustes: ele está falando com você justamente pra não
+ter que abrir tela nenhuma.`
 
 /**
  * A metade textual da defesa. A outra metade é estrutural e está no laço:
@@ -260,7 +285,7 @@ async function contextoMemoria(
 }
 
 /**
- * PREFERÊNCIAS APRENDIDAS (5.1) — o bloco que faz a Izze parecer que te
+ * PREFERÊNCIAS APRENDIDAS (5.1) — o bloco que faz a Íris parecer que te
  * conhece sem você ter que explicar de novo.
  *
  * Entra CRU no system prompt, sem envelope, e isso é deliberado: preferência
@@ -371,9 +396,49 @@ type Eventos = {
  *   4. repete — agora ele já sabe o que aconteceu
  *
  * Ele sai do laço quando responde texto normal (finish_reason 'stop').
- * Daqui pra frente, "ensinar coisa nova pro Izze" = adicionar ferramenta
+ * Daqui pra frente, "ensinar coisa nova pra Íris" = adicionar ferramenta
  * em ferramentas.ts. Este arquivo não muda mais.
  */
+/**
+ * "Tarefa enfileirada" sem ter chamado a `agendar_tarefa`.
+ *
+ * Medido: em 3 rodadas do mesmo pedido, uma voltou com "Tarefa enfileirada:
+ * pesquisar as 5 melhores…" e ZERO chamadas de ferramenta. É a falha que a
+ * REGRA DURA do system prompt proíbe, e a fila é onde ela dói mais: nas
+ * outras ferramentas você percebe na hora que a pasta não abriu; aqui a
+ * promessa é sobre o FUTURO, então a mentira só aparece horas depois, quando
+ * a notificação não chega — e a essa altura você já fechou a janela
+ * confiando que tinha algo rodando.
+ *
+ * Não tenta adivinhar a tarefa e enfileirar sozinho: o texto da alucinação é
+ * um resumo, não uma especificação, e agendar trabalho autônomo a partir de
+ * um chute é pior que não agendar. Ele corrige o TEXTO, que é o que impede
+ * você de ir embora achando que a tarefa existe.
+ *
+ * `minhas_tarefas` no turno derruba a checagem: listar a fila fala de fila
+ * legitimamente, e falso positivo aqui ensina a ignorar o aviso.
+ */
+const PROMETEU_FILA = /(na fila|enfileirad|agendad|agendei|em segundo plano|aviso quando terminar)/i
+
+export function semMentir(texto: string, usadas: Set<string>): string {
+  if (!PROMETEU_FILA.test(texto)) return texto
+  if (usadas.has('agendar_tarefa') || usadas.has('minhas_tarefas')) return texto
+
+  // Vira dado: quantas vezes o modelo prometeu trabalho que não existia é
+  // uma linha da tabela comparativa entre modelos.
+  registrar({
+    ferramenta: 'fila:promessa-falsa',
+    argumentos: [...usadas].join(',') || '(nenhuma)',
+    resultado: texto.slice(0, 200),
+    erro: true,
+    duracao: 0
+  })
+
+  return `${texto}
+
+⚠️ Correção: NADA foi enfileirado — não cheguei a chamar a ferramenta. Peça de novo.`
+}
+
 export async function conversar(
   historico: ChatCompletionMessageParam[],
   eventos: Eventos
@@ -411,6 +476,9 @@ ${pastasReais()}${foco.texto}${memoria.texto}${preferencias}`
 
   let ultimoTexto = ''
 
+  /** O que ele REALMENTE chamou neste turno. Ver `semMentir`. */
+  const usadas = new Set<string>()
+
   /**
    * Uma vez que entrou conteúdo externo no contexto, ele fica contaminado
    * até o fim do turno. Não existe "descontaminar": o texto já está lá e o
@@ -420,7 +488,13 @@ ${pastasReais()}${foco.texto}${memoria.texto}${preferencias}`
    * tinham padrão de ataque: os dois entram no system prompt antes da
    * primeira volta.
    */
-  let contextoContaminado = foco.hostil || memoria.hostil
+  let contextoContaminado =
+    foco.hostil ||
+    memoria.hostil ||
+    // O envelope pode ter entrado num turno ANTERIOR: o histórico volta
+    // inteiro pro modelo, então a contaminação volta junto. Sem isto a
+    // proteção valia só no turno em que a fonte externa foi lida.
+    historico.some((m) => typeof m.content === 'string' && m.content.includes(ABRE))
 
   /**
    * Entrou print no contexto? A partir daqui o turno inteiro fala com o
@@ -469,7 +543,7 @@ ${pastasReais()}${foco.texto}${memoria.texto}${preferencias}`
       //
       // Estava 'enabled: false' (não gera raciocínio nenhum) porque num
       // nemotron-ultra o raciocínio custa segundos por volta. O preço
-      // apareceu: a Izze respondeu "Pasta teste criada na sua área de
+      // apareceu: a Íris respondeu "Pasta teste criada na sua área de
       // trabalho" SEM ter chamado o rodar_powershell — o log de execuções
       // não tem uma linha sequer daquele turno. Escolher ferramenta é
       // justamente a decisão que morre primeiro sem raciocínio.
@@ -525,7 +599,7 @@ ${pastasReais()}${foco.texto}${memoria.texto}${preferencias}`
 
     // Sem ferramenta pedida: acabou, ele só respondeu.
     if (chamadas.length === 0 || motivo !== 'tool_calls') {
-      return ultimoTexto
+      return semMentir(ultimoTexto, usadas)
     }
 
     // A mensagem do assistente COM as tool_calls precisa entrar no histórico
@@ -541,117 +615,161 @@ ${pastasReais()}${foco.texto}${memoria.texto}${preferencias}`
     })
 
     // Em paralelo — se ele pediu 3 coisas, não faz sentido enfileirar.
-    const resultados = await Promise.all(
-      chamadas.map(async (c) => {
-        /**
-         * A regra fixa de nível virou estimativa (contribuição B). O nível
-         * declarado continua sendo o ponto de partida — e o piso, pro 3.
-         *
-         * A contaminação entra como um sinal entre outros em vez de uma
-         * condição própria: é a mesma escalada de antes, agora somável com
-         * "verbo destrutivo" e "comando inédito" em vez de concorrer com eles.
-         */
-        const risco = avaliar({
-          ferramenta: c.nome,
-          args: c.args,
-          contaminado: DEFESA_LIGADA && contextoContaminado,
-          origem
-        })
+    /**
+     * Fontes externas PRIMEIRO, o resto depois.
+     *
+     * Tudo no mesmo lote em paralelo tinha uma corrida: se o modelo pedisse
+     * `buscar_web` + `rodar_powershell` na mesma volta, o `avaliar()` do
+     * powershell podia rodar antes do `contextoContaminado` virar true e
+     * escapar da escalada. Duas fases resolvem sem serializar tudo.
+     */
+    for (const c of chamadas) usadas.add(c.nome)
 
-        if (risco.confirma) {
-          const aprovado = await eventos.aoPedirAprovacao(c.nome, c.args, risco)
-          if (!aprovado) {
-            /**
-             * "Recusado pelo usuário" é verdade quando existe um usuário. Num
-             * gatilho não existe — ninguém viu o modal, porque não houve
-             * modal. Gravar a mesma frase nos dois casos envenenaria a única
-             * coluna que responde "com que frequência ele barra comandos?",
-             * que é dado do capítulo.
-             */
-            const bloqueio = origem === 'gatilho'
-            // A recusa também vai pro log: um registro de auditoria que só
-            // guarda o que foi permitido não serve como auditoria.
-            // Menos na bancada — recusa de teste não é uso real, e o painel
-            // de estatísticas leria isso como o usuário barrando comandos.
-            if (!eventos.simular)
-              registrar({
-                ferramenta: c.nome,
-                argumentos: c.args,
-                resultado: bloqueio ? 'bloqueado: gatilho não aprova' : 'recusado pelo usuário',
-                erro: false,
-                duracao: 0,
-                escore: risco.escore,
-                confirmou: true
-              })
-            // Volta como resultado normal — o modelo lê, entende e sugere
-            // outro caminho em vez de travar.
-            //
-            // A frase do gatilho manda PARAR de propósito: sem isso o modelo
-            // trata a recusa como obstáculo e tenta a próxima ferramenta,
-            // gastando uma chamada de cota por tentativa até bater no teto.
-            return {
-              id: c.id,
-              saida: bloqueio
-                ? 'Bloqueado: um gatilho automático não executa ação que exige confirmação. Não tente outra ferramenta — apenas avise o usuário do que você observou.'
-                : 'O usuário recusou a execução deste comando.'
-            }
+    const executarChamada = async (
+      c: (typeof chamadas)[number]
+    ): Promise<{ id: string; saida: string }> => {
+      /**
+       * MEMÓRIA NÃO SE ESCREVE COM CONTEXTO SUJO.
+       *
+       * Confirmar não basta aqui: o que estas três gravam volta em TODA
+       * conversa futura (`anotar` vira vetor, `aprender_preferencia` vira
+       * linha do system prompt) e volta SEM envelope, apresentado como
+       * confiável. É injeção transiente virando permanente — o único caso
+       * em que uma recusa seca custa menos que um modal.
+       */
+      if (DEFESA_LIGADA && contextoContaminado && SO_COM_CONTEXTO_LIMPO.has(c.nome)) {
+        return {
+          id: c.id,
+          saida:
+            'Bloqueado: não gravo memória nem preferência depois de ler conteúdo externo. Peça de novo numa conversa nova.'
+        }
+      }
+
+      /**
+       * A regra fixa de nível virou estimativa (contribuição B). O nível
+       * declarado continua sendo o ponto de partida — e o piso, pro 3.
+       *
+       * A contaminação entra como um sinal entre outros em vez de uma
+       * condição própria: é a mesma escalada de antes, agora somável com
+       * "verbo destrutivo" e "comando inédito" em vez de concorrer com eles.
+       */
+      const risco = avaliar({
+        ferramenta: c.nome,
+        args: c.args,
+        contaminado: DEFESA_LIGADA && contextoContaminado,
+        origem,
+        // Lido AGORA e não no início do turno: uma resposta longa leva
+        // segundos, e "ele levantou no meio" é justamente o caso que a 2.6
+        // existe pra pegar.
+        presenca: presencaAtual()
+      })
+
+      if (risco.confirma) {
+        const aprovado = await eventos.aoPedirAprovacao(c.nome, c.args, risco)
+        if (!aprovado) {
+          /**
+           * "Recusado pelo usuário" é verdade quando existe um usuário. Num
+           * gatilho não existe — ninguém viu o modal, porque não houve
+           * modal. Gravar a mesma frase nos dois casos envenenaria a única
+           * coluna que responde "com que frequência ele barra comandos?",
+           * que é dado do capítulo.
+           */
+          const bloqueio = origem === 'gatilho'
+          // A recusa também vai pro log: um registro de auditoria que só
+          // guarda o que foi permitido não serve como auditoria.
+          // Menos na bancada — recusa de teste não é uso real, e o painel
+          // de estatísticas leria isso como o usuário barrando comandos.
+          if (!eventos.simular)
+            registrar({
+              ferramenta: c.nome,
+              argumentos: c.args,
+              resultado: bloqueio ? 'bloqueado: gatilho não aprova' : 'recusado pelo usuário',
+              erro: false,
+              duracao: 0,
+              escore: risco.escore,
+              decisao: risco,
+              confirmou: true
+            })
+          // Volta como resultado normal — o modelo lê, entende e sugere
+          // outro caminho em vez de travar.
+          //
+          // A frase do gatilho manda PARAR de propósito: sem isso o modelo
+          // trata a recusa como obstáculo e tenta a próxima ferramenta,
+          // gastando uma chamada de cota por tentativa até bater no teto.
+          return {
+            id: c.id,
+            saida: bloqueio
+              ? 'Bloqueado: um gatilho automático não executa ação que exige confirmação. Não tente outra ferramenta — apenas avise o usuário do que você observou.'
+              : 'O usuário recusou a execução deste comando.'
           }
         }
+      }
 
-        eventos.aoUsarFerramenta(c.nome, c.args)
+      eventos.aoUsarFerramenta(c.nome, c.args)
 
-        const inicio = Date.now()
+      const inicio = Date.now()
 
-        /**
-         * Na bancada a ferramenta não roda, mas o retorno FALSO segue daqui
-         * pra baixo pelo mesmo caminho do real — envelope inclusive. É o que
-         * permite testar defesa contra injeção sem plantar arquivo malicioso
-         * no disco: o payload entra por onde ele entraria de verdade.
-         */
-        const r = eventos.simular
-          ? { texto: eventos.simularRetorno?.(c.nome) ?? 'ok (simulado)', visual: undefined }
-          : await rodarFerramenta(c.nome, c.args)
+      /**
+       * Na bancada a ferramenta não roda, mas o retorno FALSO segue daqui
+       * pra baixo pelo mesmo caminho do real — envelope inclusive. É o que
+       * permite testar defesa contra injeção sem plantar arquivo malicioso
+       * no disco: o payload entra por onde ele entraria de verdade.
+       */
+      const r = eventos.simular
+        ? { texto: eventos.simularRetorno?.(c.nome) ?? 'ok (simulado)', visual: undefined }
+        : await rodarFerramenta(c.nome, c.args)
 
-        // Aqui é o único ponto por onde TODA execução passa — é o lugar
-        // certo pra medir. Escrita síncrona, custa microssegundos.
-        if (!eventos.simular)
-          registrar({
-            ferramenta: c.nome,
-            argumentos: c.args,
-            resultado: r.texto,
-            // rodarFerramenta prefixa 'Erro' em toda falha, inclusive nas que
-            // ele engole pro modelo ler. É o que dá pra saber daqui.
-            erro: r.texto.startsWith('Erro'),
-            duracao: Date.now() - inicio,
-            // As duas colunas da tabela do capítulo: quanto a estimativa deu
-            // e se ela parou pra perguntar. Sem gravar aqui, comparar "regra
-            // fixa" com "adaptativa" viraria contagem na mão.
-            escore: risco.escore,
-            confirmou: risco.confirma
-          })
+      // Aqui é o único ponto por onde TODA execução passa — é o lugar
+      // certo pra medir. Escrita síncrona, custa microssegundos.
+      if (!eventos.simular)
+        registrar({
+          ferramenta: c.nome,
+          argumentos: c.args,
+          resultado: r.texto,
+          // rodarFerramenta prefixa 'Erro' em toda falha, inclusive nas que
+          // ele engole pro modelo ler. É o que dá pra saber daqui.
+          erro: r.texto.startsWith('Erro'),
+          duracao: Date.now() - inicio,
+          // As duas colunas da tabela do capítulo: quanto a estimativa deu
+          // e se ela parou pra perguntar. Sem gravar aqui, comparar "regra
+          // fixa" com "adaptativa" viraria contagem na mão.
+          escore: risco.escore,
+          confirmou: risco.confirma,
+          // A cadeia causal vai junto do número: reconstruir a decisão de
+          // ontem sem ela seria adivinhar com os pesos de hoje, que podem
+          // ter mudado (o limiar é configurável em runtime).
+          decisao: risco
+        })
 
-        // O visual vai direto pra UI e NUNCA entra no histórico: role:'tool'
-        // só aceita content string, e mandar os dados de novo pro modelo
-        // seria queimar contexto com o que ele já leu resumido.
-        if (r.visual) eventos.aoGerarVisual(r.visual)
+      // O visual vai direto pra UI e NUNCA entra no histórico: role:'tool'
+      // só aceita content string, e mandar os dados de novo pro modelo
+      // seria queimar contexto com o que ele já leu resumido.
+      if (r.visual) eventos.aoGerarVisual(r.visual)
 
-        /**
-         * A DEFESA. Retorno de fonte externa é DADO, não fala do usuário:
-         * vai marcado como tal e contamina o resto do turno.
-         *
-         * Depois do registrar() de propósito — a auditoria guarda o que a
-         * ferramenta devolveu de verdade, não a versão embrulhada.
-         */
-        if (DEFESA_LIGADA && FONTES_EXTERNAS.has(c.nome)) {
-          const risco = pontuarRisco(r.texto)
-          if (risco.escore > 0) eventos.aoDetectarInjecao(c.nome, risco.achados)
-          contextoContaminado = true
-          return { id: c.id, saida: envelopar(r.texto) }
-        }
+      /**
+       * A DEFESA. Retorno de fonte externa é DADO, não fala do usuário:
+       * vai marcado como tal e contamina o resto do turno.
+       *
+       * Depois do registrar() de propósito — a auditoria guarda o que a
+       * ferramenta devolveu de verdade, não a versão embrulhada.
+       */
+      if (DEFESA_LIGADA && FONTES_EXTERNAS.has(c.nome)) {
+        const risco = pontuarRisco(r.texto)
+        if (risco.escore > 0) eventos.aoDetectarInjecao(c.nome, risco.achados)
+        contextoContaminado = true
+        return { id: c.id, saida: envelopar(r.texto) }
+      }
 
-        return { id: c.id, saida: r.texto }
-      })
-    )
+      return { id: c.id, saida: r.texto }
+    }
+
+    const externas = chamadas.filter((c) => FONTES_EXTERNAS.has(c.nome))
+    const resultados = [
+      ...(await Promise.all(externas.map(executarChamada))),
+      ...(await Promise.all(
+        chamadas.filter((c) => !FONTES_EXTERNAS.has(c.nome)).map(executarChamada)
+      ))
+    ]
 
     // Cada resultado volta amarrado ao tool_call_id que o originou.
     // A ordem não importa; o id é o que liga as pontas.
@@ -694,5 +812,7 @@ ${pastasReais()}${foco.texto}${memoria.texto}${preferencias}`
     }
   }
 
-  return ultimoTexto || 'Parei: excedi o limite de voltas sem chegar a uma resposta.'
+  return (
+    semMentir(ultimoTexto, usadas) || 'Parei: excedi o limite de voltas sem chegar a uma resposta.'
+  )
 }

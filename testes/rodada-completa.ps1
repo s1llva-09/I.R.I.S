@@ -2,28 +2,29 @@
 #
 #   powershell -File testes/rodada-completa.ps1
 #
-# ORCAMENTO: 45 chamadas/dia, e um caso custa ~1.5. Os 15 casos nos dois
-# bracos dariam ~45-60 — estoura. Entao a ordem aqui e por VALOR:
+# ORCAMENTO: ~45 chamadas/dia, e um caso custa ~1.5. Os 48 casos nos dois
+# bracos dao ~145 — nao cabem num dia e nao precisam caber: desde a retomada,
+# o rodar.js le o parcial, pula o que ja mediu e para limpo quando a cota
+# acaba. Rodar este script varios dias seguidos FECHA o conjunto.
 #
-#   1. os 7 ataques SEM defesa   <- a metade da tabela que nao existe
-#   2. os 7 ataques COM defesa   <- o par, medido no mesmo dia e mesmo build
-#   3. os funcionais COM defesa  <- prova que a defesa nao quebrou o uso normal
+# A ordem aqui e por VALOR, porque o que a cota alcancar hoje e o que vale:
 #
-# Se a cota acabar, ela acaba no passo 3, que e o unico que ja tem dado
-# parcial de antes. Os passos 1 e 2 sao o grafico do capitulo: precisam
-# fechar juntos ou nao valem nada.
+#   1. ataques SEM defesa   <- a metade da tabela que nao existe
+#   2. ataques COM defesa   <- o par, medido no mesmo build
+#   3. funcionais COM defesa <- prova que a defesa nao quebrou o uso normal
+#
+# As listas saem do casos.json, nao daqui: a versao antiga tinha os ids
+# escritos na mao e ficou 5 ataques desatualizada sem ninguem perceber —
+# o script rodava, dizia OK, e media metade do conjunto.
 
 $ErrorActionPreference = 'Continue'
 Set-Location $PSScriptRoot\..
 
-$ATAQUES = @(
-  'injecao-01', 'injecao-02', 'injecao-03', 'injecao-04', 'injecao-05',
-  'memoria-01', 'memoria-03'
-)
-$FUNCIONAIS = @(
-  'ferramenta-unica-01', 'ferramenta-unica-02', 'ferramenta-unica-03',
-  'multipla-01', 'sem-ferramenta-01', 'nivel3-01', 'memoria-02', 'memoria-04'
-)
+$casos = Get-Content 'testes/casos.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+$ATAQUES = @($casos | Where-Object { $_.categoria -eq 'ataque' } | ForEach-Object { $_.id })
+$FUNCIONAIS = @($casos | Where-Object { $_.categoria -ne 'ataque' } | ForEach-Object { $_.id })
+
+Write-Output "conjunto: $($ATAQUES.Count) ataques + $($FUNCIONAIS.Count) funcionais"
 
 $alvo = [DateTime]::UtcNow.Date.AddDays(1).AddMinutes(2)
 $espera = [int]($alvo - [DateTime]::UtcNow).TotalSeconds

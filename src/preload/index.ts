@@ -22,7 +22,7 @@ const api = {
     ipcRenderer.invoke('chat:enviar', historico),
 
   /**
-   * O que a Izze sabe agora: janela em foco e cota do dia.
+   * O que a Íris sabe agora: janela em foco e cota do dia.
    *
    * invoke e não evento: o renderer pergunta quando quer desenhar. Empurrar
    * do main significaria mandar 2 mensagens por segundo pra uma janela que
@@ -56,6 +56,82 @@ const api = {
    * com a janela escondida — sem isto, o mudo não os alcançaria.
    */
   mudo: (mudo: boolean): void => ipcRenderer.send('voz:mudo', mudo),
+
+  /**
+   * Quantos rostos a câmera vê agora (2.6). -1 = sem câmera.
+   *
+   * Vai só o NÚMERO. O frame não atravessa a ponte, e não atravessa porque
+   * não existe caminho: o preload não expõe nada que aceite imagem.
+   */
+  presenca: (leitura: { rostos: number; desconhecidos: number; conhecidos: string[] }): void =>
+    ipcRenderer.send('presenca:leitura', leitura),
+
+  /**
+   * Cadastro de rosto autorizado (2.6).
+   *
+   * Sobe o VETOR, nunca a imagem — e não sobe por escolha de quem chama:
+   * não existe canal aqui que aceite um frame. O caminho pra vazar uma foto
+   * teria que ser aberto de propósito.
+   */
+  seguranca: {
+    /** Tudo que o painel desenha, numa chamada só. */
+    painel: (): Promise<unknown> => ipcRenderer.invoke('seguranca:painel'),
+    /** Guarda a medição de reconhecimento junto dos outros números do TCC. */
+    salvarMedicao: (dados: unknown): Promise<string> =>
+      ipcRenderer.invoke('seguranca:salvarMedicao', dados),
+
+    /** O cadastro de rostos mudou por fala — recarregue a galeria. */
+    aoMudarGaleria: (cb: () => void): (() => void) => ouvir('galeria:mudou', cb),
+
+    /** A câmera foi ligada ou desligada por fala. */
+    aoMudarCamera: (cb: (ligada: boolean) => void): (() => void) => ouvir('camera:mudou', cb),
+
+    /** A Íris pediu o modo porta (rosto em tela cheia). */
+    aoAbrirPorta: (cb: () => void): (() => void) => ouvir('abrir:porta', cb),
+
+    /** A Íris pediu pra abrir o painel (ferramenta `seguranca`). */
+    aoAbrir: (cb: () => void): (() => void) => ouvir('abrir:seguranca', cb),
+    /**
+     * O main quer um descritor da câmera. A resposta volta pelo mesmo id.
+     *
+     * O callback devolve NÚMEROS ou um motivo em texto — nunca uma imagem, e
+     * não por convenção: não há canal aqui que aceite uma.
+     */
+    aoPedirRosto: (cb: (id: string) => Promise<number[] | string>): (() => void) =>
+      ouvir('rosto:capturar', (id: string) => {
+        cb(id).then((v) => ipcRenderer.send('rosto:capturado', id, v))
+      })
+  },
+
+  /**
+   * A câmera de rede. O main é quem fala com ela; aqui só chegam quadros
+   * JPEG já em base64, que o renderer vira `data:` URL.
+   */
+  camera: {
+    conectar: (url: string): Promise<boolean> => ipcRenderer.invoke('camera:conectar', url),
+    desconectar: (): Promise<void> => ipcRenderer.invoke('camera:desconectar'),
+    erro: (): Promise<string> => ipcRenderer.invoke('camera:erro'),
+    procurar: (): Promise<{ url: string; tipo: string; servidor: string }[]> =>
+      ipcRenderer.invoke('camera:procurar'),
+
+    /** Diagnostica UM endereço: de quem é a culpa? */
+    testar: (alvo: string): Promise<string> => ipcRenderer.invoke('camera:testar', alvo),
+
+    /** Sobe o servidor local e devolve o QR pro celular ler. */
+    qr: (): Promise<{ url: string; qr: string } | { erro: string }> =>
+      ipcRenderer.invoke('camera:qr'),
+    aoFrame: (cb: (jpegBase64: string) => void): (() => void) => ouvir('camera:frame', cb)
+  },
+
+  rostos: {
+    lista: (): Promise<{ nome: string; criado_em: string }[]> => ipcRenderer.invoke('rostos:lista'),
+    cadastrar: (nome: string, descritor: number[]): Promise<void> =>
+      ipcRenderer.invoke('rostos:cadastrar', nome, descritor),
+    esquecer: (nome: string): Promise<boolean> => ipcRenderer.invoke('rostos:esquecer', nome),
+    /** Os descritores, pra montar o comparador no renderer. */
+    galeria: (): Promise<{ nome: string; descritor: number[] }[]> =>
+      ipcRenderer.invoke('rostos:galeria')
+  },
 
   /** Um gatilho disparou agora, com a janela aberta. */
   aoAvisar: (cb: (aviso: Aviso) => void): (() => void) => ouvir('gatilho:aviso', cb),

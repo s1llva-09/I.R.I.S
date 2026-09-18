@@ -8,15 +8,33 @@ import type { ChatCompletionTool } from 'openai/resources/chat/completions'
 import si from 'systeminformation'
 import {
   anotarPreferencia,
+  cancelarTarefa,
+  cadastrarRosto,
+  decisoes,
+  esquecerRosto,
+  eventosVigilancia,
+  rostosCadastrados,
   esquecerMemoria,
   esquecerPreferencia,
+  enfileirarTarefa,
   estatisticas,
   listarMemorias,
   listarPreferencias,
+  listarTarefas,
   usoHoje
 } from './banco'
 import { lembrar } from './memoria'
 import { pontuarRisco } from './confianca'
+import { gravar, ler } from './config'
+import {
+  abrirModoPorta,
+  abrirPainelSeguranca,
+  avisarCameraMudou,
+  avisarGaleriaMudou,
+  leituraAtual,
+  pedirDescritor,
+  presencaAtual
+} from './presenca'
 import { MODOS, buscarModo } from './modos'
 import { capturar } from './tela'
 import { buscar } from './web'
@@ -80,7 +98,7 @@ Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-public class IzzeFoco {
+public class ÍrisFoco {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
@@ -88,13 +106,13 @@ public class IzzeFoco {
 }
 "@
 while ($true) {
-  $h = [IzzeFoco]::GetForegroundWindow()
+  $h = [ÍrisFoco]::GetForegroundWindow()
   if ($h -ne [IntPtr]::Zero) {
     $procId = 0
-    [void][IzzeFoco]::GetWindowThreadProcessId($h, [ref]$procId)
+    [void][ÍrisFoco]::GetWindowThreadProcessId($h, [ref]$procId)
     $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
     if ($p) {
-      [pscustomobject]@{ programa = $p.ProcessName; titulo = [IzzeFoco]::Titulo($h); caminho = $p.Path } | ConvertTo-Json -Compress
+      [pscustomobject]@{ programa = $p.ProcessName; titulo = [ÍrisFoco]::Titulo($h); caminho = $p.Path } | ConvertTo-Json -Compress
     }
   }
   Start-Sleep -Milliseconds 500
@@ -104,11 +122,11 @@ while ($true) {
 export type Foco = { programa: string; titulo: string; caminho: string | null }
 
 /**
- * A última janela que NÃO era a própria Izze.
+ * A última janela que NÃO era a própria Íris.
  *
  * Sem isso não há resposta no caso mais comum: quando o usuário digita
- * "o que eu tô fazendo?", quem está em foco é a Izze. Responder "você está
- * usando a Izze" é verdade e não serve pra nada. Guardar a anterior é o que
+ * "o que eu tô fazendo?", quem está em foco é a Íris. Responder "você está
+ * usando a Íris" é verdade e não serve pra nada. Guardar a anterior é o que
  * faz a pergunta ter resposta.
  */
 let ultimoFoco: Foco | null = null
@@ -119,10 +137,10 @@ let avisarPrimeira: (() => void) | null = null
  * Resolve quando o vigia entrega a PRIMEIRA leitura boa — ou depois de 2s,
  * se ele não entregar nenhuma.
  *
- * Existe por causa de um bug real: na primeira pergunta da sessão a Izze
+ * Existe por causa de um bug real: na primeira pergunta da sessão a Íris
  * respondia "não sei o que você está fazendo", e na segunda acertava. É uma
- * corrida — spawn + Add-Type levam ~700ms, e a janela da Izze às vezes
- * aparecia e roubava o foco antes disso. O vigia então lia a própria Izze,
+ * corrida — spawn + Add-Type levam ~700ms, e a janela da Íris às vezes
+ * aparecia e roubava o foco antes disso. O vigia então lia a própria Íris,
  * descartava (certo), e não sobrava nada pra primeira pergunta.
  *
  * Quem espera por isto é o 'ready-to-show' do index.ts. O atraso só existe
@@ -139,14 +157,14 @@ export const primeiraLeitura = new Promise<void>((resolve) => {
 /**
  * Sobe o vigia. Chamado no CARREGAMENTO do index.ts, antes do whenReady:
  * o spawn + Add-Type levam quase um segundo e precisam terminar antes da
- * janela da Izze roubar o foco, senão a primeira leitura é a própria Izze
+ * janela da Íris roubar o foco, senão a primeira leitura é a própria Íris
  * e a primeira pergunta da sessão fica sem resposta.
  *
  * Amostra a cada 500ms em vez de reagir ao 'blur' da janela. O blur só
- * dispara quando a Izze PERDE o foco, então ele registra pra onde o usuário
+ * dispara quando a Íris PERDE o foco, então ele registra pra onde o usuário
  * foi ao sair daqui — e erra em todo caminho Chrome → VSCode → Ctrl+Space,
  * onde ele ainda acha que o usuário está no Chrome. Quanto mais tempo longe
- * da Izze, mais errado ficava.
+ * da Íris, mais errado ficava.
  */
 export function vigiarFoco(): void {
   if (vigia) return
@@ -176,7 +194,7 @@ export function vigiarFoco(): void {
         if (foco.programa && !nossa) {
           ultimoFoco = foco
           // Só a primeira leitura ÚTIL destrava a janela. Uma leitura que
-          // caiu na própria Izze não conta: destravar ali seria destravar
+          // caiu na própria Íris não conta: destravar ali seria destravar
           // com o contexto vazio, que é justamente o bug.
           avisarPrimeira?.()
           avisarPrimeira = null
@@ -238,6 +256,43 @@ const PASTAS = ['desktop', 'documentos', 'downloads', 'musica', 'imagens', 'vide
  */
 export const NIVEIS: Record<string, 1 | 2 | 3> = {
   hora_atual: 1,
+
+  /**
+   * 2, e não 1 como "só põe na fila".
+   *
+   * O que entra aqui roda DEPOIS, sem você olhando e sem modal possível —
+   * é a mesma assimetria do `anotar`: barato de criar, e o efeito acontece
+   * onde você não está. Nível 2 faz a escalada da contribuição B morder
+   * quando o pedido de agendar aparece logo depois de conteúdo externo,
+   * que é exatamente como uma injeção transforma um turno em trabalho
+   * autônomo.
+   */
+  agendar_tarefa: 2,
+  minhas_tarefas: 1,
+
+  /**
+   * 1: ler a própria decisão não muda nada, e cobrar confirmação pra explicar
+   * uma recusa inverteria o propósito — o direito à explicação não pode ter
+   * mais atrito que a ação explicada.
+   */
+  seguranca: 1,
+  rostos_autorizados: 1,
+
+  /**
+   * 2 pelo mesmo motivo do `cadastrar_rosto`: apagar quem está autorizado
+   * também muda quem o sistema considera estranho — no sentido contrário,
+   * e num prédio isso é trancar alguém do lado de fora.
+   */
+  esquecer_rosto: 2,
+
+  /**
+   * 2: cadastrar é ESCREVER numa base biométrica, e o que entra aqui decide
+   * quem o sistema deixa de considerar estranho. Uma injeção que consiga
+   * cadastrar um rosto autoriza uma pessoa — é a escalada de privilégio mais
+   * concreta do projeto, e a que menos parece uma.
+   */
+  cadastrar_rosto: 2,
+  por_que_recusei: 1,
   listar_pasta: 1,
   analisar_pasta: 1,
   minhas_estatisticas: 1,
@@ -312,7 +367,7 @@ export const NIVEIS: Record<string, 1 | 2 | 3> = {
   /**
    * 2 e não 1 porque a ferramenta também APAGA. Listar é inócuo; esquecer uma
    * regra não é — a que uma injeção mais quer remover é justamente a que
-   * limita o que a Izze pode fazer sozinha. O nível 2 deixa o usuário
+   * limita o que a Íris pode fazer sozinha. O nível 2 deixa o usuário
    * dizendo "esquece isso" rodar livre e para o mesmo pedido quando ele
    * apareceu depois de texto de terceiro.
    */
@@ -347,7 +402,7 @@ export const NIVEIS: Record<string, 1 | 2 | 3> = {
 }
 
 /**
- * O que a Izze sabe fazer, pra tela mostrar.
+ * O que a Íris sabe fazer, pra tela mostrar.
  *
  * Mora aqui e não no renderer porque é a TERCEIRA metade que precisa andar
  * junto: DECLARACOES, NIVEIS e o que o usuário lê no estado vazio. Uma lista
@@ -358,22 +413,50 @@ export const NIVEIS: Record<string, 1 | 2 | 3> = {
  * O filtro por type === 'function' é o que estreita o union: ChatCompletionTool
  * também aceita ferramenta 'custom', que não tem .function.
  */
+/**
+ * O RECORTE DE SEGURANÇA (2.6).
+ *
+ * O que o trabalho apresenta. As outras 18 ferramentas existem porque a
+ * Íris é usada todo dia — abrir Spotify, pausar mídia, ver o que está
+ * pesado — e nenhuma delas é o objeto do TCC. Listar as 25 na tela de
+ * abertura faz a banca ver um assistente pessoal com uma câmera pregada
+ * do lado, quando o argumento é o contrário: uma camada de decisão
+ * auditável que usa presença física como sinal.
+ *
+ * Fica AQUI e não numa constante do renderer porque é a mesma lista que o
+ * `modoSeguranca` usa pra filtrar, e duas listas divergiriam no dia em que
+ * uma ferramenta de segurança nova nascer.
+ */
+export const FERRAMENTAS_DE_SEGURANCA = new Set([
+  'seguranca',
+  'cadastrar_rosto',
+  'rostos_autorizados',
+  'esquecer_rosto',
+  'por_que_recusei',
+  'minhas_estatisticas',
+  'hora_atual'
+])
+
 export function catalogo(): { nome: string; aprova: Aprova }[] {
-  return DECLARACOES.filter((d) => d.type === 'function').map((d) => {
-    // Ausente = 3, a mesma regra do llm.ts.
-    const nivel = NIVEIS[d.function.name] ?? 3
-    return {
-      nome: d.function.name,
-      /**
-       * TRÊS estados, e não um booleano, desde que a contribuição B tornou a
-       * confirmação condicional. Um `anotar` de nível 2 não para no uso
-       * normal, mas para depois de conteúdo externo — e no booleano ele caía
-       * em "nunca para", que é a mentira ao contrário da que este comentário
-       * já avisava: prometer que roda sozinho sobre algo que às vezes trava.
-       */
-      aprova: nivel === 3 ? 'sempre' : nivel === 2 ? 'as-vezes' : 'nunca'
-    }
-  })
+  const so = ler('modoSeguranca') ? FERRAMENTAS_DE_SEGURANCA : null
+
+  return DECLARACOES.filter((d) => d.type === 'function')
+    .filter((d) => !so || so.has(d.function.name))
+    .map((d) => {
+      // Ausente = 3, a mesma regra do llm.ts.
+      const nivel = NIVEIS[d.function.name] ?? 3
+      return {
+        nome: d.function.name,
+        /**
+         * TRÊS estados, e não um booleano, desde que a contribuição B tornou a
+         * confirmação condicional. Um `anotar` de nível 2 não para no uso
+         * normal, mas para depois de conteúdo externo — e no booleano ele caía
+         * em "nunca para", que é a mentira ao contrário da que este comentário
+         * já avisava: prometer que roda sozinho sobre algo que às vezes trava.
+         */
+        aprova: nivel === 3 ? 'sempre' : nivel === 2 ? 'as-vezes' : 'nunca'
+      }
+    })
 }
 
 export const DECLARACOES: ChatCompletionTool[] = [
@@ -429,7 +512,7 @@ export const DECLARACOES: ChatCompletionTool[] = [
           subcaminho: {
             type: 'string',
             description:
-              'Opcional. Subpasta dentro da pasta base, ex: "projetos/izze". Omita para listar a raiz da pasta base.'
+              'Opcional. Subpasta dentro da pasta base, ex: "projetos/iris". Omita para listar a raiz da pasta base.'
           }
         },
         // Só 'pasta' é obrigatório — subcaminho é refinamento.
@@ -458,7 +541,7 @@ export const DECLARACOES: ChatCompletionTool[] = [
     function: {
       name: 'minhas_estatisticas',
       description:
-        'Mostra estatísticas de uso do próprio assistente: ferramentas mais usadas, atividade por dia, taxa de erro. Use quando perguntarem sobre o uso da Izze, o que ela mais faz, ou se ela está falhando.',
+        'Mostra estatísticas de uso do próprio assistente: ferramentas mais usadas, atividade por dia, taxa de erro. Use quando perguntarem sobre o uso da Íris, o que ela mais faz, ou se ela está falhando.',
       parameters: {
         type: 'object',
         properties: {
@@ -724,6 +807,124 @@ export const DECLARACOES: ChatCompletionTool[] = [
         'Retorna a data e a hora de agora. Use sempre que a pergunta depender do momento presente — o modelo não tem acesso ao relógio.',
       parameters: { type: 'object', properties: {} }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'agendar_tarefa',
+      description:
+        'Coloca uma tarefa demorada na fila para rodar em segundo plano, uma por vez. Use quando o pedido tiver muitas etapas, várias buscas, ou levar minutos — o usuário é avisado ao terminar e pode fechar a janela. NÃO use para pedidos rápidos, que você resolve na hora.',
+      parameters: {
+        type: 'object',
+        properties: {
+          descricao: {
+            type: 'string',
+            description:
+              'A tarefa completa e AUTOCONTIDA. Quem executar não terá o histórico desta conversa: escreva tudo que ela precisa saber, sem "aquilo que a gente falou" nem pronome solto.'
+          }
+        },
+        required: ['descricao']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'seguranca',
+      description:
+        'Abre o painel de segurança e responde o estado atual: quem a câmera está vendo, quem está cadastrado, alarmes recentes e as últimas decisões de risco. Use quando o usuário falar em segurança, vigilância, câmera, "quem está aí", "quem tá na sala", ou pedir para ver/abrir isso. Passe camera para ligar ou desligar o sensor.',
+      parameters: {
+        type: 'object',
+        properties: {
+          camera: {
+            type: 'boolean',
+            description:
+              'Opcional. true liga o sensor de presença, false desliga. Use quando o usuário pedir para ligar/desligar a câmera ou a vigilância.'
+          },
+          modoSeguranca: {
+            type: 'boolean',
+            description:
+              'Opcional. true entra no MODO SEGURANÇA: a Íris passa a se apresentar só como sistema de segurança e esconde as ferramentas do dia a dia. false volta ao normal. Use quando o usuário falar em modo segurança, modo apresentação, banca, defesa ou demonstração.'
+          },
+          porta: {
+            type: 'boolean',
+            description:
+              'Opcional. true abre o MODO PORTA: o rosto da Íris em tela cheia com a câmera embaixo, para deixar num display. Use quando o usuário falar em modo porta, display, tela cheia, "mostra sua cara" ou monitor da entrada.'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cadastrar_rosto',
+      description:
+        'Cadastra como AUTORIZADA a pessoa que está na frente da câmera agora. Use quando o usuário disser "cadastra meu rosto", "me cadastra como X", "esse é o João, autoriza ele". Precisa de exatamente uma pessoa no enquadramento.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nome: { type: 'string', description: 'Nome de quem está na frente da câmera agora.' }
+        },
+        required: ['nome']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'esquecer_rosto',
+      description:
+        'Apaga o cadastro biométrico de uma pessoa autorizada (direito ao esquecimento). Ela volta a ser tratada como desconhecida.',
+      parameters: {
+        type: 'object',
+        properties: { nome: { type: 'string', description: 'Nome exato do cadastro a apagar.' } },
+        required: ['nome']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rostos_autorizados',
+      description: 'Lista quem está cadastrado como autorizado, com a data do cadastro.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'por_que_recusei',
+      description:
+        'Reconstrói uma decisão de risco que já aconteceu: quais sinais entraram, quanto cada um pesou, qual era o limiar e por que parou (ou não). Use quando o usuário perguntar por que você recusou, bloqueou, pediu confirmação ou "parou pra perguntar" — inclusive sobre dias anteriores.',
+      parameters: {
+        type: 'object',
+        properties: {
+          ferramenta: {
+            type: 'string',
+            description:
+              'Opcional. Nome da ferramenta, se o usuário disse qual comando era. Omita para ver as últimas decisões.'
+          },
+          incluirAprovadas: {
+            type: 'boolean',
+            description:
+              'Opcional. true também mostra o que passou direto, para comparar com o que parou.'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'minhas_tarefas',
+      description:
+        'Lista as tarefas em fila, rodando ou encerradas nas últimas 24h. Passe cancelar com um id para tirar uma da fila.',
+      parameters: {
+        type: 'object',
+        properties: { cancelar: { type: 'number', description: 'Opcional. ID a cancelar.' } }
+      }
+    }
   }
 ]
 
@@ -861,11 +1062,14 @@ async function tentarAbrir(candidatos: Candidato[]): Promise<string | null> {
 
     // -ArgumentList só entra quando há argumento: o Start-Process recusa
     // uma lista vazia, e aí todo app sem argumento falharia.
-    const lista = args.length ? ` -ArgumentList ${args.map((a) => `'${a}'`).join(',')}` : ''
+    // Apóstrofo dobrado, igual ao `analisar_pasta`: sem isto um argumento
+    // vindo do modelo fecha a string e o resto vira comando PowerShell.
+    const aspas = (v: string): string => `'${v.replace(/'/g, "''")}'`
+    const lista = args.length ? ` -ArgumentList ${args.map(aspas).join(',')}` : ''
 
     try {
       await executar(
-        `powershell -NoProfile -Command "Start-Process '${exe}'${lista} -ErrorAction Stop"`,
+        `powershell -NoProfile -Command "Start-Process ${aspas(exe)}${lista} -ErrorAction Stop"`,
         { timeout: 8000 }
       )
       return exe
@@ -1060,7 +1264,7 @@ const EXECUTORES: Record<string, (args: any) => Promise<Saida>> = {
     /**
      * `active` e não `used`. No Windows o `used` conta o cache do sistema
      * junto, e ele enche a RAM de propósito — a leitura sairia "31 de 32 GB"
-     * numa máquina ociosa, e a Izze diria que o PC está no limite quando não
+     * numa máquina ociosa, e a Íris diria que o PC está no limite quando não
      * está.
      */
     const cpuPct = Math.round(cpu.currentLoad)
@@ -1130,10 +1334,10 @@ const EXECUTORES: Record<string, (args: any) => Promise<Saida>> = {
      * comandos do stdin.
      */
     await rodarPS(
-      `Add-Type -Name Teclas -Namespace Izze -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, IntPtr extra);'
+      `Add-Type -Name Teclas -Namespace Íris -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, IntPtr extra);'
        1..${repetir} | ForEach-Object {
-         [Izze.Teclas]::keybd_event(${hex}, 0, 0, [IntPtr]::Zero)
-         [Izze.Teclas]::keybd_event(${hex}, 0, 2, [IntPtr]::Zero)
+         [Íris.Teclas]::keybd_event(${hex}, 0, 0, [IntPtr]::Zero)
+         [Íris.Teclas]::keybd_event(${hex}, 0, 2, [IntPtr]::Zero)
          Start-Sleep -Milliseconds 20
        }`,
       { timeout: 10000 }
@@ -1147,7 +1351,7 @@ const EXECUTORES: Record<string, (args: any) => Promise<Saida>> = {
      * Os 30 segundos do shutdown não são educação, são o botão de desfazer.
      *
      * Desligar é a única ação do catálogo que tira do usuário a chance de
-     * corrigir a Izze — se ela entendeu errado, a tela apaga antes de ele
+     * corrigir a Íris — se ela entendeu errado, a tela apaga antes de ele
      * conseguir digitar. Com a espera, "cancela" ainda chega a tempo, e é por
      * isso que 'cancelar' existe como ação em vez de virar rodar_powershell.
      */
@@ -1439,6 +1643,221 @@ const EXECUTORES: Record<string, (args: any) => Promise<Saida>> = {
 
   async hora_atual() {
     return new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
+  },
+  async agendar_tarefa({ descricao }: { descricao: string }) {
+    const id = enfileirarTarefa(descricao)
+    return `Tarefa #${id} na fila. Aviso quando terminar — pode fechar a janela.`
+  },
+
+  /**
+   * EXPLICAÇÃO DE RECUSA AUDITÁVEL (LGPD Art. 20).
+   *
+   * O `motivos` que o modal mostra some junto com o modal. Isto lê a coluna
+   * `decisao`, que guardou a avaliação inteira no momento em que ela
+   * aconteceu — com os pesos daquele dia, não os de hoje. O limiar é
+   * configurável em runtime: reconstruir a decisão recalculando seria contar
+   * uma história com as regras erradas.
+   */
+  /**
+   * O PAINEL DE SEGURANÇA por voz.
+   *
+   * Abre a tela E responde por texto, os dois. Só abrir seria inútil com a
+   * janela na bandeja e o usuário do outro lado da sala — que é exatamente
+   * a situação em que se pergunta "quem tá aí?".
+   */
+  async seguranca({
+    camera,
+    porta,
+    modoSeguranca
+  }: {
+    camera?: boolean
+    porta?: boolean
+    modoSeguranca?: boolean
+  }) {
+    if (modoSeguranca !== undefined) {
+      gravar('modoSeguranca', modoSeguranca)
+      // O renderer redesenha a abertura a partir do catálogo, que agora vem
+      // filtrado — sem o aviso ele mostraria as 25 até o próximo boot.
+      avisarCameraMudou(Boolean(ler('cameraAtiva')))
+    }
+
+    /**
+     * Ligar por fala existe porque o interruptor morava em Ajustes — e a
+     * feature inteira nasceu de "não quero abrir config". Uma câmera que só
+     * liga na tela de preferências é uma câmera que fica desligada.
+     */
+    if (camera !== undefined) {
+      gravar('cameraAtiva', camera)
+      // A janela precisa saber AGORA: o laço da câmera vive no renderer e
+      // não relê a config sozinho. Sem isto o "liga a câmera" só valeria no
+      // próximo boot, e a Íris responderia que ligou.
+      avisarCameraMudou(camera)
+    }
+
+    // O modo porta SUBSTITUI o painel quando pedido: são duas telas cheias,
+    // e abrir as duas deixaria a de baixo invisível e ligada à toa.
+    const abriu = porta ? abrirModoPorta() : abrirPainelSeguranca()
+    const l = leituraAtual()
+    const cadastrados = rostosCadastrados()
+    const alarmes = eventosVigilancia(5)
+
+    const estadoCamera =
+      l.rostos < 0
+        ? 'câmera desligada'
+        : l.rostos === 0
+          ? 'ninguém em frente à câmera'
+          : `${l.conhecidos.join(', ') || 'ninguém conhecido'}` +
+            (l.desconhecidos ? ` · ${l.desconhecidos} NÃO CADASTRADA(S)` : '')
+
+    return {
+      texto:
+        (modoSeguranca === true ? 'Modo segurança ligado. ' : '') +
+        (modoSeguranca === false ? 'Voltei ao modo normal. ' : '') +
+        `Câmera: ${estadoCamera}. ${cadastrados.length} pessoa(s) autorizada(s), ` +
+        `${alarmes.length} alarme(s) recente(s).` +
+        (abriu ? '' : ' (janela fechada — não deu pra abrir o painel)'),
+      visual: {
+        tipo: 'kpi' as const,
+        titulo: 'Segurança',
+        /**
+         * UM objeto, e as CHAVES viram os rótulos — é assim que o Painel
+         * desenha kpi (`Object.entries(dados[0])`). A forma de tabela
+         * (`[{rotulo, valor}, …]`) não dá erro: ela desenha duas linhas
+         * escritas "rotulo / estado" e para no primeiro item. Some com o
+         * resto do painel sem avisar ninguém.
+         */
+        dados: [
+          {
+            estado: presencaAtual(),
+            'na câmera': Math.max(l.rostos, 0),
+            'não cadastrados': l.desconhecidos,
+            autorizados: cadastrados.length
+          }
+        ]
+      }
+    }
+  },
+
+  /**
+   * Cadastro por voz. O vetor vem do renderer e a ferramenta nunca vê um
+   * frame — o canal do preload não transporta imagem.
+   */
+  async cadastrar_rosto({ nome }: { nome: string }) {
+    const limpo = nome.trim()
+    if (!limpo) return 'preciso de um nome pra cadastrar.'
+
+    const d = await pedirDescritor()
+    // String = motivo de não ter dado (ninguém na frente, duas pessoas,
+    // câmera desligada). Devolver como texto deixa o modelo explicar o que
+    // fazer em vez de dizer "cadastrei" pra um cadastro que não houve.
+    if (typeof d === 'string') return `não cadastrei: ${d}`
+
+    cadastrarRosto(limpo, d)
+
+    /**
+     * O laço de reconhecimento no renderer trabalha com uma CÓPIA da
+     * galeria, carregada no boot. Sem este aviso, a pessoa recém-cadastrada
+     * continuava sendo apontada como desconhecida até reiniciar o app — e
+     * pior, disparando alarme. O painel já recarregava sozinho depois de
+     * cadastrar pela tela; o caminho por voz não tinha equivalente.
+     */
+    avisarGaleriaMudou()
+
+    return `${limpo} cadastrado como autorizado. A partir de agora a câmera reconhece — e quem não estiver na lista vira alarme.`
+  },
+
+  /**
+   * Apagar é ferramenta SEPARADA, e não um parâmetro desta.
+   *
+   * O nível é por ferramenta, não por argumento: com o apagar aqui dentro,
+   * `rostos_autorizados` precisaria ser nível 2 inteiro — confirmação pra
+   * LISTAR — ou nível 1 inteiro, e aí apagar um cadastro biométrico passaria
+   * sem confirmação nenhuma. Duas ferramentas resolvem sem escolher entre
+   * atrito no lugar errado e buraco no lugar certo.
+   */
+  async esquecer_rosto({ nome }: { nome: string }) {
+    if (!esquecerRosto(nome.trim())) return `Não encontrei ninguém cadastrado como "${nome}".`
+
+    // Mesmo motivo do cadastro, e aqui é pior: sem isto quem foi removido
+    // continuaria sendo RECONHECIDO — uma autorização revogada que segue
+    // valendo é a falha mais grave que este módulo pode ter.
+    avisarGaleriaMudou()
+    return `Cadastro de ${nome.trim()} apagado — ela volta a contar como desconhecida.`
+  },
+
+  async rostos_autorizados() {
+    const lista = rostosCadastrados()
+    if (!lista.length) {
+      return 'Ninguém cadastrado ainda — sem uma lista pra comparar, o alarme de desconhecido fica inativo.'
+    }
+
+    return {
+      texto: `${lista.length} pessoa(s) autorizada(s).`,
+      visual: {
+        tipo: 'tabela' as const,
+        titulo: 'Rostos autorizados',
+        dados: lista.map((r) => ({
+          nome: r.nome,
+          desde: new Date(r.criado_em).toLocaleDateString('pt-BR')
+        }))
+      }
+    }
+  },
+
+  async por_que_recusei({
+    ferramenta,
+    incluirAprovadas
+  }: {
+    ferramenta?: string
+    incluirAprovadas?: boolean
+  }) {
+    const linhas = decisoes(ferramenta, !incluirAprovadas)
+    if (!linhas.length) {
+      return ferramenta
+        ? `Não há decisão registrada para ${ferramenta}.`
+        : 'Não há decisão de risco registrada ainda.'
+    }
+
+    const dados = linhas.map((l) => {
+      const d = JSON.parse(l.decisao) as Avaliacao
+      return {
+        quando: new Date(l.momento).toLocaleString('pt-BR'),
+        ferramenta: l.ferramenta,
+        // Cada sinal com o seu peso, na ordem em que entrou. É esta coluna
+        // que transforma "achei arriscado" em explicação verificável.
+        conta:
+          `nível ${d.nivel}` +
+          (d.sinais ?? []).map((x) => ` ${x.peso >= 0 ? '+' : ''}${x.peso} ${x.sinal}`).join('') +
+          ` = ${d.escore} (limiar ${d.limiar})`,
+        resultado: d.confirma ? 'PAROU e perguntou' : 'executou direto'
+      }
+    })
+
+    return {
+      texto: `${dados.length} decisão(ões). A conta de cada uma está na tabela.`,
+      visual: { tipo: 'tabela' as const, titulo: 'Como a decisão foi tomada', dados }
+    }
+  },
+
+  async minhas_tarefas({ cancelar }: { cancelar?: number }) {
+    if (cancelar) {
+      return cancelarTarefa(cancelar)
+        ? `Tarefa #${cancelar} cancelada.`
+        : `#${cancelar} não pode ser cancelada: ou já está rodando, ou não existe.`
+    }
+
+    const t = listarTarefas()
+    if (!t.length) return 'Nenhuma tarefa na fila.'
+
+    const ativas = t.filter((x) => x.status === 'pendente' || x.status === 'rodando').length
+    return {
+      texto: `${ativas} ativa(s), ${t.length - ativas} encerrada(s) nas últimas 24h.`,
+      visual: {
+        tipo: 'tabela' as const,
+        titulo: 'Fila de tarefas',
+        dados: t.map((x) => ({ id: x.id, tarefa: x.descricao.slice(0, 60), status: x.status }))
+      }
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /**
- * IZZE — o HUD do Mark III.
+ * ÍRIS — o HUD do Mark III.
  *
  * A referência é o Jarvis dos filmes, mas o Jarvis CERTO. O HUD cyan e
  * carregado é o Mark II; no Mark III os próprios designers trocaram por
@@ -33,7 +33,7 @@
   --color-tinta-2: #93a6b3;
   --color-tinta-3: #6d7f8b;
 
-  /* Acento crítico, e a marca da Izze. Some da tela quando nada é crítico. */
+  /* Acento crítico, e a marca da Íris. Some da tela quando nada é crítico. */
   --color-sinal: #e8a33d;
 
   /* Cyan como DADO secundário, nunca como fundo nem como brilho: é a herança
@@ -70,7 +70,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   /* Nenhum texto da UI é selecionável por acidente ao arrastar, mas o que a
-     Izze RESPONDE é — é conteúdo, e copiar resposta é uso normal. */
+     Íris RESPONDE é — é conteúdo, e copiar resposta é uso normal. */
   user-select: none;
 }
 
@@ -175,6 +175,18 @@ body {
 }
 
 /*
+ * Cantos em vermelho: alguém não cadastrado no enquadramento (2.6).
+ *
+ * O terceiro e último papel dos colchetes, e o único que não é sobre o tipo
+ * do painel, é sobre o que está dentro dele agora. Perigo é a cor que o
+ * arquivo reserva pro irreversível — e uma pessoa não identificada na frente
+ * de um sistema que executa comandos é exatamente essa categoria.
+ */
+.colchetes-alerta {
+  --c: var(--color-perigo);
+}
+
+/*
  * O MOVIMENTO — "exploded keyhole".
  *
  * A mecânica que o filme usa pra tudo que aparece: o widget gira, destrava,
@@ -254,4 +266,108 @@ body {
   .destravar {
     animation: none;
   }
+}
+
+/*
+ * A RETÍCULA — o recorte que está sendo analisado (2.6).
+ *
+ * Quatro ticks nas bordas do visor, não uma mira central. O que eles dizem é
+ * concreto: ESTA é a região que o detector lê. Sem eles, um rosto na quina
+ * do enquadramento que não foi detectado parece bug do modelo, quando muitas
+ * vezes é o recorte — e a diferença entre as duas coisas é o que decide se
+ * você move a câmera ou troca o limiar.
+ *
+ * Mora no CSS e não no canvas de propósito: o canvas é redesenhado 12x por
+ * segundo com a fonte viva, e pintar moldura fixa ali seria repintar o
+ * imutável junto com o que muda.
+ */
+.reticula {
+  position: relative;
+}
+.reticula::before,
+.reticula::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  border-color: var(--color-fio-forte);
+  border-style: solid;
+}
+/* Cima-esquerda e baixo-direita num; o par oposto no outro. Dois
+   pseudo-elementos dão os quatro cantos sem elemento extra no JSX. */
+.reticula::before {
+  border-width: 1px 0 0 1px;
+  border-right: 0;
+  border-bottom: 0;
+  clip-path: polygon(0 0, 14px 0, 14px 1px, 1px 1px, 1px 14px, 0 14px);
+}
+.reticula::after {
+  border-width: 0 1px 1px 0;
+  clip-path: polygon(
+    100% 100%,
+    calc(100% - 14px) 100%,
+    calc(100% - 14px) calc(100% - 1px),
+    calc(100% - 1px) calc(100% - 1px),
+    calc(100% - 1px) calc(100% - 14px),
+    100% calc(100% - 14px)
+  );
+}
+
+/*
+ * O ALARME — a borda da tela quando há alguém não cadastrado.
+ *
+ * O indicador de antes era um ponto de 6px no cabeçalho. Para a camada de
+ * risco isso basta (quem lê é o código); para uma pessoa, não: um display de
+ * porta é visto de longe e de esguelha, e o evento mais importante do
+ * sistema não pode ser o menor pixel da tela.
+ *
+ * É estado, não decoração — a regra do arquivo: acende SÓ enquanto a leitura
+ * atual tem desconhecido, e apaga sozinho quando ele sai do enquadramento.
+ * Pulsa devagar (1,8s) porque alarme rápido lê como erro de renderização e
+ * cansa em minutos; um sistema de vigilância fica ligado por horas.
+ */
+@keyframes alarmar {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-perigo) 55%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px var(--color-perigo),
+      inset 0 0 34px -8px color-mix(in srgb, var(--color-perigo) 45%, transparent);
+  }
+}
+.alarme {
+  animation: alarmar 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alarme {
+    animation: none;
+    box-shadow: inset 0 0 0 2px var(--color-perigo);
+  }
+}
+
+/*
+ * A RÉGUA — o rótulo de seção que atravessa até a borda.
+ *
+ * Vocabulário de instrumento em vez de vocabulário de página: um <h3> solto
+ * é hierarquia tipográfica, e funciona numa coluna de texto. Numa tela densa
+ * de painéis empilhados, o fio que sai do rótulo e corre até o fim diz onde
+ * a seção COMEÇA — informação que o tamanho da fonte não dá quando tudo está
+ * em versalete de 11px.
+ *
+ * Fio no mesmo branco transparente do resto do wireframe: ele ganha peso ao
+ * empilhar, como o do capacete, em vez de riscar a tela com cinza sólido.
+ */
+.regua {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.regua::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-fio);
 }

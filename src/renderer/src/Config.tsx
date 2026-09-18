@@ -65,7 +65,7 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
         */}
         {semChave && (
           <p className="border-l border-sinal pl-4 text-[13px] leading-[1.65] text-tinta-2">
-            Sem chave da OpenRouter a Izze não responde. Pegue uma em{' '}
+            Sem chave da OpenRouter a Íris não responde. Pegue uma em{' '}
             <span className="font-mono text-tinta">openrouter.ai/keys</span> e cole abaixo — ela é
             guardada criptografada nesta máquina, nunca em texto puro.
           </p>
@@ -95,7 +95,7 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
           cfg={cfg}
           salvo={salvo}
           alterar={alterar}
-          dica="Opcional — é o que liga a busca na web. Sem ela a Izze responde só do que já sabe. tavily.com"
+          dica="Opcional — é o que liga a busca na web. Sem ela a Íris responde só do que já sabe. tavily.com"
         />
 
         {/*
@@ -107,7 +107,7 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
           rotulo="MODELOS RESERVA"
           cfg={cfg}
           salvo={salvo}
-          dica="Separados por vírgula. Todos precisam suportar ferramentas, senão a Izze vira só um chat quando cair pra reserva."
+          dica="Separados por vírgula. Todos precisam suportar ferramentas, senão a Íris vira só um chat quando cair pra reserva."
           converter={(t) =>
             t
               .split(',')
@@ -167,6 +167,47 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
             className="h-4 w-4 accent-sinal"
           />
         </label>
+
+        <label className="flex items-center justify-between border-t border-fio pt-4">
+          <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
+            MODO SEGURANÇA
+          </span>
+          <input
+            type="checkbox"
+            checked={Boolean(cfg.modoSeguranca)}
+            onChange={(e) => alterar('modoSeguranca', e.target.checked)}
+            className="h-4 w-4 accent-sinal"
+          />
+        </label>
+        <Dica>
+          A abertura passa a falar do sistema de segurança em vez de listar os 25 comandos, e a Íris
+          abre direto no painel. Nada é desligado — as ferramentas do dia a dia continuam
+          respondendo se você pedir, só param de ocupar a tela.
+        </Dica>
+
+        <label className="flex items-center justify-between border-t border-fio pt-4">
+          <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
+            CÂMERA (PRESENÇA)
+          </span>
+          <input
+            type="checkbox"
+            checked={Boolean(cfg.cameraAtiva)}
+            onChange={(e) => alterar('cameraAtiva', e.target.checked)}
+            className="h-4 w-4 accent-sinal"
+          />
+        </label>
+        <Dica>
+          Conta os rostos em frente à tela a cada 1,5s, dentro do seu PC. Nenhum frame é gravado e
+          nada sai da máquina. Com a cadeira vazia, toda ação de risco médio passa a pedir
+          confirmação; com alguém não cadastrado na frente, qualquer ação para e pergunta.
+        </Dica>
+
+        {Boolean(cfg.cameraAtiva) && (
+          <Dica>
+            Cadastro de rostos autorizados fica no painel de segurança — peça &ldquo;abre a
+            segurança&rdquo; pra Íris, ou diga &ldquo;cadastra meu rosto como …&rdquo;.
+          </Dica>
+        )}
 
         <div>
           <Rotulo id="vozRitmo" salvo={salvo}>

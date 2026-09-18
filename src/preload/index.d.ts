@@ -17,6 +17,35 @@ declare global {
       falar: (texto: string) => void
       pararFala: () => void
       mudo: (mudo: boolean) => void
+      presenca: (leitura: { rostos: number; desconhecidos: number; conhecidos: string[] }) => void
+      camera: {
+        conectar: (url: string) => Promise<boolean>
+        desconectar: () => Promise<void>
+        erro: () => Promise<string>
+        procurar: () => Promise<{ url: string; tipo: string; servidor: string }[]>
+        testar: (alvo: string) => Promise<string>
+        qr: () => Promise<{ url: string; qr: string } | { erro: string }>
+        aoFrame: (cb: (jpegBase64: string) => void) => () => void
+      }
+      seguranca: {
+        painel: () => Promise<{
+          rostos: { nome: string; criado_em: string }[]
+          alarmes: { id: number; momento: string; resultado: string }[]
+          decisoes: { id: number; momento: string; ferramenta: string; decisao: string }[]
+        }>
+        aoAbrir: (cb: () => void) => () => void
+        aoAbrirPorta: (cb: () => void) => () => void
+        aoMudarCamera: (cb: (ligada: boolean) => void) => () => void
+        aoMudarGaleria: (cb: () => void) => () => void
+        salvarMedicao: (dados: unknown) => Promise<string>
+        aoPedirRosto: (cb: (id: string) => Promise<number[] | string>) => () => void
+      }
+      rostos: {
+        lista: () => Promise<{ nome: string; criado_em: string }[]>
+        cadastrar: (nome: string, descritor: number[]) => Promise<void>
+        esquecer: (nome: string) => Promise<boolean>
+        galeria: () => Promise<{ nome: string; descritor: number[] }[]>
+      }
       aoAvisar: (cb: (aviso: Aviso) => void) => () => void
       avisosPendentes: () => Promise<Aviso[]>
       rotular: (id: number, util: boolean) => void
