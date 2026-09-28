@@ -1,57 +1,26 @@
 @import 'tailwindcss';
+@import './shell.css';
 
-/**
- * ÍRIS — o HUD do Mark III.
- *
- * A referência é o Jarvis dos filmes, mas o Jarvis CERTO. O HUD cyan e
- * carregado é o Mark II; no Mark III os próprios designers trocaram por
- * "predominantly white with accent colors" porque, nas palavras deles,
- * "cyan is passé". Eles ainda anotaram que "amber is kind of the 80s and
- * cyan is the 90s". Então nem um nem outro governa a tela: quem governa é
- * o traço BRANCO, e a cor entra só onde há informação crítica.
- *
- * A outra regra que veio do set vale mais que qualquer paleta:
- * "If it doesn't do something that would be real for somebody flying around
- * in this suit then we are taking it out." Nada aqui decora. Anel que não
- * mede, varredura que não indica processo e brilho que não é estado são o
- * "extra crap to make it futuristic and fancy" que eles cortaram — e são
- * exatamente o clichê que a UI do vilão exibe de propósito no filme.
- *
- * A CSP do index.html é 'self': nenhuma fonte externa carrega. As três faces
- * abaixo já vêm no Windows 11.
- */
 @theme {
-  /* Fundo com viés azul, não grafite neutro: é vidro escuro visto de dentro
-     do capacete, não chapa de metal. */
-  --color-fundo: #05090e;
-  --color-chapa: #0b1219;
-  --color-sulco: #03070a;
+  --color-fundo: #070b14;
+  --color-chapa: #0d1422;
+  --color-sulco: #050810;
 
-  /* O TRAÇO. Branco frio é a decisão do Mark III e a razão de este arquivo
-     existir; era papel quente antes. */
-  --color-tinta: #eaf2f6;
-  --color-tinta-2: #93a6b3;
-  --color-tinta-3: #6d7f8b;
+  --color-tinta: #edf3fc;
+  --color-tinta-2: #a5b2c8;
+  --color-tinta-3: #7e8ea8;
 
-  /* Acento crítico, e a marca da Íris. Some da tela quando nada é crítico. */
-  --color-sinal: #e8a33d;
+  --color-sinal: #63dcf2;
 
-  /* Cyan como DADO secundário, nunca como fundo nem como brilho: é a herança
-     do Mark II reduzida ao papel que ela aguenta sem virar clichê. */
-  --color-hud: #5bc8e8;
-  --color-info: #5bc8e8;
+  --color-hud: #63dcf2;
+  --color-info: #a392ff;
 
-  --color-ok: #6fd39a;
-  --color-perigo: #ff5646;
+  --color-ok: #73e2ba;
+  --color-perigo: #ff788b;
 
-  /* Fio de cabelo em BRANCO transparente, não em cinza sólido: wireframe
-     que ganha peso ao empilhar, como o do capacete. */
   --color-fio: rgba(234, 242, 246, 0.1);
   --color-fio-forte: rgba(234, 242, 246, 0.22);
 
-  /* Condensada e técnica pros rótulos em versalete — a voz do instrumento.
-     Cascadia continua no dado e no código; Segoe na prosa, que é o único
-     texto aqui feito pra ler em linha corrida e não pra bater o olho. */
   --font-hud: 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
   --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
@@ -69,8 +38,7 @@ body {
   color: var(--color-tinta);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  /* Nenhum texto da UI é selecionável por acidente ao arrastar, mas o que a
-     Íris RESPONDE é — é conteúdo, e copiar resposta é uso normal. */
+
   user-select: none;
 }
 
@@ -79,8 +47,6 @@ body {
   color: var(--color-tinta);
 }
 
-/* Barra de rolagem no mesmo material do resto. O padrão do Chrome é um cinza
-   claro que não pertence a este mundo. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-fio-forte) transparent;
@@ -101,35 +67,14 @@ body {
   background: var(--color-tinta-3);
 }
 
-/* Foco de teclado visível. O anel é âmbar porque é a cor de sinal, e fica
-   DENTRO do elemento pra não empurrar layout.
-
-   O textarea fica de fora: ele ocupa a largura toda, então o anel desenhava
-   uma caixa de formulário de 1000px no rodapé de uma interface que não tem
-   nenhuma outra. Lá quem indica o foco é o cursor âmbar (caret-sinal) e o
-   sinal de prompt, que acende junto — dois indicadores, não zero.
-
-   Regra fora de @layer vence utilitário do Tailwind por cascata, então
-   'focus-visible:outline-none' na classe NÃO resolveria isto. */
 :focus-visible:not(textarea) {
   outline: 1px solid var(--color-sinal);
   outline-offset: -1px;
 }
 
-/*
- * COLCHETES DE CANTO — a moldura do HUD.
- *
- * Quatro cantos em L, não uma caixa fechada. É a diferença entre uma mira e
- * um card: o retângulo completo é vocabulário de página web, o colchete é de
- * instrumento, e ele emoldura sem cercar (o olho continua atravessando).
- *
- * Oito gradientes num background só em vez de pseudo-elementos: ::before e
- * ::after dariam dois cantos, e os outros dois exigiriam um elemento extra
- * no JSX pra cada painel da tela.
- */
 .colchetes {
   --c: var(--color-fio-forte);
-  --e: 11px; /* comprimento do braço */
+  --e: 11px;
   background-image:
     linear-gradient(var(--c), var(--c)), linear-gradient(var(--c), var(--c)),
     linear-gradient(var(--c), var(--c)), linear-gradient(var(--c), var(--c)),
@@ -155,45 +100,19 @@ body {
     right bottom,
     right bottom;
 }
-/* Aceso: o painel que está sendo lido troca o cinza pelo âmbar. */
+
 .colchetes-vivo {
   --c: var(--color-sinal);
 }
 
-/*
- * Dado que ela ofereceu sem ninguém pedir — o aviso de gatilho.
- *
- * Cyan e não âmbar, e a distinção é a regra inteira da paleta: âmbar é
- * "acento crítico" e some da tela quando nada é crítico, então gastá-lo num
- * aviso de disco enchendo o esvazia justamente pro modal de aprovação, que é
- * o único lugar onde ele precisa gritar. Cyan é o papel que o Mark II
- * aguenta sem virar clichê: DADO secundário. Um aviso automático é
- * exatamente isso — não é resposta sua, não é decisão, é leitura.
- */
 .colchetes-dado {
   --c: color-mix(in srgb, var(--color-hud) 55%, transparent);
 }
 
-/*
- * Cantos em vermelho: alguém não cadastrado no enquadramento (2.6).
- *
- * O terceiro e último papel dos colchetes, e o único que não é sobre o tipo
- * do painel, é sobre o que está dentro dele agora. Perigo é a cor que o
- * arquivo reserva pro irreversível — e uma pessoa não identificada na frente
- * de um sistema que executa comandos é exatamente essa categoria.
- */
 .colchetes-alerta {
   --c: var(--color-perigo);
 }
 
-/*
- * O MOVIMENTO — "exploded keyhole".
- *
- * A mecânica que o filme usa pra tudo que aparece: o widget gira, destrava,
- * abre em leque e solta o conteúdo. Aqui é a rotação mínima somada à
- * abertura horizontal, e SÓ acontece em coisa que nasce na tela (painel de
- * dado, modal de aprovação). Nada nesta interface entra deslizando de baixo.
- */
 @keyframes destravar {
   0% {
     opacity: 0;
@@ -213,13 +132,6 @@ body {
   animation: destravar 460ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/*
- * O ANUNCIADOR — a janela em foco trocando.
- *
- * "Graphics fly in and out rather than remaining static": quando o programa
- * muda, o mostrador não troca seco, é revelado por varredura. É o único
- * movimento que roda sozinho, e roda porque um dado mudou.
- */
 @keyframes varrer {
   from {
     clip-path: inset(0 100% 0 0);
@@ -232,8 +144,6 @@ body {
   animation: varrer 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* O arco de processamento gira só enquanto ela pensa. Anel parado na tela
-   seria decoração — é o que o filme chama de "extra crap". */
 @keyframes girar {
   to {
     transform: rotate(360deg);
@@ -244,7 +154,6 @@ body {
   transform-origin: center;
 }
 
-/* Cursor de digitação. Onda quadrada, como o do console. */
 @keyframes piscar {
   0%,
   49% {
@@ -268,19 +177,6 @@ body {
   }
 }
 
-/*
- * A RETÍCULA — o recorte que está sendo analisado (2.6).
- *
- * Quatro ticks nas bordas do visor, não uma mira central. O que eles dizem é
- * concreto: ESTA é a região que o detector lê. Sem eles, um rosto na quina
- * do enquadramento que não foi detectado parece bug do modelo, quando muitas
- * vezes é o recorte — e a diferença entre as duas coisas é o que decide se
- * você move a câmera ou troca o limiar.
- *
- * Mora no CSS e não no canvas de propósito: o canvas é redesenhado 12x por
- * segundo com a fonte viva, e pintar moldura fixa ali seria repintar o
- * imutável junto com o que muda.
- */
 .reticula {
   position: relative;
 }
@@ -293,8 +189,7 @@ body {
   border-color: var(--color-fio-forte);
   border-style: solid;
 }
-/* Cima-esquerda e baixo-direita num; o par oposto no outro. Dois
-   pseudo-elementos dão os quatro cantos sem elemento extra no JSX. */
+
 .reticula::before {
   border-width: 1px 0 0 1px;
   border-right: 0;
@@ -313,19 +208,6 @@ body {
   );
 }
 
-/*
- * O ALARME — a borda da tela quando há alguém não cadastrado.
- *
- * O indicador de antes era um ponto de 6px no cabeçalho. Para a camada de
- * risco isso basta (quem lê é o código); para uma pessoa, não: um display de
- * porta é visto de longe e de esguelha, e o evento mais importante do
- * sistema não pode ser o menor pixel da tela.
- *
- * É estado, não decoração — a regra do arquivo: acende SÓ enquanto a leitura
- * atual tem desconhecido, e apaga sozinho quando ele sai do enquadramento.
- * Pulsa devagar (1,8s) porque alarme rápido lê como erro de renderização e
- * cansa em minutos; um sistema de vigilância fica ligado por horas.
- */
 @keyframes alarmar {
   0%,
   100% {
@@ -348,18 +230,6 @@ body {
   }
 }
 
-/*
- * A RÉGUA — o rótulo de seção que atravessa até a borda.
- *
- * Vocabulário de instrumento em vez de vocabulário de página: um <h3> solto
- * é hierarquia tipográfica, e funciona numa coluna de texto. Numa tela densa
- * de painéis empilhados, o fio que sai do rótulo e corre até o fim diz onde
- * a seção COMEÇA — informação que o tamanho da fonte não dá quando tudo está
- * em versalete de 11px.
- *
- * Fio no mesmo branco transparente do resto do wireframe: ele ganha peso ao
- * empilhar, como o do capacete, em vez de riscar a tela com cinza sólido.
- */
 .regua {
   display: flex;
   align-items: center;

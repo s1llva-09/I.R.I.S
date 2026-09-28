@@ -118,3 +118,46 @@ export function Prompt(props: Props): JSX.Element {
     </Base>
   )
 }
+
+export function Escudo(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M8 1.5 13.5 4v4c0 3-3 5.2-5.5 6.5C5.5 13.2 2.5 11 2.5 8V4z" />
+      <path d="m5.5 7.8 1.7 1.7 3.4-3.4" />
+    </Base>
+  )
+}
+
+export function Camera(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M2 4.5h3l1-2h4l1 2h3v9H2z" />
+      <circle cx="8" cy="8.5" r="2.5" />
+    </Base>
+  )
+}
+
+export function Ajustes(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M3 2v12M8 2v12M13 2v12" />
+      <path d="M1 5h4M6 10h4M11 6h4" strokeWidth="3" />
+    </Base>
+  )
+}
+
+export function Grade(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M2 2h4.5v4.5H2zM9.5 2H14v4.5H9.5zM2 9.5h4.5V14H2zM9.5 9.5H14V14H9.5z" />
+    </Base>
+  )
+}
+
+export function Enviar(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="m2 2 12 6-12 6 2-6zM4 8h10" />
+    </Base>
+  )
+}

@@ -75,11 +75,13 @@ if (!app.requestSingleInstanceLock()) {
 // ---------- janela ----------
 function criarJanela(): void {
   janela = new BrowserWindow({
-    width: 1100,
-    height: 720,
+    width: 1380,
+    height: 900,
+    minWidth: 700,
+    minHeight: 560,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#05090E', // evita o flash branco antes do React montar
+    backgroundColor: '#070b14', // evita o flash branco antes do React montar
 
     /**
      * A barra de título nativa do Windows é clara e não pertence ao mundo
@@ -93,7 +95,7 @@ function criarJanela(): void {
      * mexer na outra.
      */
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#0b1219', symbolColor: '#93a6b3', height: 40 },
+    titleBarOverlay: { color: '#090e19', symbolColor: '#a5b2c8', height: 40 },
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -500,7 +502,10 @@ function registrarIPC(): void {
     return true
   })
 
-  ipcMain.handle('camera:desconectar', () => desconectarCamera())
+  ipcMain.handle('camera:desconectar', () => {
+    desconectarCamera()
+    fecharServidor()
+  })
   ipcMain.handle('camera:erro', () => erroCamera())
 
   // A varredura demora segundos e é o main que tem socket cru: o renderer

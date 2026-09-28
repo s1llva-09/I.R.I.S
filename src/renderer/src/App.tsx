@@ -5,13 +5,16 @@ import {
   definirGaleria,
   definirLimiar,
   iniciarPresenca,
+  pararPresenca,
+  pararQuadros,
   receberQuadro
 } from './presenca'
 import Seguranca from './Seguranca'
 import Porta from './Porta'
 import { useEffect, useRef, useState, type JSX } from 'react'
 import Painel from './Painel'
-import { Arco, Atencao, Mudo, Prompt, Pulso, Seta, Som } from './icones'
+import { Atencao, Enviar, Prompt, Pulso, Seta } from './icones'
+import Shell, { BoasVindas, type Destino } from './Shell'
 import { alternarVoz, criarLeitor, parar } from './voz'
 import Config from './Config'
 
@@ -36,92 +39,9 @@ type Mensagem = {
 
 type Estado = Awaited<ReturnType<typeof window.api.estado>>
 
-// ---------------------------------------------------------------
-// Peças da barra de status
-// ---------------------------------------------------------------
-
-/**
- * Rótulo da calha. É a cabeça de seção da página de manual: versalete
- * monoespaçado à esquerda, conteúdo pendurado à direita. Toda a interface
- * usa esta mesma calha — é o que substitui a coluna de balõezinhos.
- */
 function Calha({ children }: { children: React.ReactNode }): JSX.Element {
-  return (
-    <div className="w-[104px] shrink-0 pt-px text-right font-hud text-[11px] leading-5 tracking-[0.2em] text-tinta-3 select-none">
-      {children}
-    </div>
-  )
+  return <div className="message-label">{children}</div>
 }
-
-/**
- * Escada segmentada da cota. Não é anel de progresso nem número gigante:
- * é a régua de LED de um instrumento, que se lê de relance sem ler número.
- * O número exato vai no title, pra quando você quiser saber de verdade.
- */
-function Escada({ uso }: { uso: Estado['uso'] }): JSX.Element {
-  const SEGMENTOS = 14
-  const cheios = Math.min(SEGMENTOS, Math.ceil((uso.usadas / uso.teto) * SEGMENTOS))
-  // Vira vermelho no último quinto — o ponto em que faltar cota deixa de ser
-  // informação e vira aviso.
-  const apertado = uso.restantes <= uso.teto * 0.2
-
-  return (
-    <div
-      className="flex items-center gap-2"
-      title={`${uso.usadas} de ${uso.teto} chamadas hoje · restam ${uso.restantes}`}
-    >
-      <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3">COTA</span>
-      <div
-        className="flex gap-[2px]"
-        role="meter"
-        aria-valuenow={uso.usadas}
-        aria-valuemax={uso.teto}
-      >
-        {Array.from({ length: SEGMENTOS }, (_, i) => (
-          <span
-            key={i}
-            className={`h-3 w-[3px] ${
-              i < cheios ? (apertado ? 'bg-perigo' : 'bg-sinal') : 'bg-fio-forte'
-            }`}
-          />
-        ))}
-      </div>
-      <span
-        className={`font-mono text-[11px] tabular-nums ${apertado ? 'text-perigo' : 'text-tinta-2'}`}
-      >
-        {uso.restantes}
-      </span>
-    </div>
-  )
-}
-
-/**
- * O ANUNCIADOR — a peça mais importante da tela.
- *
- * A Íris sabe em que janela você está; até agora isso vivia só no prompt do
- * modelo e não aparecia em lugar nenhum. Aqui ele é o mostrador central da
- * barra: o mecanismo do produto, visível. A varredura só roda quando o
- * PROGRAMA muda, não a cada título — senão viraria estrobo enquanto você
- * troca de aba.
- */
-function Anunciador({ foco }: { foco: Estado['foco'] }): JSX.Element {
-  if (!foco) {
-    return <span className="font-mono text-[11px] text-tinta-3">nenhuma janela lida ainda</span>
-  }
-
-  return (
-    <div key={foco.programa} className="anunciador flex min-w-0 items-baseline gap-2">
-      <span className="font-mono text-[11px] text-sinal">{foco.programa}</span>
-      {foco.titulo && (
-        <span className="truncate text-[12px] text-tinta-2" title={foco.titulo}>
-          {foco.titulo}
-        </span>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------
 
 export default function App(): JSX.Element {
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
@@ -167,7 +87,7 @@ export default function App(): JSX.Element {
   const [capturando, setCapturando] = useState(false)
 
   /** O painel de segurança está aberto? Abre por voz, fecha no botão. */
-  const [seguranca, setSeguranca] = useState(false)
+  const [seguranca, setSeguranca] = useState(true)
 
   /**
    * MODO PORTA, e ele nasce lido do hash.
@@ -187,7 +107,6 @@ export default function App(): JSX.Element {
    * continuam funcionando se você pedir, só param de OCUPAR a tela — numa
    * defesa, o que está na tela é o que a banca acha que o trabalho é.
    */
-  const [modoSeguranca, setModoSeguranca] = useState(false)
 
   /**
    * Muda quando a câmera é ligada/desligada por fala. Serve só de gatilho
@@ -206,14 +125,14 @@ export default function App(): JSX.Element {
     window.api.config.ler().then((c) => {
       setVozAtiva(Boolean(c.vozAtiva))
 
-      if (c.modoSeguranca) {
-        setModoSeguranca(true)
-        // Abre no painel, e só no primeiro boot: reabrir a cada render faria
-        // o "fechar" não fechar nada.
-        setSeguranca(true)
-      }
+      // A preferência de abertura vale apenas no boot; navegar não religa a câmera.
+      setSeguranca(Boolean(c.modoSeguranca))
     })
   }, [])
+
+  useEffect(() => {
+    if (!config) window.api.config.ler().then((c) => setVozAtiva(Boolean(c.vozAtiva)))
+  }, [config])
 
   /**
    * ESC fecha a tela que estiver por cima.
@@ -247,8 +166,15 @@ export default function App(): JSX.Element {
   }, [porta])
 
   useEffect(() => {
-    const pararAbrir = window.api.seguranca.aoAbrir(() => setSeguranca(true))
-    const pararPorta = window.api.seguranca.aoAbrirPorta(() => setPorta(true))
+    const pararAbrir = window.api.seguranca.aoAbrir(() => {
+      setConfig(false)
+      setPorta(false)
+      setSeguranca(true)
+    })
+    const pararPorta = window.api.seguranca.aoAbrirPorta(() => {
+      setConfig(false)
+      setPorta(true)
+    })
 
     // Os quadros da câmera de rede chegam aqui e não no painel: a câmera da
     // porta tem que continuar sendo lida com o painel fechado, senão o
@@ -258,7 +184,9 @@ export default function App(): JSX.Element {
     const pararCamera = window.api.seguranca.aoMudarCamera(() => {
       setCameraGeracao((g) => g + 1)
       // O modo pode ter mudado por fala junto: relê em vez de adivinhar.
-      window.api.config.ler().then((c) => setModoSeguranca(Boolean(c.modoSeguranca)))
+      window.api.config.ler().then((c) => {
+        if (c.modoSeguranca) setSeguranca(true)
+      })
     })
 
     const pararGaleria = window.api.seguranca.aoMudarGaleria(() => {
@@ -299,7 +227,13 @@ export default function App(): JSX.Element {
     let morto = false
 
     window.api.config.ler().then(async (c) => {
-      if (!c.cameraAtiva || morto) return setVisao({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+      if (morto) return
+      if (!c.cameraAtiva) {
+        pararQuadros()
+        await window.api.camera.desconectar()
+        if (!morto) setVisao({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+        return
+      }
 
       // O cadastro ANTES do primeiro tique: começar com a galeria vazia
       // faria todo mundo — você inclusive — aparecer como desconhecido no
@@ -311,6 +245,7 @@ export default function App(): JSX.Element {
 
       iniciarPresenca(
         (l) => {
+          if (morto) return
           setVisao(l)
           window.api.presenca(l)
         },
@@ -325,11 +260,12 @@ export default function App(): JSX.Element {
     return () => {
       morto = true
       parar?.()
+      pararPresenca()
       // A main não pode continuar achando que tem olho depois que a janela
       // fechou: -1 é 'desconhecida', que não escala nada.
       window.api.presenca({ rostos: -1, desconhecidos: 0, conhecidos: [] })
     }
-  }, [config, cameraGeracao])
+  }, [cameraGeracao])
   const fimDaLista = useRef<HTMLDivElement>(null)
   const campo = useRef<HTMLTextAreaElement>(null)
 
@@ -549,303 +485,176 @@ export default function App(): JSX.Element {
     }
   }
 
-  // ---------- render ----------
+  function navegar(destino: Destino): void {
+    setConfig(destino === 'ajustes')
+    setSeguranca(destino === 'seguranca')
+    setPorta(destino === 'porta')
+  }
+
   return (
-    // relative: é o que o inset-0 do modal de aprovação usa como referência
-    <div className="relative flex h-full flex-col bg-fundo text-tinta antialiased">
-      {/*
-        BARRA DE STATUS — a linha de estado de uma janela de console.
-        Wordmark, o que ela está vendo, o que ela está fazendo, quanto resta.
-        Tudo que a Íris sabe sobre agora, numa linha só.
-      */}
-      {/*
-        h-10 e pr-[140px] casam com o titleBarOverlay do main: a barra tem
-        exatamente a altura da faixa nativa, e a reserva à direita é o espaço
-        dos três botões do Windows. Mexer num número exige mexer no outro.
-        A faixa inteira arrasta a janela, menos os controles.
-      */}
-      {/*
-        O ALARME NA MOLDURA DA JANELA.
-        O ponto de 6px no cabeçalho continua, mas ele é para quem já está
-        lendo a barra. Este é para quem está com a Íris num canto da tela e
-        olhando outra coisa — e, no modo porta, para quem passa pela sala.
-        Estado puro: acende só enquanto a leitura atual tem desconhecido.
-      */}
-      {visao.desconhecidos > 0 && (
-        <div className="alarme pointer-events-none absolute inset-0 z-30" aria-hidden />
-      )}
-
-      <header className="relative h-10 shrink-0 border-b border-fio bg-chapa [-webkit-app-region:drag]">
-        <div className="flex h-full items-center gap-4 pr-[140px] pl-5">
-          <h1 className="font-mono text-[12px] font-semibold tracking-[0.3em] text-tinta">ÍRIS</h1>
-
-          <div className="h-3.5 w-px bg-fio-forte" />
-
-          {/* min-w-0 é o que permite o truncate do título funcionar dentro
-              do flex — sem ele o texto empurra a barra inteira. */}
-          <div className="flex min-w-0 flex-1 items-baseline gap-2">
-            <span className="shrink-0 font-hud text-[11px] tracking-[0.2em] text-tinta-3">
-              EM FOCO
-            </span>
-            <Anunciador foco={estado?.foco ?? null} />
-          </div>
-
-          {/*
-            INDICADOR DE CÂMERA (2.6). Obrigatório, não decorativo: uma
-            câmera ligada sem sinal visível é a coisa que faz um usuário
-            desinstalar o app — e a LGPD trata transparência como requisito,
-            não cortesia. Some por completo com o sensor desligado, porque
-            um ícone apagado ainda parece uma câmera.
-          */}
-          {visao.rostos >= 0 && (
-            <button
-              onClick={() => setSeguranca(true)}
-              className="flex shrink-0 items-center gap-1.5 [-webkit-app-region:no-drag]"
-              title={
-                visao.desconhecidos > 0
-                  ? `${visao.desconhecidos} pessoa(s) não cadastrada(s) — clique para abrir a segurança`
-                  : visao.rostos === 0
-                    ? 'Ninguém em frente à câmera — clique para abrir a segurança'
-                    : `Reconhecido: ${visao.conhecidos.join(', ')} — clique para abrir a segurança`
-              }
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  visao.desconhecidos > 0
-                    ? 'bg-perigo'
-                    : visao.rostos === 0
-                      ? 'bg-tinta-3'
-                      : 'bg-sinal'
-                }`}
-              />
-              <span
-                className={`font-hud text-[11px] tracking-[0.2em] ${
-                  visao.desconhecidos > 0 ? 'text-perigo' : 'text-tinta-3'
-                }`}
-              >
-                {visao.desconhecidos > 0
-                  ? `${visao.desconhecidos} NÃO CADASTRADO`
-                  : visao.rostos === 0
-                    ? 'AUSENTE'
-                    : visao.conhecidos.join(' · ').toUpperCase() || `${visao.rostos} PESSOAS`}
-              </span>
-            </button>
-          )}
-
-          {estado && <Escada uso={estado.uso} />}
-
-          <div className="h-3.5 w-px bg-fio-forte" />
-
-          {/* O arco só existe enquanto há processo pra medir. Em espera ele
-              some — anel girando à toa é o "extra crap" que o filme corta. */}
-          <span
-            className={`flex items-center gap-2 font-hud text-[11px] tracking-[0.2em] ${
-              pensando ? 'text-sinal' : 'text-tinta-3'
-            }`}
-          >
-            {pensando && <Arco width={12} height={12} className="arco shrink-0" />}
-            {pensando ? 'PROCESSANDO' : 'EM ESPERA'}
-          </span>
-
-          <button
-            onClick={() => {
-              const novo = !vozAtiva
-              setVozAtiva(novo)
-              alternarVoz(novo)
-              // O botão do cabeçalho e o interruptor dos ajustes são o MESMO
-              // estado. Sem gravar aqui, mudar num não aparece no outro e o
-              // mudo volta ligado no boot seguinte.
-              window.api.config.gravar('vozAtiva', novo)
-            }}
-            title={vozAtiva ? 'Silenciar a voz' : 'Ativar a voz'}
-            aria-pressed={vozAtiva}
-            className={`[-webkit-app-region:no-drag] transition-colors ${
-              vozAtiva ? 'text-tinta-2 hover:text-sinal' : 'text-tinta-3 hover:text-tinta'
-            }`}
-          >
-            {vozAtiva ? <Som /> : <Mudo />}
-          </button>
-
-          {capturando && (
-            <span
-              title="capturando a tela"
-              className="flex shrink-0 items-center gap-1.5 font-hud text-[11px] tracking-[0.2em] text-perigo"
-            >
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-perigo" />
-              TELA
-            </span>
-          )}
-
-          {/*
-            SEGURANÇA no cabeçalho, e não só por voz.
-            O indicador ao lado some quando a câmera está desligada — que é
-            justamente quando você precisa entrar pra ligá-la. Um caminho que
-            só existe depois de a feature estar ligada não serve pra ligar a
-            feature.
-          */}
-          <button
-            onClick={() => setSeguranca(true)}
-            title="Segurança"
-            className={`[-webkit-app-region:no-drag] shrink-0 font-hud text-[11px] tracking-[0.2em] transition-colors ${
-              visao.desconhecidos > 0
-                ? 'text-perigo hover:text-perigo'
-                : 'text-tinta-3 hover:text-sinal'
-            }`}
-          >
-            SEGURANÇA
-          </button>
-
-          <button
-            onClick={() => setPorta(true)}
-            title="Modo porta — rosto e câmera em tela cheia"
-            className="[-webkit-app-region:no-drag] shrink-0 font-hud text-[11px] tracking-[0.2em] text-tinta-3 transition-colors hover:text-sinal"
-          >
-            PORTA
-          </button>
-
-          <button
-            onClick={() => setConfig(true)}
-            title="Ajustes"
-            className="[-webkit-app-region:no-drag] shrink-0 font-hud text-[11px] tracking-[0.2em] text-tinta-3 transition-colors hover:text-sinal"
-          >
-            AJUSTES
-          </button>
-        </div>
-      </header>
-
-      {/*
+    <Shell
+      destino={config ? 'ajustes' : porta ? 'porta' : seguranca ? 'seguranca' : 'assistente'}
+      navegar={navegar}
+      voz={vozAtiva}
+      alternarVoz={() => {
+        const novo = !vozAtiva
+        setVozAtiva(novo)
+        alternarVoz(novo)
+        window.api.config.gravar('vozAtiva', novo)
+      }}
+      pensando={pensando}
+      estado={estado}
+      rostos={visao.rostos}
+      desconhecidos={visao.desconhecidos}
+      capturando={capturando}
+    >
+      <div className="conversation" hidden={config || seguranca || porta}>
+        {/*
         Vazio, a abertura fica centrada na vertical. Ancorada no topo sobrava
         um buraco de 400px embaixo; ancorada embaixo o buraco só subiu. Uma
         janela de 780px com 200px de conteúdo não tem como esconder a folga —
         então ela vira margem simétrica, que se lê como composição em vez de
         página pela metade.
       */}
-      <main
-        className={`flex-1 overflow-y-auto px-5 py-7 ${
-          mensagens.length === 0 ? 'flex flex-col justify-center' : ''
-        }`}
-      >
-        {mensagens.length === 0 ? (
-          <Masthead seguranca={modoSeguranca} />
-        ) : (
-          <div className="space-y-7">
-            {mensagens.map((m, i) => (
-              <article key={i} className="flex gap-5">
-                {/* A calha é onde a interface diz QUEM falou, então é onde a
+        <main
+          className={`flex-1 overflow-y-auto px-5 py-7 ${
+            mensagens.length === 0 ? 'flex flex-col justify-center' : ''
+          }`}
+        >
+          {mensagens.length === 0 ? (
+            <BoasVindas
+              aoSeguranca={() => navegar('seguranca')}
+              aoComando={(texto) => {
+                setRascunho(texto)
+                campo.current?.focus()
+              }}
+            />
+          ) : (
+            <div className="space-y-7">
+              {mensagens.map((m, i) => (
+                <article key={i} className="flex gap-5">
+                  {/* A calha é onde a interface diz QUEM falou, então é onde a
                     diferença tem que aparecer: um aviso automático não é uma
                     resposta, e ler os dois como "ÍRIS" apagaria a única coisa
                     que o usuário precisa saber — que ninguém perguntou nada. */}
-                <Calha>
-                  {m.role === 'user' ? (
-                    'VOCÊ'
-                  ) : m.gatilho ? (
-                    <span className="text-hud">GATILHO</span>
-                  ) : (
-                    'ÍRIS'
-                  )}
-                </Calha>
+                  <Calha>
+                    {m.role === 'user' ? (
+                      'VOCÊ'
+                    ) : m.gatilho ? (
+                      <span className="text-hud">GATILHO</span>
+                    ) : (
+                      'ÍRIS'
+                    )}
+                  </Calha>
 
-                {/* O aviso automático tem corpo PRÓPRIO, não o corpo normal
+                  {/* O aviso automático tem corpo PRÓPRIO, não o corpo normal
                     com um enfeite: ele não streama, não tem gráfico, não tem
                     log de ferramenta pra mostrar, e termina numa pergunta que
                     nenhuma resposta faz. Enfiá-lo no mesmo corpo custaria
                     quatro condicionais aninhados pra desligar tudo isso. */}
-                {m.gatilho ? (
-                  <Transmissao m={m} onRotular={(u) => rotular(i, u)} />
-                ) : (
-                  <div className="min-w-0 flex-1">
-                    {/* Log de invocação, na forma da SINOPSE do manual: o nome
+                  {m.gatilho ? (
+                    <Transmissao m={m} onRotular={(u) => rotular(i, u)} />
+                  ) : (
+                    <div className="min-w-0 flex-1">
+                      {/* Log de invocação, na forma da SINOPSE do manual: o nome
                       da ferramenta e o que ela recebeu, alinhados em coluna. */}
-                    {m.ferramentas && m.ferramentas.length > 0 && (
-                      <ul className="mb-3 space-y-1">
-                        {m.ferramentas.map((f, j) => (
-                          <li
-                            key={j}
-                            className="flex items-center gap-2 font-mono text-[11px] leading-5"
-                          >
-                            <Seta width={11} height={11} className="shrink-0 text-tinta-3" />
-                            <span className="shrink-0 text-sinal">{f.nome}</span>
-                            <span className="truncate text-tinta-3" title={f.args}>
-                              {f.args && f.args !== '{}' ? f.args : ''}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                      {m.ferramentas && m.ferramentas.length > 0 && (
+                        <ul className="mb-3 space-y-1">
+                          {m.ferramentas.map((f, j) => (
+                            <li
+                              key={j}
+                              className="flex items-center gap-2 font-mono text-[11px] leading-5"
+                            >
+                              <Seta width={11} height={11} className="shrink-0 text-tinta-3" />
+                              <span className="shrink-0 text-sinal">{f.nome}</span>
+                              <span className="truncate text-tinta-3" title={f.args}>
+                                {f.args && f.args !== '{}' ? f.args : ''}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                    {/* Antes do texto: o gráfico chega junto com a chamada da
+                      {/* Antes do texto: o gráfico chega junto com a chamada da
                       ferramenta, enquanto a frase do modelo ainda está streamando. */}
-                    {m.visuais?.map((v, j) => (
-                      <Painel key={j} visual={v} />
-                    ))}
+                      {m.visuais?.map((v, j) => (
+                        <Painel key={j} visual={v} />
+                      ))}
 
-                    {m.erro ? (
-                      <Falha erro={m.erro} />
-                    ) : (
-                      // max-w em ch: a janela tem 1100px e uma linha de texto
-                      // com 1000px de largura não se lê, se varre.
-                      <div className="max-w-[72ch] leading-[1.65] whitespace-pre-wrap select-text">
-                        {m.content}
-                        {pensando && i === mensagens.length - 1 && (
-                          <span className="cursor ml-px inline-block h-[1.05em] w-[7px] translate-y-[2px] bg-sinal" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </article>
-            ))}
-            <div ref={fimDaLista} />
-          </div>
-        )}
-      </main>
+                      {m.erro ? (
+                        <Falha erro={m.erro} />
+                      ) : (
+                        // max-w em ch: a janela tem 1100px e uma linha de texto
+                        // com 1000px de largura não se lê, se varre.
+                        <div className="max-w-[72ch] leading-[1.65] whitespace-pre-wrap select-text">
+                          {m.content}
+                          {pensando && i === mensagens.length - 1 && (
+                            <span className="cursor ml-px inline-block h-[1.05em] w-[7px] translate-y-[2px] bg-sinal" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              ))}
+              <div ref={fimDaLista} />
+            </div>
+          )}
+        </main>
 
-      {/* O aviso fica ENCOSTADO no prompt, não no topo da conversa: é a
+        {/* O aviso fica ENCOSTADO no prompt, não no topo da conversa: é a
           última coisa que você lê antes de responder, e a decisão que ele
           deve mudar é a próxima que você toma. Na calha do resto da
           interface, sem caixa própria — não é um alerta de navegador. */}
-      {injecao && (
-        <div className="flex shrink-0 items-start gap-5 border-t border-fio bg-chapa px-5 py-3 text-perigo">
-          <Calha>INJEÇÃO</Calha>
-          <p className="max-w-[72ch] flex-1 leading-[1.65] text-tinta-2 select-text">
-            O conteúdo lido por <span className="font-mono text-tinta">{injecao.ferramenta}</span>{' '}
-            continha instruções. Foi tratado como dado e ignorado.
-          </p>
-        </div>
-      )}
+        {injecao && (
+          <div className="flex shrink-0 items-start gap-5 border-t border-fio bg-chapa px-5 py-3 text-perigo">
+            <Calha>INJEÇÃO</Calha>
+            <p className="max-w-[72ch] flex-1 leading-[1.65] text-tinta-2 select-text">
+              O conteúdo lido por <span className="font-mono text-tinta">{injecao.ferramenta}</span>{' '}
+              continha instruções. Foi tratado como dado e ignorado.
+            </p>
+          </div>
+        )}
 
-      {/* PROMPT. A calha continua: o mesmo alinhamento do corpo, então o que
+        {/* PROMPT. A calha continua: o mesmo alinhamento do corpo, então o que
           você digita nasce na mesma coluna em que ela responde. */}
-      <footer className="group shrink-0 border-t border-fio bg-chapa px-5 py-3">
-        <div className="flex items-start gap-5">
-          {/*
+        <footer className="composer group shrink-0">
+          <div className="flex items-start gap-5">
+            {/*
             É o cursor do prompt que acende, não uma caixa em volta do campo.
             Um retângulo âmber de 1000px de largura desenharia um formulário
             no meio de uma interface que não tem nenhum outro — e o anel de
             foco padrão do :focus-visible fazia exatamente isso.
           */}
-          <div className="flex w-[104px] shrink-0 justify-end pt-2 text-tinta-3 transition-colors group-focus-within:text-sinal">
-            <Prompt />
+            <div className="flex w-[104px] shrink-0 justify-end pt-2 text-tinta-3 transition-colors group-focus-within:text-sinal">
+              <Prompt />
+            </div>
+            <textarea
+              ref={campo}
+              value={rascunho}
+              onChange={(e) => setRascunho(e.target.value)}
+              onKeyDown={aoTeclar}
+              rows={1}
+              placeholder="Pergunte ou dê um comando à Íris…"
+              aria-label="Comando para a Íris"
+              className="max-h-40 min-w-0 flex-1 resize-none border-none bg-transparent py-1.5 leading-[1.65] text-tinta caret-sinal outline-none select-text placeholder:text-tinta-3 focus-visible:outline-none"
+            />
+            <button
+              onClick={enviar}
+              aria-label="Enviar comando"
+              title="Enviar comando (Enter)"
+              disabled={pensando || !rascunho.trim()}
+              className="shrink-0 self-end border border-fio-forte px-3 py-1.5 font-hud text-[11px] tracking-[0.16em] text-tinta-2 transition-colors not-disabled:hover:border-sinal not-disabled:hover:text-sinal disabled:opacity-35"
+            >
+              <Enviar width={17} height={17} />
+            </button>
           </div>
-          <textarea
-            ref={campo}
-            value={rascunho}
-            onChange={(e) => setRascunho(e.target.value)}
-            onKeyDown={aoTeclar}
-            rows={1}
-            placeholder="Manda o comando…"
-            aria-label="Comando para a Íris"
-            className="max-h-40 min-w-0 flex-1 resize-none border-none bg-transparent py-1.5 leading-[1.65] text-tinta caret-sinal outline-none select-text placeholder:text-tinta-3 focus-visible:outline-none"
-          />
-          <button
-            onClick={enviar}
-            disabled={pensando || !rascunho.trim()}
-            className="shrink-0 self-end border border-fio-forte px-3 py-1.5 font-hud text-[11px] tracking-[0.16em] text-tinta-2 transition-colors not-disabled:hover:border-sinal not-disabled:hover:text-sinal disabled:opacity-35"
-          >
-            ENTER
-          </button>
-        </div>
-      </footer>
+          <div className="composer-help">
+            <span>Converse com a sua inteligência</span>
+            <span>Enter para enviar · Shift + Enter para nova linha</span>
+          </div>
+        </footer>
+      </div>
 
       {/* Só o primeiro da fila. Ao responder, ele sai e o próximo aparece. */}
       {aprovacoes[0] && (
@@ -864,6 +673,7 @@ export default function App(): JSX.Element {
 
       {config && (
         <Config
+          aoSeguranca={() => navegar('seguranca')}
           aoFechar={() => {
             setConfig(false)
             // Relê o que a tela mexeu: o interruptor de voz de lá é o mesmo
@@ -873,69 +683,13 @@ export default function App(): JSX.Element {
           }}
         />
       )}
-    </div>
+    </Shell>
   )
 }
 
 // ---------------------------------------------------------------
 // Estados
 // ---------------------------------------------------------------
-
-/**
- * O estado vazio aparece toda vez que você chama pelo Ctrl+Space, ou seja,
- * dezenas de vezes por dia — e é justamente por isso que ele encolheu.
- *
- * Era uma página de manual: os 25 nomes de ferramenta em monospace, mais um
- * parágrafo explicando os dois triângulos de aprovação. Parecia completude e
- * era ruído. Ninguém lê 25 identificadores pra decidir o que digitar — você
- * digita; e a diferença entre os triângulos se aprende na primeira vez que
- * um modal aparece, não relendo a legenda na trigésima abertura do dia.
- *
- * Ficou o que responde as duas perguntas que a tela vazia tem: o que é isto,
- * e como eu falo com ela. O catálogo continua vivo no main — a Íris responde
- * "o que você sabe fazer?" quando a pergunta existir, em vez de responder
- * sempre, pra ninguém.
- */
-function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }): JSX.Element {
-  return (
-    <section className="flex gap-5">
-      <Calha>{titulo}</Calha>
-      <div className="max-w-[72ch] flex-1 leading-[1.65] text-tinta-2">{children}</div>
-    </section>
-  )
-}
-
-// Destaca as palavras que a DESCRIÇÃO está definindo. <em> pelo significado
-// (é um termo sendo citado), sem itálico porque a Cascadia não tem itálico
-// de verdade e o navegador inclinaria a fonte na marra.
-const termo = 'text-tinta not-italic'
-
-function Masthead({ seguranca }: { seguranca: boolean }): JSX.Element {
-  return (
-    <div className="space-y-5">
-      <Secao titulo="NOME">
-        {seguranca
-          ? 'íris — interface de resposta inteligente e segura'
-          : 'íris — assistente que enxerga a máquina e age nela'}
-      </Secao>
-
-      {/* A LINHA QUE A BANCA LÊ PRIMEIRO, e a única que sobrou de prosa.
-          No modo normal não aparece: o dia a dia não precisa de tese,
-          precisa de campo de texto. */}
-      {seguranca && (
-        <Secao titulo="ESCOPO">
-          Reconhecimento facial local com decisão de risco <em className={termo}>auditável</em>.
-          Presença física entra no cálculo de confiança, e toda recusa guarda a própria cadeia
-          causal — quais sinais, quanto cada um pesou, qual era o limiar.
-        </Secao>
-      )}
-
-      <Secao titulo="ATALHOS">
-        Ctrl+Space abre e esconde · Enter envia · Shift+Enter quebra linha
-      </Secao>
-    </div>
-  )
-}
 
 /**
  * A TRANSMISSÃO — o corpo de um aviso que ela deu sem ninguém pedir.
@@ -1074,12 +828,12 @@ function Aprovacao({
       role="dialog"
       aria-modal="true"
       aria-label="Aprovação necessária"
-      className="absolute inset-0 z-50 flex items-center justify-center bg-fundo/85 p-8"
+      className="absolute inset-0 z-[80] flex items-center justify-center bg-fundo/85 p-8"
     >
       {/* colchetes-vivo: este é o único painel do app que exige decisão, e é
           o único cujos cantos acendem em âmbar. destravar: ele nasce na tela,
           então entra pela mecânica de keyhole como os painéis de dado. */}
-      <div className="colchetes colchetes-vivo destravar w-full max-w-2xl bg-chapa p-px shadow-[0_18px_50px_-12px_rgba(0,0,0,0.85)]">
+      <div className="approval-surface destravar w-full max-w-2xl p-px">
         <div className="flex items-center gap-2.5 border-b border-fio px-5 py-3 text-perigo">
           <Atencao />
           <span className="font-hud text-[11px] tracking-[0.24em]">APROVAÇÃO NECESSÁRIA</span>

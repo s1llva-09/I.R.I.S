@@ -1,136 +1,130 @@
 # Sistema visual da Íris
 
-Escrito a partir do que foi construído, não do que foi planejado. Fonte da
-verdade dos tokens: [src/renderer/src/assets/main.css](src/renderer/src/assets/main.css).
+Uma central futurista para conversar com a assistente e acompanhar a
+segurança do ambiente. A imagem da câmera, as análises e o histórico têm
+espaço próprio: o painel de segurança é uma área de trabalho completa.
 
-## A ideia: o HUD do Mark III
+Os tokens de implementação vivem em
+[main.css](src/renderer/src/assets/main.css). Este documento registra a
+direção visual e as regras para estender a interface.
 
-A referência é o Jarvis dos filmes — mas o Jarvis **certo**.
+## Direção visual
 
-O HUD cyan, carregado e cheio de anéis girando é o **Mark II**. Os próprios
-designers o abandonaram: no Mark III, Wesley Sewell trocou por
-*"predominantly white with accent colors"* porque *"cyan is passé"* e ele
-queria algo *"more unique and different"*. A equipe chegou a anotar que
-*"amber is kind of the 80s and cyan is the 90s"*.
+Fundo azul quase preto, superfícies em camadas, acento cyan e detalhes
+lavanda. Bordas delicadas, cantos arredondados e gradientes discretos dão
+profundidade sem competir com texto, vídeo e estados do sistema.
 
-Então nem cyan nem âmbar governam a tela. **Quem governa é o traço branco**,
-e a cor entra só onde há informação crítica.
-
-A regra de corte que veio do set vale mais que qualquer paleta:
-
-> *"If it doesn't do something that would be real for somebody flying around
-> in this suit then we are taking it out."*
-
-Eles cortaram *"all this extra crap to make it futuristic and fancy"*. Anel
-que não mede, varredura que não indica processo e brilho que não é estado
-ficam de fora. No filme, a UI que exibe esse clichê é a do **vilão** — o Iron
-Monger é vermelho monocromático com a tipografia OCRA, escolhida de propósito
-por ser *"unimaginative"*.
+O caráter futurista vem da composição, tipografia e organização das
+informações. Leituras, contadores e alertas precisam ter uma fonte real.
+Não adicionar porcentagens de proteção, pessoas fictícias, FPS inventado
+ou animações que simulem uma análise inexistente.
 
 ## Cor
 
-| Papel | Token | Valor |
+| Papel | Referência | Uso |
 |---|---|---|
-| Fundo (vidro escuro, viés azul) | `fundo` | `#05090E` |
-| Superfície elevada | `chapa` | `#0B1219` |
-| Sulco escavado | `sulco` | `#03070A` |
-| **O traço** | `tinta` | `#EAF2F6` |
-| Secundária | `tinta-2` | `#93A6B3` |
-| Rótulo | `tinta-3` | `#6D7F8B` |
-| **Acento crítico / marca** | `sinal` | `#E8A33D` |
-| Dado secundário (herança Mark II) | `hud` / `info` | `#5BC8E8` |
-| Sucesso | `ok` | `#6FD39A` |
-| Perigo / falha | `perigo` | `#FF5646` |
-| Fio de cabelo | `fio` / `fio-forte` | branco a 10% / 22% |
+| Fundo principal | `#070b14` | Base da aplicação |
+| Superfícies | Azuis escuros próximos ao fundo | Cards, navegação e campos |
+| Acento principal | `#63dcf2` | Seleção, ação principal e foco |
+| Acento secundário | `#a392ff` | Detalhes de marca e informações secundárias |
+| Texto principal | Branco frio | Títulos e conteúdo |
+| Texto secundário | Cinza azulado claro | Legendas, contexto e horários |
+| Sucesso | Verde | Estado confirmado pelos dados |
+| Atenção | Âmbar | Condição que precisa de revisão |
+| Falha ou risco | Vermelho | Erros, captura indisponível e alertas |
 
-O fio é **branco transparente**, não cinza sólido: wireframe que ganha peso ao
-empilhar, como o do capacete.
+Estados usam texto e, quando útil, ícone além da cor. Cyan não significa
+automaticamente que um ambiente está seguro. Gradientes ficam nas
+superfícies e nos detalhes de marca; textos e controles mantêm contraste
+legível. Validar contraste sempre que os tokens mudarem.
 
-Âmbar some da tela quando nada é crítico. Cyan é dado, nunca fundo nem brilho.
-Contraste: `tinta-3` está em 4.95:1 sobre `fundo` — se mexer, recalcule.
+## Tipografia e geometria
 
-Dark não é padrão de categoria: é a cena de uso — sala fechada, à noite,
-chamada por cima de outra janela.
+- Interface e prosa: `Segoe UI Variable Text`, `Segoe UI`, sans-serif.
+- Títulos e rótulos: `Bahnschrift`, `Segoe UI Variable Display`, sans-serif.
+- Horários, números e dados técnicos: `Cascadia Mono`, `Consolas`, monospace.
+- Cards com raio de 12–16px; campos e botões acompanham essa família visual.
+- Espaçamento consistente, títulos claros e texto auxiliar legível, sem
+  transformar toda a interface em rótulos minúsculos em caixa alta.
 
-## Tipografia
+Usar fontes locais ou empacotadas. Não depender de carregamento externo
+para a interface funcionar. Ícones seguem o traço de
+[icones.tsx](src/renderer/src/icones.tsx), com `currentColor` e nomes
+acessíveis nos controles que não têm texto.
 
-- **Rótulos em versalete:** `Bahnschrift` → `Segoe UI Variable Display`.
-  Condensada e técnica: a voz do instrumento.
-- **Dado, número e código:** `Cascadia Mono` → `Consolas`.
-- **Prosa:** `Segoe UI Variable Text` → `Segoe UI`.
+## Estrutura da aplicação
 
-As três já vêm no Windows 11, e a CSP do `index.html` é `default-src 'self'`
-— **nenhuma fonte externa carrega**. Adicionar uma face exige empacotá-la.
+Navegação persistente à esquerda para acessar Assistente, Segurança e
+Ajustes. A seleção atual permanece clara. O cabeçalho reúne a identidade,
+o título da área e os estados essenciais, respeitando o espaço dos
+controles nativos da janela e a área de arraste do Electron.
 
-Medida do texto corrido travada em `max-w-[72ch]`.
+O conteúdo ocupa o espaço restante e rola sem esconder a navegação. Em
+janelas estreitas, a navegação fica compacta e as colunas de conteúdo se
+empilham. A interface precisa continuar utilizável com zoom e teclado.
 
-## Composição
+O Assistente mantém conversa, ferramentas e entrada de comando próximos.
+Mensagens, resultados de ferramentas, gráficos e pedidos de aprovação
+compartilham cores, bordas e espaçamento com o restante da aplicação.
 
-**Calha suspensa** — sobreviveu da direção anterior porque funciona, e é o que
-substitui a coluna de balõezinhos:
+## Área de segurança
 
-```
-      NOME  izze — assistente que enxerga a máquina...
-   SINOPSE  abrir_app  listar_pasta  rodar_powershell ⚠
-```
+A primeira leitura deve responder: **qual imagem está chegando, o que foi
+detectado e se o sensor está disponível**. A hierarquia é:
 
-Rótulo à direita numa calha de `104px`, conteúdo pendurado à esquerda.
-Componentes `Calha` e `Secao` em [App.tsx](src/renderer/src/App.tsx).
+1. **Imagem principal:** visor amplo, fonte identificada, estado de conexão
+   e sobreposição dos rostos que o detector encontrou.
+2. **Análise atual:** quantidade de rostos, nomes reconhecidos quando
+   disponíveis e pessoas sem correspondência no cadastro.
+3. **Estado do sistema:** captura ligada ou desligada, sinal disponível,
+   erros de conexão e contexto necessário para interpretar a leitura.
+4. **Eventos e decisões:** histórico real com horários e motivos de risco,
+   inclusive estados vazios explícitos quando não há registros.
 
-**Colchetes de canto** (`.colchetes`) — quatro cantos em L, não caixa fechada.
-É a diferença entre uma mira e um card: o retângulo completo é vocabulário de
-página web. Feito com oito gradientes num `background` só, porque `::before` +
-`::after` dariam só dois cantos. `.colchetes-vivo` acende em âmbar, e só o
-modal de aprovação usa.
+Controles de ligar, desligar e escolher fonte ficam fáceis de encontrar.
+Cadastro de pessoas, câmera de rede, conexão pelo celular, calibração e
+medição ficam em áreas de gerenciamento expansíveis ou secundárias, sem
+dominar a visualização do ambiente.
 
-**Barra de status** (`h-10`) é a barra de título: `titleBarStyle: 'hidden'` +
-`titleBarOverlay` pintam os botões nativos do Windows na chapa. A altura do
-overlay em [index.ts](src/main/index.ts) e o `h-10` + `pr-[140px]` do header
-andam juntos.
+### Estados honestos
 
-## Peças
+- Câmera desligada, carregando, indisponível e sem rostos detectados são
+  estados diferentes. Falta de sinal não significa ambiente vazio.
+- Uma foto de teste deve aparecer identificada como teste. Não usar o
+  rótulo “ao vivo” para uma imagem estática.
+- Exibir horário e origem quando estiverem disponíveis. Não criar uma
+  precisão que o sensor ou o histórico não fornece.
+- Uma pessoa sem correspondência no cadastro é uma detecção para revisão,
+  não uma conclusão sobre sua intenção.
+- Erros precisam informar o problema e a próxima ação possível. A imagem
+  antiga não deve continuar apresentada como uma transmissão atual.
 
-- **Anunciador** — a janela em foco, ao vivo. O mecanismo do produto visível.
-- **Escada** — a cota do dia como régua de LED segmentada. Vira `perigo` no
-  último quinto. Não é anel de progresso.
-- **Masthead** — o estado vazio como abertura de manual. A SINOPSE sai do
-  `catalogo()` do main, nunca de lista escrita à mão.
-- **Transmissão** — o aviso que ela dá sem ninguém pedir: a única coisa que
-  aparece na tela sem você ter feito nada. Corpo próprio, não a resposta com um
-  enfeite. Vem em **colchetes** porque é leitura de instrumento e não fala, e
-  em **cyan** porque âmbar é acento crítico e some quando nada é crítico —
-  gastá-lo num disco enchendo o esvazia pro modal de aprovação, que é onde ele
-  precisa gritar. Traz a **hora** absoluta: o aviso pode ter esperado horas na
-  bandeja, e sem marca de tempo a interface mente sobre quando aquilo foi lido.
-  No pé, `ÚTIL` / `RUÍDO` — a única peça do app que existe pela medição e não
-  pelo uso; some depois de respondida, e não responder é resposta válida.
-- **`Pulso`** — o ícone da transmissão: fonte no centro, ondas pros dois lados.
-  O `Som` irradia só pra direita porque tem um alto-falante apontando; o
-  gatilho não aponta pra lugar nenhum, parte do meio. É o que separa os dois
-  nos 11px em que ambos vivem.
-- **Gráficos** — barra é wireframe translúcido (contorno 1px, miolo 18%), não
-  laje sólida. A série categórica começa no **branco**: se começasse no âmbar,
-  a cor de "crítico" pintaria a primeira barra de todo gráfico e deixaria de
-  significar algo.
+## Interação, acessibilidade e movimento
 
-## Movimento
+O foco de teclado deve ser visível em botões, links, seletores e campos.
+Cada campo tem rótulo; controles com ícone têm nome acessível. Não usar
+somente `title` como instrução principal. Áreas expansíveis comunicam seu
+estado, e ações indisponíveis ficam claramente desabilitadas.
 
-- **`.destravar`** — a mecânica *"exploded keyhole"* do filme: gira, destrava,
-  abre em leque. Só em coisa que **nasce** na tela (painel de dado, modal).
-- **`.anunciador`** — varredura quando o programa em foco muda. Roda porque um
-  dado mudou.
-- **`.arco`** — gira só enquanto ela processa. Some em espera.
-- **`.cursor`** — onda quadrada, como a do console.
+Transições curtas podem acompanhar mudanças de área, entrada de cards e
+processamento real. Evitar movimento contínuo em repouso e efeitos sobre
+o vídeo que prejudiquem a leitura. Respeitar `prefers-reduced-motion` em
+animações e transições. Não acrescentar flashes ou cintilação decorativa.
 
-Tudo respeita `prefers-reduced-motion`. Fora isso a interface é imóvel.
+Captura ativa precisa de indicação persistente. Avisos e mudanças de
+estado devem ser compreensíveis sem animação, áudio ou cor.
 
 ## Ao estender
 
-1. Peça nova entra na calha. Não invente segunda gramática de layout.
-2. Cor de estado só quando há estado. Se está decorando, use `tinta-*`.
-3. **O teste do set:** se o elemento não faz algo real, ele sai.
-4. Ícone novo se desenha em [icones.tsx](src/renderer/src/icones.tsx), na
-   mesma mão (grade 16, traço 1.5, `currentColor`). Nunca emoji nem glifo.
-5. Nada de raio de canto, gradiente, glass ou glow.
-6. As cores dos gráficos são a única duplicação de token do projeto (o recharts
-   pinta por prop, não por classe). Mexeu no `main.css`, mexa no `Painel.tsx`.
+1. Reutilizar os tokens e os componentes existentes antes de criar outra
+   linguagem visual.
+2. Colocar a informação principal antes dos controles de gerenciamento.
+3. Usar bordas, raio, brilho discreto e gradientes para organizar camadas;
+   preservar contraste e evitar excesso de efeitos simultâneos.
+4. Ligar cada indicador à fonte de dados correspondente; mostrar ausência
+   de dados em vez de preencher o espaço com telemetria decorativa.
+5. Verificar estados vazio, ocupado, erro e recuperação, além do estado
+   conectado com sucesso.
+6. Conferir gráficos em [Painel.tsx](src/renderer/src/Painel.tsx) quando as
+   cores compartilhadas mudarem, porque suas séries também recebem cores
+   por propriedades.

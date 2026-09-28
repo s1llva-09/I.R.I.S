@@ -2,7 +2,7 @@ import { useEffect, useState, type JSX } from 'react'
 import Rosto from './Rosto'
 import { estadoDoRosto } from '../../reconhecimento'
 import Visor from './Visor'
-import type { Leitura } from './presenca'
+import { estadoSensor, type Leitura } from './presenca'
 
 /**
  * MODO PORTA — a tela do dispositivo.
@@ -86,7 +86,7 @@ export default function Porta({
 
       <div className="flex min-h-0 flex-[2] items-start justify-center px-6 pb-6">
         <div className="w-full max-w-sm">
-          <Visor ativo={visao.rostos >= 0} alerta={alerta} />
+          <Visor ativo={estadoSensor().ativo} alerta={alerta} />
         </div>
       </div>
     </div>

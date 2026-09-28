@@ -23,7 +23,9 @@
     "build:linux": "electron-vite build && electron-builder --linux",
     "teste:seguranca": "electron-vite build && electron out/main/fila-teste.js",
     "rede": "electron-vite build && electron out/main/rede.js",
-    "teste:servidor": "electron-vite build && electron out/main/teste-servidor.js"
+    "teste:servidor": "electron-vite build && electron out/main/teste-servidor.js",
+    "teste:presenca": "node --test testes/presenca.cjs",
+    "teste:interface": "npm run build && node testes/interface.cjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

@@ -28,11 +28,11 @@ import {
 // Espelham os tokens do main.css. O recharts pinta em SVG por prop, não por
 // classe, então não dá pra usar as variáveis do tema aqui — se mexer lá,
 // mexa aqui. É a única duplicação de cor do projeto.
-const SINAL = '#e8a33d'
-const HUD = '#5bc8e8'
+const SINAL = '#63dcf2'
+const HUD = '#a392ff'
 const FIO = 'rgba(234,242,246,0.10)'
-const TINTA = '#eaf2f6'
-const TINTA_3 = '#6d7f8b'
+const TINTA = '#edf3fc'
+const TINTA_3 = '#7e8ea8'
 
 /**
  * Série categórica na ordem do Mark III: o BRANCO vem primeiro.
@@ -41,7 +41,7 @@ const TINTA_3 = '#6d7f8b'
  * acento nas seguintes. Começar pelo âmbar faria a cor de "crítico" pintar
  * a primeira barra de todo gráfico — e aí ela não significa mais nada.
  */
-const CORES = [TINTA, SINAL, HUD, '#6fd39a', '#ff5646', '#9b8fd1']
+const CORES = [SINAL, HUD, TINTA, '#73e2ba', '#ff788b', '#ffba75']
 
 // Eixo e grade recuam. O dado é que tem que aparecer, não a moldura.
 const eixo = { fill: TINTA_3, fontSize: 10, fontFamily: 'Cascadia Mono, Consolas, monospace' }
@@ -236,7 +236,7 @@ export default function Painel({ visual }: { visual: Visual }): JSX.Element {
     // colchetes + destravar: o painel de dado NASCE na tela, então é ele que
     // recebe a mecânica de "exploded keyhole" do filme. A moldura é de canto
     // e não caixa fechada — mira, não card.
-    <figure className="colchetes destravar mt-1 mb-4 max-w-[72ch] bg-chapa/70 p-px">
+    <figure className="destravar mt-1 mb-4 max-w-[72ch] rounded-xl border border-fio bg-chapa/70 p-px">
       <figcaption className="border-b border-fio px-4 py-2 font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
         {visual.titulo}
       </figcaption>

@@ -19,6 +19,30 @@ Projeto pessoal + TCC.
 
 ---
 
+## 3. Riscos
+
+O painel de segurança torna visíveis a imagem recebida, o estado do sensor,
+as análises e os eventos. Isso ajuda a operar o sistema, mas não elimina os
+riscos abaixo. **Implementado** descreve controles presentes no código;
+**pendente** identifica validação, trabalho técnico ou decisão operacional.
+
+| # | Causa | Risco | Efeito (problema) | Categoria | Mitigação | Situação |
+|---|---|---|---|---|---|---|
+| 1 | Iluminação ruim ou ângulo da câmera | Falha no reconhecimento facial | Autorizado barrado ou desconhecido não identificado | Operacional | Exibir o enquadramento e os rostos detectados; calibrar o limiar com imagens representativas; medir falsos aceites e falsas rejeições antes do uso. | **Parcial:** visor, ajuste de limiar e bancada de reconhecimento implementados. Validação com iluminação, distância e pessoas reais pendente. |
+| 2 | Queda do Wi-Fi ou da câmera | Perda do monitoramento | Período sem vigilância | Operacional | Informar perda de sinal; tentar reconectar a câmera de rede; invalidar leituras antigas; conferir conexão e alimentação antes da operação. | **Parcial:** reconexão de rede e validade das leituras no main implementadas. Testes de interrupção e recuperação com a câmera real pendentes; não há garantia de vigilância contínua. |
+| 3 | Limite do plano gratuito da API de IA | Sistema lento ou sem resposta | Análise atrasada em momento crítico | Financeiro | Acompanhar uso diário, aplicar novas tentativas com espera e modelos de reserva; manter o reconhecimento facial local; dimensionar cota e alternativa offline. | **Parcial:** contador, tentativas e modelos de reserva implementados. Orçamento de operação e fallback offline completo pendentes. |
+| 4 | Texto malicioso em arquivo, site ou janela | Injeção de comandos na IA | IA executar ação não autorizada | Operacional | Delimitar conteúdo externo, elevar o risco de ações após sua leitura, bloquear ferramentas restritas em contexto contaminado e exigir aprovação conforme a política. | **Parcial:** controles de contexto e decisão de risco implementados. Medição contínua com payloads de ataque e revisão de novas ferramentas necessárias. |
+| 5 | Captura de rostos sem consentimento | Tratamento inadequado de dados pessoais e risco de violação da LGPD | Multa e perda de confiança | Compliance | Manter ativação explícita e indicador de captura, minimizar dados, permitir exclusão de cadastros e revisar finalidade, consentimento quando aplicável, retenção e acesso. | **Parcial:** câmera opt-in, processamento facial local e exclusão de cadastros implementados. Revisão de privacidade e consentimento pendente; cadastro com data não comprova consentimento por si só. |
+| 6 | Concorrentes com produto pronto e barato | Baixa adoção | Solução não se sustenta no mercado | Mercado | Validar o problema com usuários, comparar alternativas e custo total, testar a utilidade do painel integrado e ajustar o escopo ao resultado. | **Pendente:** pesquisa com usuários, comparativo e validação de disposição de uso ou pagamento. |
+| 7 | Desenvolvedor único e prazo curto | Atraso na entrega | Funcionalidades incompletas na apresentação | Estratégico | Priorizar câmera, análise, eventos e demonstração reproduzível; manter checklist de entrega e reservar tempo para falhas de hardware; adiar recursos fora do caminho crítico. | **Em gestão:** prioridades registradas neste roadmap. Cronograma de ensaio e critérios de aceite da apresentação pendentes. |
+
+**Critério de apresentação:** mostrar estados reais, distinguir teste por foto
+de câmera conectada e declarar limitações observadas. Sem sinal, o painel não
+deve sugerir que o ambiente está vazio ou protegido. A análise facial local
+e a assistência via API de IA têm dependências diferentes.
+
+---
+
 ## Fase 0 — Base ✅ CONCLUÍDO
 
 1. ✅ Electron + bandeja + atalho global + segundo plano
@@ -196,8 +220,9 @@ Uso real: preço mais honesto nas propostas.
 
 ### 2.6 Presença por câmera ⭐ contribuição original
 
-Câmera **não** como vigilância — como **sensor de contexto para a
-camada de risco**. É a peça que faltava na contribuição B: hoje
+Câmera como visualização do ambiente e **sensor de contexto para a
+camada de risco**. O painel reúne imagem, análise e eventos para acompanhar
+o que o sensor está recebendo. É a peça que faltava na contribuição B:
 `origem: 'remoto'` é o único sinal físico disponível; presença
 transforma o modelo de risco em algo **espacial**, não só lógico.
 
@@ -230,22 +255,31 @@ Trava automática ao sair · pausa/retoma mídia · timesheet real
 Validade contestada na literatura. Banca pergunta e a resposta honesta
 é que não funciona bem. Fica de fora.
 
-#### LGPD — não é detalhe, é capítulo
+#### LGPD e privacidade — revisão pendente
 
-Imagem facial é dado pessoal **sensível** (Art. 5º-II). Três regras
-inegociáveis:
+A revisão de privacidade deve cobrir a captura de imagens, os descritores
+faciais, os nomes cadastrados e os eventos de reconhecimento. Controles
+técnicos ajudam a reduzir exposição; não comprovam conformidade por si só.
 
-1. **Nunca sai da máquina** — processamento 100% local
-2. **Nunca grava frame** — só o resultado (`{presente, conhecido}`);
-   o frame morre em memória
-3. **Embedding, não foto** — guarda o vetor (128 floats), irreversível
+1. **Reconhecimento local** — executar a comparação facial no PC. Quando a
+   fonte é um celular ou câmera IP, as imagens trafegam pela rede até ele;
+   isso precisa constar da descrição do fluxo de dados.
+2. **Minimização** — não persistir frames no fluxo de reconhecimento;
+   documentar quais resultados e nomes ficam nos eventos e definir retenção.
+3. **Descritor em vez de foto** — o cadastro armazena um vetor de 128 floats.
+   Não tratá-lo como anônimo ou prometer irreversibilidade; proteger acesso
+   e oferecer exclusão continuam sendo requisitos do projeto.
 
-Mais: indicador visual sempre que a câmera estiver ativa, e botão de
-desligar que corta de verdade.
+Manter indicador visível enquanto houver captura e um controle para desligar
+o sensor. A ativação da câmera e a data de cadastro, isoladamente, não
+substituem um processo de consentimento documentado quando ele for aplicável.
 
-**Terceiros no enquadramento:** detectar apenas *presença* de
-desconhecido, nunca identificar quem é — evita processar biometria de
-quem não consentiu.
+**Terceiros no enquadramento:** a comparação também processa rostos que não
+estão cadastrados, mesmo que seus descritores não sejam persistidos. Revisar
+esse uso, o enquadramento e os avisos antes da operação com terceiros.
+
+Pendente: revisão de finalidade, base aplicável, consentimento, retenção,
+acesso aos dados e procedimento de exclusão, incluindo os registros de eventos.
 
 ---
 

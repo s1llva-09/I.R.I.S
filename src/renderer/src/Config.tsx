@@ -1,4 +1,5 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react'
+import { Escudo, Seta } from './icones'
 
 /**
  * A tela que tira as chaves do .env (I.1).
@@ -14,10 +15,17 @@ import { useEffect, useState, type JSX, type ReactNode } from 'react'
 
 type Cfg = Record<string, unknown>
 
-export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Element {
+export default function Config({
+  aoFechar,
+  aoSeguranca
+}: {
+  aoFechar: () => void
+  aoSeguranca: () => void
+}): JSX.Element {
   const [cfg, setCfg] = useState<Cfg | null>(null)
   const [gatilhos, setGatilhos] = useState<string[]>([])
   const [salvo, setSalvo] = useState('')
+  const [erro, setErro] = useState('')
 
   useEffect(() => {
     window.api.config.ler().then(setCfg)
@@ -27,10 +35,16 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
   }, [])
 
   async function alterar(chave: string, valor: unknown): Promise<void> {
-    await window.api.config.gravar(chave, valor)
-    setCfg((c) => c && { ...c, [chave]: valor })
-    setSalvo(chave)
-    setTimeout(() => setSalvo(''), 1500)
+    try {
+      if (!(await window.api.config.gravar(chave, valor)))
+        throw new Error('Valor inválido. Confira a configuração antes de salvar.')
+      setCfg((c) => c && { ...c, [chave]: valor })
+      setSalvo(chave)
+      setErro('')
+      setTimeout(() => setSalvo(''), 1500)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível salvar a configuração.')
+    }
   }
 
   if (!cfg) {
@@ -44,12 +58,15 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
   const semChave = !cfg.llmChave
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-fundo px-6 py-5">
+    <div className="settings-page absolute inset-0 z-40 overflow-y-auto px-7 py-7">
       <div className="mx-auto max-w-lg space-y-6 pb-10">
-        <div className="flex items-center justify-between border-b border-fio pb-3">
-          <h2 className="font-mono text-[12px] font-semibold tracking-[0.3em] text-sinal">
-            AJUSTES
-          </h2>
+        <div className="settings-heading flex items-center justify-between border-b border-fio pb-5">
+          <div>
+            <h2 className="font-mono text-[12px] font-semibold tracking-[0.3em] text-sinal">
+              Configurações
+            </h2>
+            <p>Seu assistente, do seu jeito. Ajustes salvos neste dispositivo.</p>
+          </div>
           <button
             onClick={aoFechar}
             className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase transition-colors hover:text-tinta"
@@ -57,6 +74,15 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
             fechar
           </button>
         </div>
+        {erro && <p role="alert">{erro}</p>}
+        <button className="settings-security-link" onClick={aoSeguranca}>
+          <Escudo width={25} height={25} />
+          <span>
+            <strong>Central de segurança</strong>
+            <small>Câmeras, reconhecimento e atividade do ambiente</small>
+          </span>
+          <Seta />
+        </button>
 
         {/*
           O aviso existe porque a tela abre SOZINHA no primeiro boot, e sem
@@ -170,7 +196,7 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
 
         <label className="flex items-center justify-between border-t border-fio pt-4">
           <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            MODO SEGURANÇA
+            ABRIR NA CENTRAL DE SEGURANÇA
           </span>
           <input
             type="checkbox"
@@ -180,34 +206,9 @@ export default function Config({ aoFechar }: { aoFechar: () => void }): JSX.Elem
           />
         </label>
         <Dica>
-          A abertura passa a falar do sistema de segurança em vez de listar os 25 comandos, e a Íris
-          abre direto no painel. Nada é desligado — as ferramentas do dia a dia continuam
-          respondendo se você pedir, só param de ocupar a tela.
+          Escolha a tela inicial da próxima abertura. A câmera continua sendo ativada e pausada pela
+          central de segurança.
         </Dica>
-
-        <label className="flex items-center justify-between border-t border-fio pt-4">
-          <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            CÂMERA (PRESENÇA)
-          </span>
-          <input
-            type="checkbox"
-            checked={Boolean(cfg.cameraAtiva)}
-            onChange={(e) => alterar('cameraAtiva', e.target.checked)}
-            className="h-4 w-4 accent-sinal"
-          />
-        </label>
-        <Dica>
-          Conta os rostos em frente à tela a cada 1,5s, dentro do seu PC. Nenhum frame é gravado e
-          nada sai da máquina. Com a cadeira vazia, toda ação de risco médio passa a pedir
-          confirmação; com alguém não cadastrado na frente, qualquer ação para e pergunta.
-        </Dica>
-
-        {Boolean(cfg.cameraAtiva) && (
-          <Dica>
-            Cadastro de rostos autorizados fica no painel de segurança — peça &ldquo;abre a
-            segurança&rdquo; pra Íris, ou diga &ldquo;cadastra meu rosto como …&rdquo;.
-          </Dica>
-        )}
 
         <div>
           <Rotulo id="vozRitmo" salvo={salvo}>

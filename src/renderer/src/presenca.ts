@@ -14,13 +14,13 @@ import { classificar, esperadoDe } from '../../reconhecimento'
  *
  *   **Cadastra-se quem autorizou. Nunca se guarda quem não autorizou.**
  *
- * Quem foi cadastrado deu consentimento e tem um vetor de 128 floats no
- * banco — irreversível, não dá pra reconstruir o rosto a partir dele. Quem
+ * Quem foi cadastrado tem um vetor biométrico de 128 floats no banco,
+ * que continua sendo dado sensível e precisa de proteção. Quem
  * NÃO está no cadastro é contado como "desconhecido" e o descritor dele
  * morre em memória no mesmo tique: nenhum frame, nenhum vetor, nenhum nome.
- * O sistema sabe QUE tem um desconhecido, nunca QUEM é — que é exatamente o
- * que a LGPD permite fazer com biometria de terceiro que não consentiu, e
- * também tudo que um porteiro precisa saber.
+ * A comparação é local e não cadastra automaticamente novos rostos.
+ * Minimizar o armazenamento não substitui avaliar consentimento, finalidade
+ * e as demais obrigações de privacidade de cada instalação.
  *
  * Tudo local: os pesos são servidos de dentro do app, o TensorFlow.js roda
  * na GPU da máquina, e nenhum byte de imagem sai daqui.
@@ -28,6 +28,7 @@ import { classificar, esperadoDe } from '../../reconhecimento'
 
 /** Cadência. 1,5s é abaixo do tempo de uma pessoa entrar num enquadramento. */
 const TIQUE = 1500
+const VALIDADE_QUADRO = 6000
 
 /**
  * Distância euclidiana máxima entre descritores pra considerar a mesma
@@ -59,6 +60,47 @@ let stream: MediaStream | null = null
 let video: HTMLVideoElement | null = null
 let relogio: number | null = null
 let carregado = false
+let carregamento: Promise<void> | null = null
+let modelos: EstadoSensor['modelos'] = 'nao-carregado'
+let ativo = false
+let geracao = 0
+let versaoFonte = 0
+let ultimoQuadroCamera: number | null = null
+let ultimoQuadroRede: number | null = null
+let ultimaAnaliseEm: number | null = null
+let duracaoAnaliseMs: number | null = null
+let emAnalise = false
+let ultimoErro: string | null = null
+let publicar: ((l: Leitura) => void) | null = null
+let redeSelecionada = false
+let quadro: HTMLImageElement | null = null
+let versaoQuadro = 0
+let versaoFoto = 0
+
+export type EstadoSensor = {
+  ativo: boolean
+  fonte: 'camera' | 'rede' | 'teste' | 'nenhuma'
+  sinal: boolean
+  modelos: 'nao-carregado' | 'carregando' | 'pronto' | 'erro'
+  ultimoQuadroEm: number | null
+  ultimaAnaliseEm: number | null
+  duracaoAnaliseMs: number | null
+  emAnalise: boolean
+  erro: string | null
+  largura: number
+  altura: number
+}
+
+function semLeitura(): Leitura {
+  return { rostos: -1, desconhecidos: 0, conhecidos: [] }
+}
+
+function invalidarLeitura(): void {
+  caixas = []
+  ultimaAnaliseEm = null
+  duracaoAnaliseMs = null
+  publicar?.(semLeitura())
+}
 
 /**
  * FONTE DE TESTE — uma imagem no lugar da câmera.
@@ -81,8 +123,43 @@ let fonteTeste: HTMLImageElement | null = null
 
 /** O que está sendo lido agora: a foto de teste, se houver, senão a câmera. */
 function alvo(): HTMLImageElement | HTMLVideoElement | null {
+  if (!ativo) return null
   if (fonteTeste) return fonteTeste
-  return video && video.readyState >= 2 ? video : null
+  if (redeSelecionada) {
+    return quadro && ultimoQuadroRede !== null && Date.now() - ultimoQuadroRede < VALIDADE_QUADRO
+      ? quadro
+      : null
+  }
+  const track = stream?.getVideoTracks()[0]
+  return video &&
+    video.readyState >= 2 &&
+    track?.readyState === 'live' &&
+    !track.muted &&
+    ultimoQuadroCamera !== null &&
+    Date.now() - ultimoQuadroCamera < VALIDADE_QUADRO
+    ? video
+    : null
+}
+
+/** Telemetria local: ausência de quadros nunca é apresentada como vídeo ao vivo. */
+export function estadoSensor(): EstadoSensor {
+  const fonte = fonteTeste ? 'teste' : redeSelecionada ? 'rede' : video ? 'camera' : 'nenhuma'
+  const atual = alvo()
+  const dimensoes = tamanhoFonte()
+  return {
+    ativo,
+    fonte,
+    sinal: atual !== null,
+    modelos,
+    ultimoQuadroEm:
+      fonte === 'rede' ? ultimoQuadroRede : fonte === 'camera' ? ultimoQuadroCamera : null,
+    ultimaAnaliseEm,
+    duracaoAnaliseMs,
+    emAnalise,
+    erro: ultimoErro,
+    largura: dimensoes.w,
+    altura: dimensoes.h
+  }
 }
 
 /**
@@ -98,7 +175,7 @@ export type Caixa = { x: number; y: number; w: number; h: number; nome: string |
 let caixas: Caixa[] = []
 
 export function ultimasCaixas(): Caixa[] {
-  return caixas
+  return alvo() ? caixas : []
 }
 
 /**
@@ -124,16 +201,40 @@ let galeria: faceapi.LabeledFaceDescriptors[] = []
 
 async function carregarModelos(): Promise<void> {
   if (carregado) return
-  // Caminho relativo, servido de dentro do app — sem CDN.
-  //
-  // ponytail: empacotado a janela carrega por file:// e o fetch dos pesos é
-  // bloqueado pelo Chromium. Junto com o instalador (I.2) isto vira um
-  // protocol handler. Falha fechada: sem modelo, a presença fica
-  // 'desconhecida' e o app volta a ser o de antes da 2.6.
-  await faceapi.nets.tinyFaceDetector.loadFromUri('facial')
-  await faceapi.nets.faceLandmark68Net.loadFromUri('facial')
-  await faceapi.nets.faceRecognitionNet.loadFromUri('facial')
-  carregado = true
+  // Modelos empacotados no app. Selecionar o backend evita o WASM padrão,
+  // que exige binários externos não distribuídos com esta aplicação.
+  if (!carregamento) {
+    modelos = 'carregando'
+    carregamento = (async () => {
+      try {
+        // A versão empacotada expõe estas funções (também usadas no demo
+        // oficial da biblioteca), mas omite ambas da declaração de tipos.
+        const motor = faceapi.tf as typeof faceapi.tf & {
+          setBackend: (nome: string) => Promise<boolean>
+          ready: () => Promise<void>
+        }
+        let gpu = false
+        try {
+          gpu = await motor.setBackend('webgl')
+        } catch {
+          // Máquinas sem aceleração gráfica continuam com a análise local.
+        }
+        if (!gpu) await motor.setBackend('cpu')
+        await motor.ready()
+        await faceapi.nets.tinyFaceDetector.loadFromUri('facial')
+        await faceapi.nets.faceLandmark68Net.loadFromUri('facial')
+        await faceapi.nets.faceRecognitionNet.loadFromUri('facial')
+        carregado = true
+        modelos = 'pronto'
+      } catch (e) {
+        modelos = 'erro'
+        throw e
+      } finally {
+        carregamento = null
+      }
+    })()
+  }
+  await carregamento
 }
 
 /**
@@ -159,14 +260,15 @@ export function aoMudarCameras(cb: () => void): () => void {
 }
 
 export async function listarCameras(): Promise<{ id: string; nome: string }[]> {
+  if (!navigator.mediaDevices) return []
   const ds = await navigator.mediaDevices.enumerateDevices()
   return ds
     .filter((d) => d.kind === 'videoinput')
     .map((d, i) => ({ id: d.deviceId, nome: d.label || `câmera ${i + 1}` }))
 }
 
-async function ligarCamera(deviceId?: string): Promise<void> {
-  stream = await navigator.mediaDevices.getUserMedia({
+async function ligarCamera(ciclo: number, deviceId?: string): Promise<void> {
+  const novaStream = await navigator.mediaDevices.getUserMedia({
     /**
      * 640×480 e não 320×240 como na versão só-de-presença: contar rostos
      * funciona borrado, reconhecer não. É o mínimo em que o descritor ainda
@@ -186,23 +288,75 @@ async function ligarCamera(deviceId?: string): Promise<void> {
     }
   })
 
-  video = document.createElement('video')
-  video.srcObject = stream
-  video.muted = true
-  await video.play()
+  if (ciclo !== geracao) {
+    novaStream.getTracks().forEach((t) => t.stop())
+    return
+  }
+  stream = novaStream
+  const novoVideo = document.createElement('video')
+  video = novoVideo
+  novoVideo.srcObject = novaStream
+  novoVideo.muted = true
+  novoVideo.playsInline = true
+
+  const perdeuSinal = (): void => {
+    if (ciclo !== geracao || redeSelecionada || fonteTeste) return
+    ultimoQuadroCamera = null
+    ultimoErro = 'A câmera parou de transmitir.'
+    invalidarLeitura()
+  }
+  novaStream.getVideoTracks().forEach((track) => {
+    track.addEventListener('ended', perdeuSinal)
+    track.addEventListener('mute', perdeuSinal)
+  })
+  novoVideo.addEventListener('error', perdeuSinal)
+
+  const aoQuadro = (): void => {
+    if (ciclo !== geracao || video !== novoVideo) return
+    ultimoQuadroCamera = Date.now()
+    novoVideo.requestVideoFrameCallback(aoQuadro)
+  }
+  novoVideo.requestVideoFrameCallback(aoQuadro)
+  await novoVideo.play()
 }
 
 function desligar(): void {
+  geracao++
+  ativo = false
   if (relogio) clearInterval(relogio)
   relogio = null
   // O track precisa parar de verdade: sem isto a luz da webcam fica acesa
   // com o recurso desligado, que é o que destrói a confiança na feature.
   stream?.getTracks().forEach((t) => t.stop())
   stream = null
+  if (video) {
+    video.pause()
+    video.srcObject = null
+  }
   video = null
   // Sem isto o preview congela na última leitura e fica mostrando um
   // retângulo com nome sobre uma câmera desligada.
-  caixas = []
+  ultimoQuadroCamera = null
+  emAnalise = false
+  invalidarLeitura()
+  publicar = null
+}
+
+/** Cancela também uma inicialização ainda aguardando modelos ou permissão. */
+export function pararPresenca(): void {
+  desligar()
+}
+
+let filaDeteccao: Promise<void> = Promise.resolve()
+
+/** Cadastro, medição e vigilância compartilham o mesmo executor local. */
+function serializarDeteccao<T>(tarefa: () => Promise<T>): Promise<T> {
+  const resultado = filaDeteccao.then(tarefa)
+  filaDeteccao = resultado.then(
+    () => {},
+    () => {}
+  )
+  return resultado
 }
 
 /**
@@ -212,27 +366,44 @@ function desligar(): void {
  * que concordar na tela — ver o retângulo e o rótulo saírem de detecções
  * diferentes é como se descobre, tarde, que o preview mente.
  */
-async function detectar(): Promise<{ d: Float32Array; box: faceapi.Box }[]> {
-  const fonte = alvo()
-  if (!fonte) return []
-  const achados = await faceapi
-    .detectAllFaces(fonte, new faceapi.TinyFaceDetectorOptions())
-    .withFaceLandmarks()
-    .withFaceDescriptors()
-  return achados.map((a) => ({ d: a.descriptor, box: a.detection.box }))
+async function detectar(
+  fonte: HTMLImageElement | HTMLVideoElement
+): Promise<{ d: Float32Array; box: faceapi.Box }[]> {
+  return serializarDeteccao(async () => {
+    const achados = await faceapi
+      .detectAllFaces(fonte, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptors()
+    return achados.map((a) => ({ d: a.descriptor, box: a.detection.box }))
+  })
 }
 
 /** Só os vetores, pra quem não precisa de posição. */
-async function descritores(): Promise<Float32Array[]> {
-  return (await detectar()).map((a) => a.d)
+async function descritores(fonte: HTMLImageElement | HTMLVideoElement): Promise<Float32Array[]> {
+  return (await detectar(fonte)).map((a) => a.d)
 }
 
 /**
  * Um frame → uma leitura. O frame não é guardado em lugar nenhum: sai do
  * `video`, vira números, e o `descritores` local morre no fim da função.
  */
-async function ler(): Promise<Leitura> {
-  const achados = await detectar()
+async function ler(ciclo: number): Promise<Leitura | null> {
+  const fonte = alvo()
+  if (!fonte) {
+    invalidarLeitura()
+    return semLeitura()
+  }
+  const versao = versaoFonte
+  const inicio = performance.now()
+  const achados = await detectar(fonte)
+  if (ciclo !== geracao || versao !== versaoFonte) return null
+  if (!alvo()) {
+    invalidarLeitura()
+    return semLeitura()
+  }
+  ultimaAnaliseEm = Date.now()
+  duracaoAnaliseMs = Math.round(performance.now() - inicio)
+  ultimoErro = null
   const ds = achados.map((a) => a.d)
 
   if (!ds.length) {
@@ -297,13 +468,23 @@ export async function capturarDescritor(): Promise<Float32Array | string> {
    * a pessoa se ajeitar na frente de um sensor que não está ligado. O
    * `video` nulo é a única forma de saber isso daqui.
    */
-  if (!alvo()) return 'a câmera está desligada — peça pra eu ligar antes'
+  const fonte = alvo()
+  if (!fonte) return 'a câmera está desligada ou sem sinal — conecte uma fonte antes'
 
-  await carregarModelos()
-  const ds = await descritores()
-  if (ds.length === 0) return 'não vi ninguém na câmera'
-  if (ds.length > 1) return `vi ${ds.length} pessoas — só consigo cadastrar com uma na frente`
-  return ds[0]
+  const ciclo = geracao
+  const versao = versaoFonte
+  try {
+    await carregarModelos()
+    const ds = await descritores(fonte)
+    if (ciclo !== geracao || versao !== versaoFonte || !alvo()) {
+      return 'a fonte mudou ou perdeu o sinal — tente a captura novamente'
+    }
+    if (ds.length === 0) return 'não vi ninguém na câmera'
+    if (ds.length > 1) return `vi ${ds.length} pessoas — só consigo cadastrar com uma na frente`
+    return ds[0]
+  } catch {
+    return 'não consegui analisar o rosto — verifique o sinal e os modelos locais'
+  }
 }
 
 /**
@@ -312,7 +493,10 @@ export async function capturarDescritor(): Promise<Float32Array | string> {
  * pareceria "não detectou ninguém".
  */
 export function definirFonteTeste(arquivo: File | null): Promise<string> {
+  const versao = ++versaoFoto
+  versaoFonte++
   fonteTeste = null
+  invalidarLeitura()
   if (!arquivo) return Promise.resolve('')
 
   return new Promise((resolve) => {
@@ -326,7 +510,10 @@ export function definirFonteTeste(arquivo: File | null): Promise<string> {
       // sem isto cada foto escolhida deixa um blob preso até a janela
       // fechar. Numa sessão de teste são dezenas.
       URL.revokeObjectURL(url)
+      if (versao !== versaoFoto) return resolve('')
       fonteTeste = img
+      versaoFonte++
+      ultimoErro = null
       resolve('')
     }
     img.onerror = () => {
@@ -355,24 +542,51 @@ export function temFonteTeste(): boolean {
  * a CSP aceita e que é mesma origem — nenhuma das duas paredes existe, e de
  * graça vem a reconexão automática, que o `<img>` não tinha.
  */
-let quadro: HTMLImageElement | null = null
+/** Seleciona a rede antes da conexão, sem confundir espera com sinal recebido. */
+export function prepararFonteRede(): void {
+  versaoFoto++
+  versaoQuadro++
+  versaoFonte++
+  fonteTeste = null
+  quadro = null
+  redeSelecionada = true
+  ultimoQuadroRede = null
+  ultimoErro = null
+  invalidarLeitura()
+}
 
-/**
- * Um `<img>` só, reaproveitado a cada quadro.
- *
- * Criar um novo por frame seria criar 5 elementos por segundo e deixar o GC
- * limpar depois — e o `alvo()` apontaria pro anterior enquanto o novo
- * decodifica, o que faz a detecção ler um frame velho.
- */
+/** Só publica quadros decodificados; uma decodificação antiga não vence a nova. */
 export function receberQuadro(jpegBase64: string): void {
-  if (!quadro) quadro = new Image()
-  quadro.src = `data:image/jpeg;base64,${jpegBase64}`
-  fonteTeste = quadro
+  // Quadros em trânsito após desligar não podem selecionar novamente a rede.
+  if (!ativo && !redeSelecionada) return
+  if (fonteTeste) return
+  if (!redeSelecionada) prepararFonteRede()
+  const versao = ++versaoQuadro
+  const recebidoEm = Date.now()
+  const imagem = new Image()
+  imagem.onload = () => {
+    if (versao !== versaoQuadro || !redeSelecionada || !imagem.naturalWidth) return
+    // A detecção que já começou mantém seu próprio elemento até terminar.
+    quadro = imagem
+    ultimoQuadroRede = recebidoEm
+    ultimoErro = null
+  }
+  imagem.onerror = () => {
+    if (versao !== versaoQuadro || !redeSelecionada) return
+    ultimoErro = 'Não consegui decodificar o quadro recebido.'
+    quadro = null
+    invalidarLeitura()
+  }
+  imagem.src = `data:image/jpeg;base64,${jpegBase64}`
 }
 
 export function pararQuadros(): void {
-  if (fonteTeste === quadro) fonteTeste = null
+  versaoQuadro++
+  versaoFonte++
+  redeSelecionada = false
+  ultimoQuadroRede = null
   quadro = null
+  invalidarLeitura()
 }
 
 /** Troca o cadastro em uso. Chamado no início e a cada cadastro novo. */
@@ -392,38 +606,69 @@ export async function iniciarPresenca(
   aoLer: (l: Leitura) => void,
   deviceId?: string
 ): Promise<() => void> {
+  desligar()
+  const ciclo = geracao
+  ativo = true
+  ultimoErro = null
+  publicar = aoLer
+  aoLer(semLeitura())
+  const parar = (): void => {
+    // A conclusão de um início antigo nunca desliga o sensor que o substituiu.
+    if (ciclo === geracao) desligar()
+  }
   try {
     await carregarModelos()
-    await ligarCamera(deviceId)
+    if (ciclo !== geracao) return parar
+    if (!fonteTeste && !redeSelecionada) await ligarCamera(ciclo, deviceId)
   } catch (e) {
+    if (ciclo !== geracao) return parar
+    ultimoErro = e instanceof Error ? e.message : 'Não consegui iniciar o sensor.'
     console.warn('[presença] câmera indisponível:', (e as Error).message)
-
-    /**
-     * Sem câmera, mas COM foto de teste, o laço segue: é o caminho de quem
-     * não tem webcam nenhuma. Sem os dois, aí sim não há olho.
-     */
-    if (!fonteTeste) {
-      aoLer({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+    if (!carregado || (!fonteTeste && !redeSelecionada)) {
       desligar()
-      return () => {}
+      return parar
     }
   }
+  if (ciclo !== geracao) return parar
 
   let ocupado = false
-  relogio = window.setInterval(() => {
+  const tique = (): void => {
+    if (ciclo !== geracao) return
+    // Verifica o sinal mesmo durante uma inferência lenta, limpando nomes antigos.
+    if (!alvo()) {
+      if (redeSelecionada && ultimoQuadroRede !== null) {
+        ultimoErro = 'Sem quadros recentes da câmera de rede.'
+      } else if (video && ultimoQuadroCamera !== null) {
+        ultimoErro = 'Sem quadros recentes da câmera local.'
+      }
+      invalidarLeitura()
+      return
+    }
     // O reconhecimento leva mais que um tique em máquina lenta. Sem esta
     // trava os tiques se empilham e a fila de inferência só cresce.
     if (ocupado) return
     ocupado = true
-    ler()
-      .then(aoLer)
+    emAnalise = true
+    ler(ciclo)
+      .then((leitura) => {
+        if (leitura && ciclo === geracao) aoLer(leitura)
+      })
       // Um tique que falhou não vira "ausente": inventar que a sala esvaziou
       // é pior que admitir que não enxerguei.
-      .catch(() => aoLer({ rostos: -1, desconhecidos: 0, conhecidos: [] }))
-      .finally(() => (ocupado = false))
-  }, TIQUE)
+      .catch((e) => {
+        if (ciclo !== geracao) return
+        ultimoErro = e instanceof Error ? e.message : 'Falha na análise local.'
+        invalidarLeitura()
+      })
+      .finally(() => {
+        ocupado = false
+        if (ciclo === geracao) emAnalise = false
+      })
+  }
+  relogio = window.setInterval(tique, TIQUE)
+  tique()
 
-  return desligar
+  return parar
 }
 
 // ---------------------------------------------------------------
@@ -475,10 +720,12 @@ async function descritorDe(arquivo: File): Promise<Float32Array | null> {
     })
     if (!img) return null
 
-    const achado = await faceapi
-      .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks()
-      .withFaceDescriptor()
+    const achado = await serializarDeteccao(async () =>
+      faceapi
+        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor()
+    )
     return achado?.descriptor ?? null
   } finally {
     URL.revokeObjectURL(url)

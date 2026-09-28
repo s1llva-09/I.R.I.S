@@ -1,44 +1,88 @@
-import { useEffect, useState, type JSX } from 'react'
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import Visor from './Visor'
 import {
+  aoMudarCameras,
   capturarDescritor,
   definirFonteTeste,
   definirGaleria,
-  aoMudarCameras,
   definirLimiar,
+  estadoSensor,
   listarCameras,
   medirReconhecimento,
   pararQuadros,
-  temFonteTeste,
-  type Medicao,
-  type Leitura
+  prepararFonteRede,
+  type Leitura,
+  type Medicao
 } from './presenca'
+import './assets/security.css'
 
-/**
- * PAINEL DE SEGURANÇA (2.6).
- *
- * Existe porque as funções de segurança estavam em Ajustes, atrás de dois
- * cliques, junto de ritmo da voz e atalho de teclado. Segurança escondida
- * numa tela de preferências é segurança que ninguém abre — e a hora em que
- * você quer ver quem está na sala é a hora em que você NÃO quer caçar menu.
- *
- * Abre por voz (`seguranca`), e é uma tela só: quem está sendo visto agora,
- * quem está autorizado, o que disparou alarme, e por que a Íris parou.
- */
+type Painel = Awaited<ReturnType<typeof window.api.seguranca.painel>>
+type IconeNome = 'camera' | 'shield' | 'people' | 'pulse' | 'arrow' | 'refresh' | 'settings'
 
-type Painel = {
-  rostos: { nome: string; criado_em: string }[]
-  alarmes: { id: number; momento: string; resultado: string }[]
-  decisoes: { id: number; momento: string; ferramenta: string; decisao: string }[]
+function Icone({ nome }: { nome: IconeNome }): JSX.Element {
+  const caminhos: Record<IconeNome, string> = {
+    camera: 'M3 6h12v12H3z M15 10l6-3v10l-6-3 M7 3h5',
+    shield: 'M12 3l8 3v6c0 5-8 9-8 9S4 17 4 12V6z M8 12l3 3 5-6',
+    people:
+      'M15 21v-3a5 5 0 0 0-10 0v3 M17 13a5 5 0 0 1 4 5v3 M10 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M17 3a4 4 0 0 1 0 8',
+    pulse: 'M2 12h4l3-7 5 14 3-7h5',
+    arrow: 'M5 12h14 M13 6l6 6-6 6',
+    refresh: 'M20 8a8 8 0 0 0-14-3L3 8 M3 3v5h5 M4 16a8 8 0 0 0 14 3l3-3 M16 16h5v5',
+    settings: 'M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6'
+  }
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={caminhos[nome]} />
+    </svg>
+  )
 }
 
-const hora = (iso: string): string =>
-  new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+const hora = (iso: string): string => {
+  const data = new Date(iso)
+  return Number.isNaN(data.getTime())
+    ? 'Horário indisponível'
+    : data.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+}
+
+function lerDecisao(json: string): Avaliacao | null {
+  try {
+    const valor = JSON.parse(json)
+    if (
+      !valor ||
+      typeof valor !== 'object' ||
+      !Number.isFinite(valor.escore) ||
+      !Number.isFinite(valor.limiar)
+    )
+      return null
+    return {
+      ...valor,
+      sinais: Array.isArray(valor.sinais)
+        ? valor.sinais.filter(
+            (s: { sinal?: unknown; peso?: unknown }) =>
+              typeof s?.sinal === 'string' && typeof s?.peso === 'number'
+          )
+        : [],
+      motivos: Array.isArray(valor.motivos)
+        ? valor.motivos.filter((m: unknown) => typeof m === 'string')
+        : []
+    }
+  } catch {
+    return null
+  }
+}
 
 export default function Seguranca({
   visao,
@@ -47,516 +91,934 @@ export default function Seguranca({
 }: {
   visao: Leitura
   aoFechar: () => void
-  /**
-   * O laço do sensor vive no App e não relê nada sozinho. Trocar de câmera
-   * ou pôr uma foto sem religar só valeria no próximo boot — e o seletor
-   * pareceria quebrado, que é o pior tipo de bug de UI: o que faz a pessoa
-   * duvidar da feature inteira.
-   */
   aoTrocarFonte: () => void
 }): JSX.Element {
   const [dados, setDados] = useState<Painel | null>(null)
+  const [erroPainel, setErroPainel] = useState('')
+  const [atualizado, setAtualizado] = useState<Date | null>(null)
+  const [sensor, setSensor] = useState(estadoSensor)
+  const [agora, setAgora] = useState(Date.now)
   const [nome, setNome] = useState('')
+  const [consentimento, setConsentimento] = useState(false)
+  const [cadastroAberto, setCadastroAberto] = useState(false)
   const [estado, setEstado] = useState('')
+  const [ocupado, setOcupado] = useState('')
   const [cameras, setCameras] = useState<{ id: string; nome: string }[]>([])
   const [cameraId, setCameraId] = useState('')
-  const [teste, setTeste] = useState(temFonteTeste())
   const [ligada, setLigada] = useState(false)
+  const [configPronta, setConfigPronta] = useState(false)
   const [limiar, setLimiar] = useState(0.6)
   const [medicao, setMedicao] = useState<Medicao[] | null>(null)
   const [medindo, setMedindo] = useState('')
   const [url, setUrl] = useState('')
   const [achadas, setAchadas] = useState<{ url: string; tipo: string }[]>([])
-  const [qr, setQr] = useState('')
+  const [qr, setQr] = useState<{ svg: string; url: string } | null>(null)
+  const [fontesAbertas, setFontesAbertas] = useState(false)
+  const [abaEventos, setAbaEventos] = useState<'alarmes' | 'decisoes'>('alarmes')
+  const fontes = useRef<HTMLDetailsElement>(null)
+  const montado = useRef(false)
+  const recarregando = useRef(false)
+  const executando = useRef(false)
 
-  const recarregar = (): void => {
-    window.api.seguranca.painel().then(setDados)
-    // A galeria em uso no laço também: sem isto o rosto recém-cadastrado
-    // segue como desconhecido até o próximo boot, bem na hora da demo.
-    window.api.rostos.galeria().then(definirGaleria)
-  }
-
-  useEffect(() => {
-    recarregar()
-    listarCameras().then(setCameras)
-
-    // Plugar o cabo com o painel aberto é o caso normal de quem usa o
-    // celular como webcam USB — a lista tem que acompanhar.
-    const pararDispositivos = aoMudarCameras(() => listarCameras().then(setCameras))
-    window.api.config.ler().then((c) => {
-      setCameraId(String(c.cameraId ?? ''))
-      setLigada(Boolean(c.cameraAtiva))
-      setLimiar(Number(c.limiarFacial ?? 0.6))
-    })
-
-    return pararDispositivos
+  const recarregar = useCallback(async (): Promise<void> => {
+    if (recarregando.current) return
+    recarregando.current = true
+    try {
+      const painel = await window.api.seguranca.painel()
+      if (!montado.current) return
+      setDados(painel)
+      setAtualizado(new Date())
+      setErroPainel('')
+    } catch {
+      if (montado.current)
+        setErroPainel(
+          'Não foi possível atualizar o histórico. Os últimos dados disponíveis foram mantidos.'
+        )
+    } finally {
+      recarregando.current = false
+    }
   }, [])
 
-  const cadastrar = async (): Promise<void> => {
-    if (!nome.trim()) return setEstado('dê um nome primeiro')
-    setEstado('olhando…')
-    const d = await capturarDescritor()
-    if (typeof d === 'string') return setEstado(d)
-    await window.api.rostos.cadastrar(nome.trim(), [...d])
-    setNome('')
-    setEstado('cadastrado')
-    recarregar()
+  const atualizarGaleria = useCallback(async (): Promise<void> => {
+    definirGaleria(await window.api.rostos.galeria())
+    await recarregar()
+  }, [recarregar])
+
+  useEffect(() => {
+    montado.current = true
+    const primeiraAtualizacao = window.setTimeout(() => void recarregar(), 0)
+    const carregarConfig = async (): Promise<void> => {
+      try {
+        const c = await window.api.config.ler()
+        if (!montado.current) return
+        setCameraId(String(c.cameraId ?? ''))
+        setLigada(Boolean(c.cameraAtiva))
+        const valor = Number(c.limiarFacial ?? 0.6)
+        setLimiar(Number.isFinite(valor) ? valor : 0.6)
+        setConfigPronta(true)
+      } catch {
+        if (montado.current) setEstado('Não foi possível carregar as configurações da câmera.')
+      }
+    }
+    const carregarCameras = async (): Promise<void> => {
+      try {
+        const lista = await listarCameras()
+        if (montado.current) setCameras(lista)
+      } catch {
+        if (montado.current) setCameras([])
+      }
+    }
+    void carregarConfig()
+    void carregarCameras()
+    const pararDispositivos = aoMudarCameras(() => void carregarCameras())
+    const pararCamera = window.api.seguranca.aoMudarCamera(() => void carregarConfig())
+    const pararGaleria = window.api.seguranca.aoMudarGaleria(() => {
+      void atualizarGaleria().catch(() =>
+        setEstado('Não foi possível atualizar os rostos autorizados.')
+      )
+    })
+    const telemetria = window.setInterval(() => {
+      setSensor(estadoSensor())
+      setAgora(Date.now())
+    }, 1000)
+    const historico = window.setInterval(() => void recarregar(), 5000)
+    return () => {
+      montado.current = false
+      pararDispositivos()
+      pararCamera()
+      pararGaleria()
+      window.clearInterval(telemetria)
+      window.clearInterval(historico)
+      window.clearTimeout(primeiraAtualizacao)
+    }
+  }, [atualizarGaleria, recarregar])
+
+  const executar = async (acao: string, tarefa: () => Promise<void>): Promise<void> => {
+    if (executando.current) return
+    executando.current = true
+    setOcupado(acao)
+    setEstado('')
+    try {
+      await tarefa()
+    } catch (erro) {
+      if (montado.current)
+        setEstado(
+          erro instanceof Error
+            ? erro.message
+            : 'Não foi possível concluir esta ação. Tente novamente.'
+        )
+    } finally {
+      executando.current = false
+      if (['qr', 'foto', 'rede'].includes(acao)) aoTrocarFonte()
+      if (montado.current) {
+        setOcupado('')
+        setSensor(estadoSensor())
+      }
+    }
   }
 
-  const alerta = visao.desconhecidos > 0
+  const gravar = async (chave: string, valor: unknown): Promise<void> => {
+    if (!(await window.api.config.gravar(chave, valor)))
+      throw new Error('A configuração não foi salva. Tente novamente.')
+  }
+  const ativarSensor = async (): Promise<void> => {
+    await gravar('cameraAtiva', true)
+    setLigada(true)
+  }
+  const alternarSensor = (): void => {
+    void executar('sensor', async () => {
+      const proxima = !ligada
+      await gravar('cameraAtiva', proxima)
+      setLigada(proxima)
+      aoTrocarFonte()
+      if (!proxima) {
+        await window.api.camera.desconectar()
+        pararQuadros()
+      }
+      setEstado(
+        proxima ? 'Sensor ativado. Aguardando imagem e análise.' : 'Sensor de presença desativado.'
+      )
+    })
+  }
+  const abrirFontes = (): void => {
+    setFontesAbertas(true)
+    window.requestAnimationFrame(() =>
+      fontes.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    )
+  }
+  const voltarCamera = async (): Promise<void> => {
+    await window.api.camera.desconectar()
+    pararQuadros()
+    await definirFonteTeste(null)
+    setQr(null)
+    aoTrocarFonte()
+    setEstado('Fonte alterada para a câmera do sistema.')
+  }
+  const cadastrar = (): void => {
+    void executar('cadastro', async () => {
+      if (!nome.trim()) throw new Error('Informe o nome da pessoa antes de cadastrar.')
+      if (!consentimento)
+        throw new Error('Confirme a autorização da pessoa para cadastrar o rosto.')
+      if (!ligada || !sensor.sinal)
+        throw new Error('Conecte uma câmera ou carregue uma foto antes de cadastrar.')
+      const descritor = await capturarDescritor()
+      if (typeof descritor === 'string') throw new Error(descritor)
+      await window.api.rostos.cadastrar(nome.trim(), [...descritor])
+      await atualizarGaleria()
+      setNome('')
+      setConsentimento(false)
+      setCadastroAberto(false)
+      setEstado('Pessoa cadastrada. A comparação facial foi atualizada.')
+    })
+  }
+
+  const sinal = ligada && sensor.sinal
+  const analiseAtual =
+    sinal &&
+    visao.rostos >= 0 &&
+    sensor.ultimaAnaliseEm !== null &&
+    agora - sensor.ultimaAnaliseEm < 8000
+  const alerta = analiseAtual && visao.desconhecidos > 0
+  const fonteNome =
+    sensor.fonte === 'teste'
+      ? 'Foto de teste'
+      : sensor.fonte === 'rede'
+        ? 'Câmera de rede'
+        : (cameras.find((c) => c.id === cameraId)?.nome ?? 'Câmera principal')
+  const estadoNome = !ligada
+    ? 'Monitoramento pausado'
+    : !sinal
+      ? 'Aguardando sinal'
+      : sensor.fonte === 'teste'
+        ? 'Analisando foto'
+        : 'Monitoramento ativo'
+  const analiseTitulo = !ligada
+    ? 'Pronto quando você estiver.'
+    : !sinal
+      ? 'Aguardando uma imagem.'
+      : !analiseAtual
+        ? 'Preparando reconhecimento.'
+        : alerta
+          ? 'Pessoa não reconhecida.'
+          : visao.rostos === 0
+            ? 'Nenhum rosto no enquadramento.'
+            : dados?.rostos.length
+              ? 'Presença reconhecida.'
+              : 'Presença detectada.'
+  const analiseTexto =
+    sensor.erro ||
+    (!ligada
+      ? 'Conecte uma câmera para acompanhar o ambiente e iniciar a análise local.'
+      : !sinal
+        ? 'Confira a conexão da câmera. A análise começa assim que uma imagem estiver disponível.'
+        : !analiseAtual
+          ? 'A imagem já está disponível. Aguarde a próxima leitura do sensor.'
+          : alerta
+            ? 'Há um rosto sem correspondência no cadastro. Verifique a imagem antes de tomar uma decisão.'
+            : visao.rostos === 0
+              ? 'O sensor está analisando a imagem. Nenhuma pessoa foi detectada nesta leitura.'
+              : dados?.rostos.length
+                ? visao.conhecidos.join(', ') || 'Consulte a imagem para verificar a presença.'
+                : 'Cadastre uma pessoa autorizada para habilitar a comparação facial.')
+  const idadeAnalise = sensor.ultimaAnaliseEm
+    ? Math.max(0, Math.floor((agora - sensor.ultimaAnaliseEm) / 1000))
+    : null
+  const statusModelos = {
+    'nao-carregado': 'Em espera',
+    carregando: 'Carregando',
+    pronto: 'Disponível',
+    erro: 'Indisponível'
+  }[sensor.modelos]
+  const eventos = abaEventos === 'alarmes' ? dados?.alarmes : dados?.decisoes
 
   return (
-    <div
-      className={`absolute inset-0 z-40 overflow-y-auto bg-fundo px-6 py-5 ${
-        alerta ? 'alarme' : ''
-      }`}
-    >
-      <div className="destravar mx-auto max-w-lg space-y-6 pb-10">
-        <div className="flex items-baseline justify-between border-b border-fio pb-3">
-          <h2
-            className={`font-mono text-[12px] font-semibold tracking-[0.3em] uppercase ${
-              alerta ? 'text-perigo' : 'text-sinal'
-            }`}
-          >
-            Segurança
-          </h2>
+    <div className={`security-dashboard ${alerta ? 'security-has-alert' : ''}`}>
+      <div className="security-page-heading">
+        <div>
+          <p className="security-eyebrow">
+            <span /> SENTINELA / VISÃO COMPUTACIONAL
+          </p>
+          <h1>
+            Central de <span>segurança</span>
+          </h1>
+          <p>Seu ambiente em foco. Cada sinal, uma decisão informada.</p>
+        </div>
+        <div className="security-heading-actions">
+          <button className="security-button security-button-quiet" onClick={aoFechar}>
+            Voltar ao assistente <Icone nome="arrow" />
+          </button>
           <button
-            onClick={aoFechar}
-            className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase hover:text-tinta"
+            className={`security-button ${ligada ? '' : 'security-button-primary'}`}
+            disabled={!!ocupado || !configPronta}
+            onClick={alternarSensor}
           >
-            fechar
+            <Icone nome="camera" />{' '}
+            {ocupado === 'sensor' ? 'Atualizando…' : ligada ? 'Pausar sensor' : 'Ativar câmera'}
           </button>
         </div>
+      </div>
 
-        {/* O VISOR primeiro, acima até do resumo em texto: quem abre esta
-            tela quer VER a porta. O texto embaixo é pra quem só passou o
-            olho, e pra quando a câmera está desligada. */}
-        <Visor ativo={visao.rostos >= 0} alerta={alerta} />
-
-        {/* AGORA — o que a câmera está vendo neste segundo. Primeiro de
-            propósito: é a única linha da tela que responde "e agora?". */}
-        <div className={`border-l-2 pl-4 ${alerta ? 'border-perigo' : 'border-fio-forte'}`}>
-          <p className={`text-[15px] ${alerta ? 'text-perigo' : 'text-tinta'}`}>
-            {visao.rostos < 0
-              ? 'Câmera desligada'
-              : visao.rostos === 0
-                ? 'Ninguém em frente à câmera'
-                : alerta
-                  ? `${visao.desconhecidos} pessoa(s) NÃO CADASTRADA(S)`
-                  : `${visao.conhecidos.join(', ')}`}
-          </p>
-          <p className="mt-1 font-hud text-[11px] tracking-[0.15em] text-tinta-3">
-            {visao.rostos < 0
-              ? 'ligue o sensor logo abaixo para começar'
-              : alerta
-                ? 'toda ação de risco está parando para pedir confirmação'
-                : 'nenhum frame é gravado · nada sai desta máquina'}
-          </p>
-        </div>
-
-        {/* FONTE — de onde vem a imagem. Fica aqui e não em Ajustes porque
-            "qual câmera" é a primeira pergunta de quem tem duas, e a última
-            que alguém vai procurar numa tela de preferências. */}
-        <section className="space-y-2">
-          <h3 className="regua font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            Fonte
-          </h3>
-
-          {/*
-            O LIGA/DESLIGA mora aqui também.
-            O painel dizia "ligue em ajustes" — mandando pra exatamente a
-            tela que esta existe pra evitar. Quem abre a segurança com a
-            câmera desligada quer ligar a câmera, não navegar.
-          */}
-          <label className="flex items-center justify-between border border-fio px-2 py-1">
-            <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase">
-              Sensor de presença
-            </span>
-            <input
-              type="checkbox"
-              checked={ligada}
-              onChange={(e) => {
-                setLigada(e.target.checked)
-                window.api.config.gravar('cameraAtiva', e.target.checked)
-                aoTrocarFonte()
-              }}
-              className="h-4 w-4 accent-sinal"
-            />
-          </label>
-
-          <select
-            value={cameraId}
-            onChange={(e) => {
-              setCameraId(e.target.value)
-              // Grava E reinicia o laço: trocar de câmera sem religar só
-              // valeria no próximo boot, e o seletor pareceria quebrado.
-              window.api.config.gravar('cameraId', e.target.value)
-              aoTrocarFonte()
-            }}
-            className="w-full border border-fio bg-fundo px-2 py-1 text-[13px] text-tinta"
-          >
-            <option value="">câmera padrão do sistema</option>
-            {cameras.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-
-          {/*
-            O CELULAR COMO CÂMERA, sem instalar nada.
-            Primeiro na seção porque é o caminho que funciona de primeira:
-            os outros dois dependem de app de terceiro configurado certo ou
-            de hardware que ainda não existe.
-          */}
-          <button
-            onClick={async () => {
-              setEstado('subindo servidor…')
-              const r = await window.api.camera.qr()
-              if ('erro' in r) return setEstado(r.erro)
-              setQr(r.qr)
-              setUrl(r.url)
-              setEstado('leia o QR com a câmera do celular')
-              setTeste(true)
-              aoTrocarFonte()
-            }}
-            className="w-full border border-fio px-3 py-2 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta"
-          >
-            Usar o celular como câmera
-          </button>
-
-          {qr && (
-            <div className="colchetes flex flex-col items-center gap-2 bg-chapa p-3">
-              {/* O SVG vem do main já pronto. `dangerouslySetInnerHTML` com
-                  conteúdo que ESTE processo gerou a partir de uma URL que
-                  ele mesmo montou — não há entrada de terceiro no caminho. */}
-              <div className="[&_svg]:h-40 [&_svg]:w-40" dangerouslySetInnerHTML={{ __html: qr }} />
-              <p className="text-center font-mono text-[11px] break-all text-tinta-3">{url}</p>
-              <p className="text-center font-hud text-[11px] tracking-[0.15em] text-tinta-3">
-                aponte a câmera do celular no QR. Vídeo ao vivo exige https — em http a página
-                oferece foto, que basta pra cadastrar rosto. Pra vídeo contínuo, use um app que
-                SIRVA a câmera no celular e o campo abaixo.
-              </p>
+      <div className="security-metrics" aria-label="Resumo do monitoramento">
+        {[
+          {
+            icon: 'camera' as const,
+            label: 'FONTES ATIVAS',
+            value: sinal ? '01' : '00',
+            detail: sinal ? fonteNome : 'Nenhuma imagem disponível',
+            color: 'cyan'
+          },
+          {
+            icon: 'people' as const,
+            label: 'ROSTOS DETECTADOS',
+            value: analiseAtual ? String(visao.rostos).padStart(2, '0') : '—',
+            detail: analiseAtual ? 'Na leitura mais recente' : 'Aguardando análise',
+            color: 'purple'
+          },
+          {
+            icon: 'shield' as const,
+            label: 'PESSOAS AUTORIZADAS',
+            value: dados ? String(dados.rostos.length).padStart(2, '0') : '—',
+            detail: 'Cadastros salvos neste dispositivo',
+            color: 'green'
+          },
+          {
+            icon: 'pulse' as const,
+            label: 'ALARMES RECENTES',
+            value: dados ? String(dados.alarmes.length).padStart(2, '0') : '—',
+            detail: 'Últimos registros · até 10 eventos',
+            color: 'amber'
+          }
+        ].map((metrica) => (
+          <div className={`security-metric security-accent-${metrica.color}`} key={metrica.label}>
+            <div className="security-metric-top">
+              <span>{metrica.label}</span>
+              <Icone nome={metrica.icon} />
             </div>
-          )}
+            <strong>{metrica.value}</strong>
+            <p title={metrica.detail}>{metrica.detail}</p>
+          </div>
+        ))}
+      </div>
 
-          {/* CÂMERA DA PORTA. Um stream MJPEG é um <img> que se atualiza, e o
-              pipeline já aceita <img> — então a câmera do hardware entra pelo
-              mesmo caminho da foto de teste, sem código novo. */}
-          <div className="flex gap-2">
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="http://192.168.0.50:81/stream  (câmera da porta)"
-              className="min-w-0 flex-1 border border-fio bg-transparent px-2 py-1 text-[12px] text-tinta"
-            />
-            <button
-              onClick={async () => {
-                if (!url.trim()) return setEstado('digite o endereço que o app do celular mostra')
-                setEstado('testando…')
-                setEstado(await window.api.camera.testar(url))
-              }}
-              className="border border-fio px-3 py-1 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta"
-            >
-              Testar
-            </button>
-            <button
-              onClick={async () => {
-                setEstado('procurando na rede…')
-                setAchadas([])
-                const r = await window.api.camera.procurar()
-                setAchadas(r)
-                setEstado(
-                  r.length
-                    ? `${r.length} fonte(s) de imagem na rede`
-                    : 'não achei câmera na rede — o app do celular está aberto e na mesma Wi-Fi?'
-                )
-                // Preenche a melhor: MJPEG vem primeiro do main, então a
-                // primeira da lista é a que dá vídeo contínuo.
-                if (r[0]) setUrl(r[0].url)
-              }}
-              className="border border-fio px-3 py-1 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta"
-            >
-              Procurar
-            </button>
-            <button
-              onClick={async () => {
-                if (!url.trim()) {
-                  await window.api.camera.desconectar()
-                  pararQuadros()
-                  setEstado('câmera de rede desligada')
-                  setTeste(temFonteTeste())
-                  return aoTrocarFonte()
-                }
-
-                setEstado('conectando…')
-                await window.api.camera.conectar(url)
-                setTeste(true)
-                aoTrocarFonte()
-
-                /**
-                 * O veredito vem do MAIN, depois de 5s. Dizer "conectado" na
-                 * hora seria mentir: o `conectar` só dispara o pedido, e
-                 * quem sabe se chegou quadro é quem está lendo o socket.
-                 */
-                setTimeout(async () => {
-                  const erro = await window.api.camera.erro()
-                  setEstado(erro || 'recebendo quadros')
-                }, 5000)
-              }}
-              className="border border-fio px-3 py-1 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta"
-            >
-              Conectar
+      <div className="security-monitor-grid">
+        <section className="security-panel security-camera-panel" aria-labelledby="camera-titulo">
+          <div className="security-panel-heading">
+            <div className="security-heading-with-icon">
+              <Icone nome="camera" />
+              <div>
+                <h2 id="camera-titulo">Visão do ambiente</h2>
+                <p>{fonteNome}</p>
+              </div>
+            </div>
+            <span className={`security-badge ${sinal ? 'security-badge-cyan' : ''}`}>
+              <i />{' '}
+              {sinal
+                ? sensor.fonte === 'teste'
+                  ? 'FOTO DE TESTE'
+                  : 'SINAL RECEBIDO'
+                : 'SEM SINAL'}
+            </span>
+          </div>
+          <div className="security-camera-feed">
+            <Visor ativo={ligada} alerta={alerta} />
+          </div>
+          <div className="security-camera-footer">
+            <span>
+              <Icone nome="shield" /> Análise local · sem gravação de vídeo
+            </span>
+            <button onClick={abrirFontes}>
+              Gerenciar fontes <Icone nome="settings" />
             </button>
           </div>
+        </section>
 
-          <div className="flex items-center gap-2">
-            <label className="cursor-pointer border border-fio px-3 py-1 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta">
-              Usar foto
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0] ?? null
-                  const erro = await definirFonteTeste(f)
-                  setEstado(erro)
-                  setTeste(temFonteTeste())
-                  aoTrocarFonte()
-                }}
-              />
-            </label>
-            {teste && (
-              <button
-                onClick={async () => {
-                  await definirFonteTeste(null)
-                  setTeste(false)
-                  aoTrocarFonte()
-                }}
-                className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase hover:text-tinta"
-              >
-                voltar pra câmera
-              </button>
+        <section className="security-panel security-analysis" aria-labelledby="analise-titulo">
+          <div className="security-panel-heading">
+            <div className="security-heading-with-icon">
+              <Icone nome="pulse" />
+              <h2 id="analise-titulo">Análise do ambiente</h2>
+            </div>
+            <span className="security-micro-label">LOCAL</span>
+          </div>
+          <div
+            className={`security-analysis-emblem ${alerta ? 'is-alert' : ''}`}
+            aria-hidden="true"
+          >
+            <Icone nome={alerta ? 'people' : 'shield'} />
+            <span />
+          </div>
+          <div className="security-analysis-copy" aria-live="polite">
+            <span className={`security-status ${alerta ? 'is-alert' : ''}`}>
+              <i />
+              {alerta ? 'ATENÇÃO NECESSÁRIA' : estadoNome.toUpperCase()}
+            </span>
+            <h3>{analiseTitulo}</h3>
+            <p>{analiseTexto}</p>
+          </div>
+          <div className="security-analysis-details">
+            <div>
+              <span>Reconhecimento facial</span>
+              <strong>{statusModelos}</strong>
+            </div>
+            <div>
+              <span>Última análise</span>
+              <strong>
+                {idadeAnalise === null
+                  ? 'Aguardando'
+                  : idadeAnalise < 2
+                    ? 'Agora'
+                    : `Há ${idadeAnalise}s`}
+              </strong>
+            </div>
+            <div>
+              <span>Tempo de processamento</span>
+              <strong>
+                {sensor.duracaoAnaliseMs === null
+                  ? '—'
+                  : `${Math.round(sensor.duracaoAnaliseMs)} ms`}
+              </strong>
+            </div>
+            <div>
+              <span>Resolução da imagem</span>
+              <strong>
+                {sinal && sensor.largura ? `${sensor.largura} × ${sensor.altura}` : '—'}
+              </strong>
+            </div>
+          </div>
+          <div className="security-privacy-note">
+            <Icone nome="shield" />
+            <p>
+              Comparação facial neste computador. Os rostos cadastrados podem ser removidos a
+              qualquer momento.
+            </p>
+          </div>
+        </section>
+      </div>
+
+      {(estado || ocupado) && (
+        <div className="security-notice" role="status">
+          <Icone nome="pulse" />
+          <span>{estado || 'Processando solicitação…'}</span>
+          <button
+            onClick={() => setEstado('')}
+            aria-label="Dispensar mensagem"
+            disabled={!!ocupado}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {erroPainel && (
+        <div className="security-notice security-notice-error" role="alert">
+          {erroPainel}
+          <button onClick={() => void recarregar()}>Tentar novamente</button>
+        </div>
+      )}
+
+      <div className="security-secondary-grid">
+        <section className="security-panel security-events" aria-labelledby="atividade-titulo">
+          <div className="security-panel-heading">
+            <div>
+              <h2 id="atividade-titulo">Atividade de segurança</h2>
+              <p>O histórico real das decisões e dos alertas.</p>
+            </div>
+            <button
+              className="security-icon-button"
+              onClick={() => void recarregar()}
+              aria-label="Atualizar histórico"
+            >
+              <Icone nome="refresh" />
+            </button>
+          </div>
+          <div className="security-tabs" aria-label="Tipo de atividade">
+            <button
+              aria-pressed={abaEventos === 'alarmes'}
+              onClick={() => setAbaEventos('alarmes')}
+            >
+              Alarmes <span>{dados?.alarmes.length ?? '—'}</span>
+            </button>
+            <button
+              aria-pressed={abaEventos === 'decisoes'}
+              onClick={() => setAbaEventos('decisoes')}
+            >
+              Decisões de risco <span>{dados?.decisoes.length ?? '—'}</span>
+            </button>
+          </div>
+          <div className="security-event-list">
+            {!dados ? (
+              <div className="security-empty">
+                <Icone nome="pulse" />
+                <h3>{erroPainel ? 'Histórico indisponível' : 'Carregando atividade…'}</h3>
+                <p>
+                  {erroPainel
+                    ? 'Tente atualizar o painel.'
+                    : 'Consultando os registros deste dispositivo.'}
+                </p>
+              </div>
+            ) : !eventos?.length ? (
+              <div className="security-empty">
+                <Icone nome="shield" />
+                <h3>
+                  {abaEventos === 'alarmes'
+                    ? 'Nenhum alarme registrado'
+                    : 'Nenhuma decisão registrada'}
+                </h3>
+                <p>
+                  {abaEventos === 'alarmes'
+                    ? 'Os próximos alertas do monitoramento aparecerão aqui.'
+                    : 'Quando uma ação exigir avaliação, seus motivos aparecerão aqui.'}
+                </p>
+              </div>
+            ) : abaEventos === 'alarmes' ? (
+              dados.alarmes.map((evento) => (
+                <article className="security-event" key={evento.id}>
+                  <span className="security-event-dot" />
+                  <div>
+                    <h3>Alerta de presença</h3>
+                    <p>{evento.resultado}</p>
+                  </div>
+                  <time dateTime={evento.momento}>{hora(evento.momento)}</time>
+                </article>
+              ))
+            ) : (
+              dados.decisoes.map((evento) => {
+                const decisao = lerDecisao(evento.decisao)
+                return (
+                  <article className="security-event security-decision" key={evento.id}>
+                    <span className="security-event-dot security-event-dot-purple" />
+                    <div>
+                      <h3>{evento.ferramenta.replaceAll('_', ' ')}</h3>
+                      <p>
+                        {decisao
+                          ? `Risco ${decisao.escore} · limiar ${decisao.limiar}${decisao.confirma ? ' · confirmação necessária' : ''}`
+                          : 'Detalhes deste registro indisponíveis.'}
+                      </p>
+                      {decisao && (
+                        <details>
+                          <summary>Ver motivos</summary>
+                          <ul>
+                            {decisao.sinais.length ? (
+                              decisao.sinais.map((s, i) => (
+                                <li key={i}>
+                                  {s.sinal}{' '}
+                                  <strong>
+                                    {s.peso >= 0 ? '+' : ''}
+                                    {s.peso}
+                                  </strong>
+                                </li>
+                              ))
+                            ) : decisao.motivos.length ? (
+                              decisao.motivos.map((motivo, i) => <li key={i}>{motivo}</li>)
+                            ) : (
+                              <li>O registro não contém sinais detalhados.</li>
+                            )}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                    <time dateTime={evento.momento}>{hora(evento.momento)}</time>
+                  </article>
+                )
+              })
             )}
           </div>
-
-          {/* As outras candidatas, se houver mais de uma: com celular e
-              notebook servindo imagem ao mesmo tempo, adivinhar qual é a da
-              porta seria chute — quem sabe é você. */}
-          {achadas.length > 1 &&
-            achadas.map((a) => (
-              <button
-                key={a.url}
-                onClick={() => setUrl(a.url)}
-                className={`block w-full text-left font-mono text-[12px] ${
-                  a.url === url ? 'text-sinal' : 'text-tinta-3 hover:text-tinta-2'
-                }`}
-              >
-                {a.url} <span className="font-hud">· {a.tipo}</span>
-              </button>
-            ))}
-
-          <p className="font-hud text-[11px] leading-relaxed tracking-[0.15em] text-tinta-3">
-            {teste
-              ? 'LENDO DE UMA FOTO — o reconhecimento, o alarme e a escalada de risco correm pelo mesmo caminho da câmera'
-              : 'sem webcam? uma foto passa pelo mesmo caminho e dá a mesma resposta toda vez'}
-          </p>
+          <div className="security-panel-footnote">
+            <span className="security-tiny-dot" />
+            Atualização automática a cada 5s
+            <span>{atualizado ? atualizado.toLocaleTimeString('pt-BR') : '—'}</span>
+          </div>
         </section>
 
-        {/* CADASTRO — o consentimento acontece aqui, então a data e o apagar
-            ficam juntos. Base biométrica sem saída não tem consentimento. */}
-        <section className="space-y-2">
-          <h3 className="regua font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            Autorizados
-          </h3>
-          <div className="flex gap-2">
-            <input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && cadastrar()}
-              placeholder="nome de quem está na frente da câmera"
-              className="min-w-0 flex-1 border border-fio bg-transparent px-2 py-1 text-[13px] text-tinta"
-            />
+        <section className="security-panel security-roster" aria-labelledby="pessoas-titulo">
+          <div className="security-panel-heading">
+            <div>
+              <h2 id="pessoas-titulo">Pessoas autorizadas</h2>
+              <p>Reconhecidas, com consentimento.</p>
+            </div>
+            <span className="security-count">{dados?.rostos.length ?? '—'}</span>
+          </div>
+          <div className="security-roster-list">
+            {dados?.rostos.length ? (
+              dados.rostos.map((pessoa) => (
+                <div className="security-person" key={pessoa.nome}>
+                  <span className="security-avatar">
+                    {pessoa.nome.trim().slice(0, 2).toUpperCase()}
+                  </span>
+                  <div>
+                    <strong>{pessoa.nome}</strong>
+                    <span>
+                      {analiseAtual && visao.conhecidos.includes(pessoa.nome)
+                        ? 'Detectada agora'
+                        : `Cadastro · ${hora(pessoa.criado_em).split(',')[0]}`}
+                    </span>
+                  </div>
+                  <button
+                    disabled={!!ocupado}
+                    aria-label={`Remover cadastro de ${pessoa.nome}`}
+                    onClick={() =>
+                      void executar('remover', async () => {
+                        if (!(await window.api.rostos.esquecer(pessoa.nome)))
+                          throw new Error(
+                            'O cadastro não foi removido. Atualize o painel e tente novamente.'
+                          )
+                        await atualizarGaleria()
+                        setEstado(`Cadastro de ${pessoa.nome} removido.`)
+                      })
+                    }
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="security-empty">
+                <Icone nome="people" />
+                <h3>{dados ? 'Sua lista começa aqui' : 'Carregando cadastros…'}</h3>
+                <p>Adicione uma pessoa para comparar os rostos detectados na imagem.</p>
+              </div>
+            )}
+          </div>
+          <div className="security-roster-actions">
             <button
-              onClick={cadastrar}
-              className="border border-fio px-3 py-1 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta"
+              className="security-button"
+              aria-expanded={cadastroAberto}
+              onClick={() => setCadastroAberto(!cadastroAberto)}
             >
-              Cadastrar
+              <span>+</span> Cadastrar pessoa
             </button>
           </div>
-          {estado && <p className="font-hud text-[11px] text-tinta-3">{estado}</p>}
-
-          {dados?.rostos.length ? (
-            dados.rostos.map((r) => (
-              <div
-                key={r.nome}
-                className="flex items-center justify-between border-b border-fio py-1 text-[13px] text-tinta-2"
-              >
+          {cadastroAberto && (
+            <form
+              className="security-registration"
+              onSubmit={(e) => {
+                e.preventDefault()
+                cadastrar()
+              }}
+            >
+              <label htmlFor="security-nome">Nome da pessoa</label>
+              <input
+                id="security-nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Uma pessoa de frente para a câmera"
+                maxLength={80}
+                required
+              />
+              <label className="security-consent">
+                <input
+                  type="checkbox"
+                  checked={consentimento}
+                  onChange={(e) => setConsentimento(e.target.checked)}
+                  required
+                />
                 <span>
-                  {r.nome}
-                  <span className="ml-2 text-tinta-3">
-                    desde {new Date(r.criado_em).toLocaleDateString('pt-BR')}
-                  </span>
+                  A pessoa autoriza o cadastro do rosto para reconhecimento local e sabe que pode
+                  pedir sua remoção.
                 </span>
-                <button
-                  onClick={() => window.api.rostos.esquecer(r.nome).then(recarregar)}
-                  className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase hover:text-perigo"
-                >
-                  apagar
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="text-[13px] text-tinta-3">
-              Ninguém cadastrado — o alarme fica inativo até existir alguém pra comparar.
-            </p>
+              </label>
+              <button
+                className="security-button security-button-primary"
+                type="submit"
+                disabled={!!ocupado || !consentimento}
+              >
+                {ocupado === 'cadastro' ? 'Analisando rosto…' : 'Capturar e cadastrar'}
+              </button>
+            </form>
           )}
         </section>
+      </div>
 
-        {/* PRECISÃO — o número que falta pra 2.6 deixar de ser "funciona".
-            Fica no painel e não num script à parte porque os modelos e a
-            galeria já estão carregados aqui: rodar por fora significaria
-            montar tudo de novo num processo sem DOM. */}
-        <section className="space-y-2">
-          <h3 className="regua font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            Precisão
-          </h3>
-
-          <div className="flex items-center gap-3">
-            <label className="cursor-pointer border border-fio px-3 py-1 font-hud text-[11px] tracking-[0.2em] text-tinta-2 uppercase hover:text-tinta">
-              Medir com fotos
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={async (e) => {
-                  const fs = [...(e.target.files ?? [])]
-                  if (!fs.length) return
-                  setMedicao(null)
-                  const r = await medirReconhecimento(fs, (f, t) => setMedindo(`lendo ${f}/${t}…`))
-                  setMedindo(
-                    r.semRosto.length ? `${r.semRosto.length} foto(s) sem rosto detectado` : ''
-                  )
-                  setMedicao(r.medicoes)
-                  const onde = await window.api.seguranca.salvarMedicao({
-                    quando: new Date().toISOString(),
-                    cadastrados: r.cadastrados,
-                    semRosto: r.semRosto,
-                    medicoes: r.medicoes
-                  })
-                  setMedindo((m) => `${m}${m ? ' · ' : ''}salvo em ${onde.split(/[\\/]/).pop()}`)
-                }}
-              />
-            </label>
-
-            <span className="font-hud text-[11px] tracking-[0.15em] text-tinta-3">
-              limiar {limiar.toFixed(2)}
+      <details
+        className="security-panel security-management"
+        ref={fontes}
+        open={fontesAbertas}
+        onToggle={(e) => setFontesAbertas(e.currentTarget.open)}
+      >
+        <summary>
+          <span className="security-heading-with-icon">
+            <Icone nome="settings" />
+            <span>
+              <strong>Conexões e calibração</strong>
+              <small>Fontes de imagem, celular e testes de reconhecimento</small>
             </span>
+          </span>
+          <span className="security-disclosure">+</span>
+        </summary>
+        <div className="security-management-grid">
+          <section className="security-control-section">
+            <h3>Fonte de imagem</h3>
+            <label htmlFor="security-camera">Câmera deste computador</label>
+            <select
+              id="security-camera"
+              value={cameraId}
+              disabled={!!ocupado || !configPronta}
+              onChange={(e) => {
+                const id = e.target.value
+                void executar('fonte', async () => {
+                  await gravar('cameraId', id)
+                  setCameraId(id)
+                  await voltarCamera()
+                })
+              }}
+            >
+              <option value="">Câmera padrão do sistema</option>
+              {cameras.map((camera) => (
+                <option key={camera.id} value={camera.id}>
+                  {camera.nome}
+                </option>
+              ))}
+            </select>
+            <p className="security-help">
+              Webcams USB e celulares configurados como webcam aparecem nesta lista.
+            </p>
+            <div className="security-control-row">
+              <button
+                className="security-button"
+                disabled={!!ocupado || !configPronta}
+                onClick={() =>
+                  void executar('qr', async () => {
+                    await ativarSensor()
+                    prepararFonteRede()
+                    const resposta = await window.api.camera.qr()
+                    if ('erro' in resposta) throw new Error(resposta.erro)
+                    setQr({ svg: resposta.qr, url: resposta.url })
+                    setEstado('Leia o QR com o celular. Aguardando a primeira imagem.')
+                  })
+                }
+              >
+                Conectar celular
+              </button>
+              <label
+                className={`security-button security-file-button ${ocupado || !configPronta ? 'is-disabled' : ''}`}
+              >
+                Carregar foto
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={!!ocupado || !configPronta}
+                  onChange={(e) => {
+                    const arquivo = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!arquivo) return
+                    void executar('foto', async () => {
+                      await ativarSensor()
+                      await window.api.camera.desconectar()
+                      pararQuadros()
+                      const erro = await definirFonteTeste(arquivo)
+                      if (erro) throw new Error(erro)
+                      setEstado(
+                        'Foto de teste carregada. Esta fonte não é uma transmissão ao vivo.'
+                      )
+                    })
+                  }}
+                />
+              </label>
+            </div>
+            {(sensor.fonte === 'rede' || sensor.fonte === 'teste' || qr) && (
+              <button
+                className="security-text-button"
+                disabled={!!ocupado}
+                onClick={() => void executar('fonte', voltarCamera)}
+              >
+                Voltar para a webcam
+              </button>
+            )}
+            {qr && (
+              <div className="security-qr">
+                <div dangerouslySetInnerHTML={{ __html: qr.svg }} />
+                <p>{qr.url}</p>
+                <small>
+                  Abra pelo celular na mesma rede. Em HTTP, envie uma foto; vídeo contínuo pelo
+                  navegador requer HTTPS.
+                </small>
+              </div>
+            )}
+            <label htmlFor="security-url">Câmera de rede / endereço do stream</label>
             <input
+              id="security-url"
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="http://192.168.0.50:81/stream"
+            />
+            <div className="security-control-row">
+              <button
+                className="security-button security-button-primary"
+                disabled={!!ocupado || !configPronta || !url.trim()}
+                onClick={() =>
+                  void executar('rede', async () => {
+                    await ativarSensor()
+                    prepararFonteRede()
+                    if (!(await window.api.camera.conectar(url.trim())))
+                      throw new Error('Não foi possível iniciar a conexão. Verifique o endereço.')
+                    setEstado('Conexão solicitada. O painel indicará quando uma imagem chegar.')
+                  })
+                }
+              >
+                Conectar
+              </button>
+              <button
+                className="security-button"
+                disabled={!!ocupado || !url.trim()}
+                onClick={() =>
+                  void executar('testar', async () =>
+                    setEstado(await window.api.camera.testar(url.trim()))
+                  )
+                }
+              >
+                Testar endereço
+              </button>
+              <button
+                className="security-button"
+                disabled={!!ocupado}
+                onClick={() =>
+                  void executar('procurar', async () => {
+                    setEstado('Procurando câmeras na rede…')
+                    const lista = await window.api.camera.procurar()
+                    setAchadas(lista)
+                    if (lista[0]) setUrl(lista[0].url)
+                    setEstado(
+                      lista.length
+                        ? `${lista.length} fonte(s) encontrada(s). Selecione e conecte.`
+                        : 'Nenhuma câmera encontrada. Confira se os dispositivos estão na mesma rede.'
+                    )
+                  })
+                }
+              >
+                {ocupado === 'procurar' ? 'Procurando…' : 'Buscar na rede'}
+              </button>
+            </div>
+            {achadas.map((fonte) => (
+              <button
+                className="security-found-source"
+                key={fonte.url}
+                onClick={() => setUrl(fonte.url)}
+                aria-pressed={fonte.url === url}
+              >
+                <span>{fonte.url}</span>
+                <small>{fonte.tipo}</small>
+              </button>
+            ))}
+          </section>
+
+          <section className="security-control-section">
+            <h3>Calibração do reconhecimento</h3>
+            <p className="security-help">
+              Compare resultados com fotos conhecidas antes de alterar a sensibilidade. Luz e ângulo
+              afetam o reconhecimento.
+            </p>
+            <label htmlFor="security-limiar" className="security-range-label">
+              Limiar de comparação <strong>{limiar.toFixed(2)}</strong>
+            </label>
+            <input
+              id="security-limiar"
               type="range"
               min={0.4}
               max={0.8}
               step={0.05}
               value={limiar}
+              disabled={!!ocupado || !configPronta}
               onChange={(e) => {
-                const v = Number(e.target.value)
-                setLimiar(v)
-                definirLimiar(v)
-                window.api.config.gravar('limiarFacial', v)
+                const valor = Number(e.target.value)
+                void executar('limiar', async () => {
+                  await gravar('limiarFacial', valor)
+                  definirLimiar(valor)
+                  setLimiar(valor)
+                  setEstado('Limiar de comparação atualizado.')
+                })
               }}
-              className="flex-1 accent-sinal"
             />
-          </div>
-
-          <p className="font-hud text-[11px] leading-relaxed tracking-[0.15em] text-tinta-3">
-            {medindo ||
-              'nomeie as fotos com quem está nelas: pablo_01.jpg, joao_02.jpg, estranho_01.jpg'}
-          </p>
-
-          {medicao && (
-            <table className="w-full text-[12px] tabular-nums">
-              <thead>
-                <tr className="font-hud text-[10px] tracking-[0.15em] text-tinta-3 uppercase">
-                  <td className="py-1">limiar</td>
-                  <td>acertos</td>
-                  <td title="estranho reconhecido como autorizado — o erro grave">falso aceite</td>
-                  <td title="autorizado tratado como estranho">falso rejeite</td>
-                </tr>
-              </thead>
-              <tbody>
-                {medicao.map((m) => (
-                  <tr
-                    key={m.limiar}
-                    className={`border-t border-fio ${
-                      Math.abs(m.limiar - limiar) < 0.001 ? 'text-sinal' : 'text-tinta-2'
-                    }`}
-                  >
-                    <td className="py-1">{m.limiar.toFixed(2)}</td>
-                    <td>
-                      {m.acertos}/{m.total}
-                    </td>
-                    <td className={m.falsoAceite ? 'text-perigo' : ''}>{m.falsoAceite}</td>
-                    <td>{m.falsoRejeite}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        <section className="space-y-1">
-          <h3 className="regua font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            Alarmes
-          </h3>
-          {dados?.alarmes.length ? (
-            dados.alarmes.map((a) => (
-              <p key={a.id} className="text-[13px] text-tinta-2">
-                <span className="mr-2 font-hud text-[11px] text-tinta-3">{hora(a.momento)}</span>
-                {a.resultado}
+            <div className="security-range-ends">
+              <span>Mais restritivo</span>
+              <span>Mais permissivo</span>
+            </div>
+            <label
+              className={`security-button security-file-button ${ocupado ? 'is-disabled' : ''}`}
+            >
+              Medir com um conjunto de fotos
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                disabled={!!ocupado}
+                onChange={(e) => {
+                  const arquivos = [...(e.target.files ?? [])]
+                  e.target.value = ''
+                  if (!arquivos.length) return
+                  void executar('medicao', async () => {
+                    setMedicao(null)
+                    setMedindo('Preparando medição…')
+                    const resultado = await medirReconhecimento(arquivos, (feito, total) =>
+                      setMedindo(`Analisando ${feito}/${total} fotos…`)
+                    )
+                    setMedicao(resultado.medicoes)
+                    setMedindo(
+                      resultado.semRosto.length
+                        ? `${resultado.semRosto.length} foto(s) sem rosto detectado.`
+                        : 'Medição concluída.'
+                    )
+                    const caminho = await window.api.seguranca.salvarMedicao({
+                      quando: new Date().toISOString(),
+                      cadastrados: resultado.cadastrados,
+                      semRosto: resultado.semRosto,
+                      medicoes: resultado.medicoes
+                    })
+                    setMedindo(
+                      (texto) => `${texto} Relatório salvo em ${caminho.split(/[\\/]/).pop()}.`
+                    )
+                  })
+                }}
+              />
+            </label>
+            <p className="security-help" role="status">
+              {medindo || 'Nomeie as fotos pela pessoa: ana_01.jpg, joao_02.jpg, estranho_01.jpg.'}
+            </p>
+            {medicao && (
+              <div className="security-table-wrapper">
+                <table>
+                  <caption>Resultados medidos nas fotos selecionadas</caption>
+                  <thead>
+                    <tr>
+                      <th>Limiar</th>
+                      <th>Acertos</th>
+                      <th>Falso aceite</th>
+                      <th>Falsa rejeição</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {medicao.map((m) => (
+                      <tr
+                        key={m.limiar}
+                        className={Math.abs(m.limiar - limiar) < 0.001 ? 'is-selected' : ''}
+                      >
+                        <td>{m.limiar.toFixed(2)}</td>
+                        <td>
+                          {m.acertos}/{m.total}
+                        </td>
+                        <td className={m.falsoAceite ? 'security-danger' : ''}>{m.falsoAceite}</td>
+                        <td>{m.falsoRejeite}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="security-calibration-note">
+              <Icone nome="shield" />
+              <p>
+                Reconhecimento é um sinal de contexto. Verifique a imagem e os motivos antes de
+                autorizar ações sensíveis.
               </p>
-            ))
-          ) : (
-            <p className="text-[13px] text-tinta-3">Nenhum alarme registrado.</p>
-          )}
-        </section>
-
-        {/* AUDITORIA — a conta de cada recusa, com os pesos daquele momento.
-            É o Art. 20 da LGPD virando tela em vez de promessa. */}
-        <section className="space-y-2">
-          <h3 className="regua font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            Por que parei
-          </h3>
-          {dados?.decisoes.length ? (
-            dados.decisoes.map((d) => {
-              const a = JSON.parse(d.decisao) as Avaliacao
-              return (
-                <div key={d.id} className="border-b border-fio pb-2 text-[13px]">
-                  <p className="text-tinta-2">
-                    <span className="mr-2 font-hud text-[11px] text-tinta-3">
-                      {hora(d.momento)}
-                    </span>
-                    {d.ferramenta}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[11px] text-tinta-3">
-                    nível {a.nivel}
-                    {(a.sinais ?? []).map((x, i) => (
-                      <span key={i} className={x.peso > 0 ? 'text-sinal' : 'text-ok'}>
-                        {' '}
-                        {x.peso >= 0 ? '+' : ''}
-                        {x.peso} {x.sinal}
-                      </span>
-                    ))}{' '}
-                    = {a.escore} (limiar {a.limiar})
-                  </p>
-                </div>
-              )
-            })
-          ) : (
-            <p className="text-[13px] text-tinta-3">Nenhuma decisão de risco registrada ainda.</p>
-          )}
-        </section>
-      </div>
+            </div>
+          </section>
+        </div>
+      </details>
+      <footer className="security-page-footer">
+        <span>
+          <span className="security-tiny-dot" /> ÍRIS SENTINELA
+        </span>
+        <span>Visibilidade para decidir. Controle para agir.</span>
+      </footer>
     </div>
   )
 }
