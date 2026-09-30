@@ -120,7 +120,8 @@ const api = {
     /** Sobe o servidor local e devolve o QR pro celular ler. */
     qr: (): Promise<{ url: string; qr: string } | { erro: string }> =>
       ipcRenderer.invoke('camera:qr'),
-    aoFrame: (cb: (jpegBase64: string) => void): (() => void) => ouvir('camera:frame', cb)
+    aoFrame: (cb: (jpegBase64: string, foto?: boolean) => void): (() => void) =>
+      ouvir('camera:frame', cb)
   },
 
   rostos: {

@@ -11,6 +11,7 @@ import {
   medirReconhecimento,
   pararQuadros,
   prepararFonteRede,
+  validarFoto,
   type Leitura,
   type Medicao
 } from './presenca'
@@ -102,6 +103,8 @@ export default function Seguranca({
   const [consentimento, setConsentimento] = useState(false)
   const [cadastroAberto, setCadastroAberto] = useState(false)
   const [estado, setEstado] = useState('')
+  const [erroAcao, setErroAcao] = useState(false)
+  const [arrastando, setArrastando] = useState(false)
   const [ocupado, setOcupado] = useState('')
   const [cameras, setCameras] = useState<{ id: string; nome: string }[]>([])
   const [cameraId, setCameraId] = useState('')
@@ -116,6 +119,8 @@ export default function Seguranca({
   const [fontesAbertas, setFontesAbertas] = useState(false)
   const [abaEventos, setAbaEventos] = useState<'alarmes' | 'decisoes'>('alarmes')
   const fontes = useRef<HTMLDetailsElement>(null)
+  const painelCamera = useRef<HTMLElement>(null)
+  const entradaFoto = useRef<HTMLInputElement>(null)
   const montado = useRef(false)
   const recarregando = useRef(false)
   const executando = useRef(false)
@@ -198,9 +203,11 @@ export default function Seguranca({
     executando.current = true
     setOcupado(acao)
     setEstado('')
+    setErroAcao(false)
     try {
       await tarefa()
     } catch (erro) {
+      setErroAcao(true)
       if (montado.current)
         setEstado(
           erro instanceof Error
@@ -209,7 +216,7 @@ export default function Seguranca({
         )
     } finally {
       executando.current = false
-      if (['qr', 'foto', 'rede'].includes(acao)) aoTrocarFonte()
+      if (['qr', 'rede'].includes(acao)) aoTrocarFonte()
       if (montado.current) {
         setOcupado('')
         setSensor(estadoSensor())
@@ -254,6 +261,34 @@ export default function Seguranca({
     aoTrocarFonte()
     setEstado('Fonte alterada para a câmera do sistema.')
   }
+  const carregarFoto = (arquivo: File): void => {
+    void executar('foto', async () => {
+      const invalida = validarFoto(arquivo)
+      if (invalida) throw new Error(invalida)
+      const erro = await definirFonteTeste(arquivo)
+      if (erro) throw new Error(erro)
+      // Só substitui a conexão depois de a imagem ter sido decodificada.
+      if (!ligada) await ativarSensor()
+      await window.api.camera.desconectar()
+      pararQuadros()
+      setQr(null)
+      aoTrocarFonte()
+      setEstado(`Foto carregada: ${arquivo.name}. A imagem fica no visor para análise e cadastro.`)
+      painelCamera.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+  const conectarCelular = (): void => {
+    void executar('qr', async () => {
+      await ativarSensor()
+      await window.api.camera.desconectar()
+      prepararFonteRede()
+      setQr(null)
+      const resposta = await window.api.camera.qr()
+      if ('erro' in resposta) throw new Error(resposta.erro)
+      setQr({ svg: resposta.qr, url: resposta.url })
+      setEstado('QR pronto. Abra no iPhone ou Android, na mesma rede Wi-Fi, e envie uma foto.')
+    })
+  }
   const cadastrar = (): void => {
     void executar('cadastro', async () => {
       if (!nome.trim()) throw new Error('Informe o nome da pessoa antes de cadastrar.')
@@ -281,7 +316,7 @@ export default function Seguranca({
   const alerta = analiseAtual && visao.desconhecidos > 0
   const fonteNome =
     sensor.fonte === 'teste'
-      ? 'Foto de teste'
+      ? (sensor.fotoNome ?? 'Foto de teste')
       : sensor.fonte === 'rede'
         ? 'Câmera de rede'
         : (cameras.find((c) => c.id === cameraId)?.nome ?? 'Câmera principal')
@@ -333,6 +368,19 @@ export default function Seguranca({
 
   return (
     <div className={`security-dashboard ${alerta ? 'security-has-alert' : ''}`}>
+      <input
+        ref={entradaFoto}
+        id="security-foto"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/bmp,image/gif,image/avif,.jpg,.jpeg,.png,.webp,.bmp,.gif,.avif"
+        hidden
+        disabled={!!ocupado || !configPronta}
+        onChange={(e) => {
+          const arquivo = e.target.files?.[0]
+          e.target.value = ''
+          if (arquivo) carregarFoto(arquivo)
+        }}
+      />
       <div className="security-page-heading">
         <div>
           <p className="security-eyebrow">
@@ -401,7 +449,29 @@ export default function Seguranca({
       </div>
 
       <div className="security-monitor-grid">
-        <section className="security-panel security-camera-panel" aria-labelledby="camera-titulo">
+        <section
+          ref={painelCamera}
+          className={`security-panel security-camera-panel ${arrastando ? 'is-dragging' : ''}`}
+          aria-labelledby="camera-titulo"
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (!ocupado && configPronta) setArrastando(true)
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setArrastando(false)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            setArrastando(false)
+            if (ocupado || !configPronta) return
+            if (e.dataTransfer.files.length !== 1) {
+              setEstado('Arraste uma foto por vez para o visor.')
+              setErroAcao(true)
+              return
+            }
+            carregarFoto(e.dataTransfer.files[0])
+          }}
+        >
           <div className="security-panel-heading">
             <div className="security-heading-with-icon">
               <Icone nome="camera" />
@@ -419,6 +489,30 @@ export default function Seguranca({
                 : 'SEM SINAL'}
             </span>
           </div>
+          <div className="security-source-actions">
+            <button
+              type="button"
+              className="security-button"
+              disabled={!!ocupado || !configPronta}
+              onClick={() => entradaFoto.current?.click()}
+            >
+              <Icone nome="camera" />
+              {ocupado === 'foto' ? 'Carregando foto…' : 'Adicionar foto'}
+            </button>
+            <button
+              type="button"
+              className="security-button security-button-quiet"
+              onClick={abrirFontes}
+            >
+              Usar celular <Icone nome="arrow" />
+            </button>
+            <span>{arrastando ? 'Solte a foto aqui' : 'ou arraste uma foto para o visor'}</span>
+          </div>
+          {erroAcao && estado && (
+            <p className="security-source-error" role="alert">
+              {estado}
+            </p>
+          )}
           <div className="security-camera-feed">
             <Visor ativo={ligada} alerta={alerta} />
           </div>
@@ -496,7 +590,7 @@ export default function Seguranca({
       </div>
 
       {(estado || ocupado) && (
-        <div className="security-notice" role="status">
+        <div className={`security-notice ${erroAcao ? 'security-notice-error' : ''}`} role="status">
           <Icone nome="pulse" />
           <span>{estado || 'Processando solicitação…'}</span>
           <button
@@ -739,11 +833,58 @@ export default function Seguranca({
             <Icone nome="settings" />
             <span>
               <strong>Conexões e calibração</strong>
-              <small>Fontes de imagem, celular e testes de reconhecimento</small>
+              <small>iPhone, Android, webcam e fotos — escolha como conectar</small>
             </span>
           </span>
           <span className="security-disclosure">+</span>
         </summary>
+        <div className="security-phone-guide">
+          <div>
+            <span className="security-guide-number">01</span>
+            <h3>Vídeo ao vivo · iPhone e Android</h3>
+            <p>
+              Instale Camo no celular e Camo Studio no PC. Conecte por cabo USB ou pelo pareamento
+              Wi-Fi do Camo. Depois escolha a câmera Camo na lista abaixo.
+            </p>
+            <a
+              href="https://camo.com/support/camo/camo-getting-started"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Guia do Camo ↗
+            </a>
+          </div>
+          <div>
+            <span className="security-guide-number">02</span>
+            <h3>Android conectado ao Windows</h3>
+            <p>
+              No Windows 11, vincule um Android compatível em Bluetooth e dispositivos →
+              Dispositivos móveis e habilite a câmera conectada. Ela aparece como webcam na lista.
+            </p>
+            <a
+              href="https://support.microsoft.com/en-gb/windows/apps/phonelink/use-your-mobile-device-s-camera"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Requisitos e passo a passo ↗
+            </a>
+          </div>
+          <div>
+            <span className="security-guide-number">03</span>
+            <h3>Foto pelo navegador · sem instalar</h3>
+            <p>
+              Gere o QR abaixo, abra no Safari ou Chrome do celular e envie uma foto. O QR da Íris
+              usa HTTP local: ele envia fotos; não habilita vídeo contínuo nesse endereço.
+            </p>
+            <button
+              className="security-text-button"
+              onClick={conectarCelular}
+              disabled={!!ocupado || !configPronta}
+            >
+              Gerar QR para enviar foto
+            </button>
+          </div>
+        </div>
         <div className="security-management-grid">
           <section className="security-control-section">
             <h3>Fonte de imagem</h3>
@@ -775,45 +916,23 @@ export default function Seguranca({
               <button
                 className="security-button"
                 disabled={!!ocupado || !configPronta}
-                onClick={() =>
-                  void executar('qr', async () => {
-                    await ativarSensor()
-                    prepararFonteRede()
-                    const resposta = await window.api.camera.qr()
-                    if ('erro' in resposta) throw new Error(resposta.erro)
-                    setQr({ svg: resposta.qr, url: resposta.url })
-                    setEstado('Leia o QR com o celular. Aguardando a primeira imagem.')
-                  })
-                }
+                onClick={conectarCelular}
               >
-                Conectar celular
+                Enviar foto pelo celular
               </button>
-              <label
-                className={`security-button security-file-button ${ocupado || !configPronta ? 'is-disabled' : ''}`}
+              <button
+                type="button"
+                className="security-button"
+                disabled={!!ocupado || !configPronta}
+                onClick={() => entradaFoto.current?.click()}
               >
-                Carregar foto
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={!!ocupado || !configPronta}
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0]
-                    e.target.value = ''
-                    if (!arquivo) return
-                    void executar('foto', async () => {
-                      await ativarSensor()
-                      await window.api.camera.desconectar()
-                      pararQuadros()
-                      const erro = await definirFonteTeste(arquivo)
-                      if (erro) throw new Error(erro)
-                      setEstado(
-                        'Foto de teste carregada. Esta fonte não é uma transmissão ao vivo.'
-                      )
-                    })
-                  }}
-                />
-              </label>
+                Escolher foto do PC
+              </button>
             </div>
+            <p className="security-help">
+              JPG, PNG, WebP, BMP, GIF ou AVIF · até 25 MB. Para HEIC/HEIF do iPhone, exporte como
+              JPG/PNG ou envie pelo QR.
+            </p>
             {(sensor.fonte === 'rede' || sensor.fonte === 'teste' || qr) && (
               <button
                 className="security-text-button"
@@ -827,9 +946,21 @@ export default function Seguranca({
               <div className="security-qr">
                 <div dangerouslySetInnerHTML={{ __html: qr.svg }} />
                 <p>{qr.url}</p>
+                <button
+                  className="security-button"
+                  onClick={() =>
+                    void executar('copiar', async () => {
+                      await navigator.clipboard.writeText(qr.url)
+                      setEstado('Link copiado. Abra no celular conectado ao mesmo Wi-Fi.')
+                    })
+                  }
+                >
+                  Copiar link
+                </button>
                 <small>
-                  Abra pelo celular na mesma rede. Em HTTP, envie uma foto; vídeo contínuo pelo
-                  navegador requer HTTPS.
+                  Mesmo Wi-Fi nos dois dispositivos. A foto enviada permanece no visor até você
+                  trocar a fonte ou pausar o sensor. Se a página não abrir, confira se o Windows
+                  permite a Íris na rede privada.
                 </small>
               </div>
             )}
@@ -888,6 +1019,11 @@ export default function Seguranca({
                 {ocupado === 'procurar' ? 'Procurando…' : 'Buscar na rede'}
               </button>
             </div>
+            <p className="security-help">
+              Para apps com stream MJPEG, cole o endereço de vídeo (ex.:
+              http://IP_DO_CELULAR:4747/video no DroidCam). Links RTSP, HLS ou a página inicial do
+              app não são streams MJPEG.
+            </p>
             {achadas.map((fonte) => (
               <button
                 className="security-found-source"

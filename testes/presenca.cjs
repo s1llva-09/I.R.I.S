@@ -26,12 +26,16 @@ const face = {
   descriptor: new Float32Array(128),
   detection: { box: { x: 10, y: 15, width: 30, height: 40 } }
 }
+const foto = (name = 'pessoa.jpg', type = 'image/jpeg', size = 1024) => ({ name, type, size })
 
 function ambiente({ detectar = async () => [face], obterCamera, carregar = async () => {} } = {}) {
   let agora = 10_000
   let proximoTimer = 0
   let chamadasCamera = 0
   const timers = new Map()
+  const atrasos = new Map()
+  const revogadas = []
+  let proximoBlob = 0
   const imagens = []
   const videos = []
 
@@ -119,7 +123,10 @@ function ambiente({ detectar = async () => [face], obterCamera, carregar = async
     },
     performance: { now: () => agora },
     console: { warn() {} },
-    URL: { createObjectURL: () => 'blob:teste', revokeObjectURL() {} },
+    URL: {
+      createObjectURL: () => `blob:teste:${++proximoBlob}`,
+      revokeObjectURL: (url) => revogadas.push(url)
+    },
     document: { createElement: () => new Video() },
     navigator: {
       mediaDevices: {
@@ -131,6 +138,12 @@ function ambiente({ detectar = async () => [face], obterCamera, carregar = async
     },
     clearInterval: (id) => timers.delete(id),
     window: {
+      setTimeout: (cb, ms) => {
+        const id = ++proximoTimer
+        atrasos.set(id, { cb, em: agora + ms })
+        return id
+      },
+      clearTimeout: (id) => atrasos.delete(id),
       setInterval: (cb) => {
         const id = ++proximoTimer
         timers.set(id, cb)
@@ -142,11 +155,19 @@ function ambiente({ detectar = async () => [face], obterCamera, carregar = async
     api: modulo.exports,
     imagens,
     videos,
+    revogadas,
+    atrasos,
     criarStream,
     padrao,
     cameraChamadas: () => chamadasCamera,
     avancar: (ms) => {
       agora += ms
+      for (const [id, atraso] of [...atrasos]) {
+        if (atraso.em <= agora) {
+          atrasos.delete(id)
+          atraso.cb()
+        }
+      }
     },
     tique: async () => {
       for (const cb of [...timers.values()]) cb()
@@ -285,7 +306,8 @@ test('parada síncrona cancela início pendente e erro de modelos não analisa f
   b.quadro()
   await b.api.iniciarPresenca(() => {})
   assert.equal(b.api.estadoSensor().modelos, 'erro')
-  assert.equal(b.api.estadoSensor().ativo, false)
+  assert.equal(b.api.estadoSensor().ativo, true)
+  assert.equal(b.api.estadoSensor().sinal, true)
   assert.equal(analises, 0)
 })
 
@@ -296,9 +318,9 @@ test('aguardar primeiro frame é sinal indisponível; foto não é vídeo ao viv
   const parar = await a.api.iniciarPresenca((l) => leituras.push(l))
   assert.equal(leituras.at(-1).rostos, -1)
   assert.equal(a.api.estadoSensor().sinal, false)
-  const foto = a.api.definirFonteTeste({})
+  const carregamento = a.api.definirFonteTeste(foto())
   a.imagens.at(-1).carregar()
-  await foto
+  await carregamento
   await a.tique()
   assert.equal(a.api.estadoSensor().fonte, 'teste')
   assert.equal(a.api.estadoSensor().ultimoQuadroEm, null)
@@ -358,6 +380,189 @@ test('webcam sem novos frames expira apesar de track live e volta com novo frame
   assert.equal(a.api.estadoSensor().erro, null)
   assert.equal(leituras.at(-1).rostos, 1)
   parar()
+})
+
+test('validação orienta sobre formatos, arquivo vazio e limite antes de decodificar', async () => {
+  const a = ambiente()
+  for (const [nome, tipo] of [
+    ['pessoa.HEIC', 'image/heic'],
+    ['pessoa.heif', ''],
+    ['pessoa.jpg', 'image/heif']
+  ])
+    assert.match(a.api.validarFoto(foto(nome, tipo)), /HEIC\/HEIF.*JPG ou PNG/)
+  assert.match(a.api.validarFoto(foto('texto.pdf', 'application/pdf')), /Formato não aceito/)
+  assert.match(a.api.validarFoto(foto('vazia.jpg', 'image/jpeg', 0)), /vazio/)
+  assert.match(a.api.validarFoto(foto('grande.jpg', 'image/jpeg', 25 * 1024 * 1024 + 1)), /25 MB/)
+  for (const ext of ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'avif'])
+    assert.equal(a.api.validarFoto(foto(`foto.${ext}`, '')), '')
+  const erro = await a.api.definirFonteTeste(foto('foto.heic', 'image/heic'))
+  assert.match(erro, /HEIC/)
+  assert.equal(a.imagens.length, 0)
+})
+
+test('uma foto inválida ou corrompida preserva foto, nome e análise anteriores', async () => {
+  const a = ambiente()
+  const primeira = a.api.definirFonteTeste(foto('primeira.png', 'image/png'))
+  const imagem = a.imagens.at(-1)
+  imagem.carregar()
+  assert.equal(await primeira, '')
+  const parar = await a.api.iniciarPresenca(() => {})
+  await flush()
+  assert.equal(a.api.ultimasCaixas().length, 1)
+  assert.match(await a.api.definirFonteTeste(foto('errada.heic', 'image/heic')), /HEIC/)
+  const corrompida = a.api.definirFonteTeste(foto('corrompida.jpg'))
+  assert.equal(a.api.fonteAtual(), imagem, 'a foto anterior permanece durante a carga')
+  a.imagens.at(-1).onerror()
+  assert.match(await corrompida, /danificado/)
+  assert.equal(a.api.fonteAtual(), imagem)
+  assert.equal(a.api.estadoSensor().fotoNome, 'primeira.png')
+  assert.equal(a.api.ultimasCaixas().length, 1)
+  assert.equal(a.atrasos.size, 0)
+  assert.deepEqual(a.revogadas, ['blob:teste:1', 'blob:teste:2'])
+  parar()
+})
+
+test('timeout de imagem libera recursos, mantém webcam e ignora conclusão atrasada', async () => {
+  const a = ambiente()
+  const parar = await a.api.iniciarPresenca(() => {})
+  const camera = a.api.fonteAtual()
+  const carregamento = a.api.definirFonteTeste(foto())
+  const imagem = a.imagens.at(-1)
+  const aoCarregar = imagem.onload
+  a.avancar(15_001)
+  assert.match(await carregamento, /demorou demais/)
+  imagem.naturalWidth = 640
+  imagem.naturalHeight = 480
+  aoCarregar()
+  a.videos[0].proximoQuadro()
+  assert.equal(a.api.fonteAtual(), camera)
+  assert.equal(a.api.temFonteTeste(), false)
+  assert.equal(a.atrasos.size, 0)
+  assert.equal(a.revogadas.length, 1)
+  parar()
+})
+
+test('trocar fonte ou parar cancela foto pendente, sem restaurar uma seleção antiga', async () => {
+  const a = ambiente()
+  const antiga = a.api.definirFonteTeste(foto('antiga.jpg'))
+  const imagemAntiga = a.imagens.at(-1)
+  const nova = a.api.definirFonteTeste(foto('nova.jpg'))
+  assert.match(await antiga, /cancelado/)
+  imagemAntiga.carregar()
+  a.imagens.at(-1).carregar()
+  assert.equal(await nova, '')
+  assert.equal(a.api.estadoSensor().fotoNome, 'nova.jpg')
+  const outra = a.api.definirFonteTeste(foto('outra.jpg'))
+  const imagemOutra = a.imagens.at(-1)
+  a.api.prepararFonteRede()
+  imagemOutra.carregar()
+  assert.match(await outra, /cancelado/)
+  assert.equal(a.api.estadoSensor().fotoNome, null)
+  const parada = a.api.definirFonteTeste(foto('parada.jpg'))
+  const imagemParada = a.imagens.at(-1)
+  a.api.pararPresenca()
+  imagemParada.carregar()
+  assert.match(await parada, /cancelado/)
+  assert.equal(a.api.temFonteTeste(), false)
+  assert.equal(a.atrasos.size, 0)
+  assert.equal(a.revogadas.length, 4)
+})
+
+test('falha dos modelos mantém foto visível sem inferências nem rostos inventados', async () => {
+  let analises = 0
+  const a = ambiente({
+    carregar: async () => {
+      throw new Error('modelos indisponíveis')
+    },
+    detectar: async () => {
+      analises++
+      return [face]
+    }
+  })
+  const carregamento = a.api.definirFonteTeste(foto())
+  const imagem = a.imagens.at(-1)
+  imagem.carregar()
+  await carregamento
+  const leituras = []
+  const parar = await a.api.iniciarPresenca((l) => leituras.push(l))
+  await a.tique()
+  assert.equal(a.api.estadoSensor().modelos, 'erro')
+  assert.equal(a.api.estadoSensor().sinal, true)
+  assert.equal(a.api.fonteAtual(), imagem)
+  assert.equal(a.api.estadoSensor().fotoNome, 'pessoa.jpg')
+  assert.equal(a.api.estadoSensor().ultimaAnaliseEm, null)
+  assert.equal(a.api.ultimasCaixas().length, 0)
+  assert.equal(leituras.at(-1).rostos, -1)
+  assert.equal(analises, 0)
+  parar()
+  assert.equal(a.api.fonteAtual(), null)
+})
+
+test('foto do celular persiste para cadastro e só substitui outra foto após decodificar', async () => {
+  const a = ambiente()
+  a.api.prepararFonteRede()
+  const parar = await a.api.iniciarPresenca(() => {})
+  const primeira = a.api.receberFoto('/9j/AAAA')
+  const imagem = a.imagens.at(-1)
+  imagem.carregar()
+  assert.equal(await primeira, '')
+  a.avancar(60_000)
+  await a.tique()
+  assert.equal(a.api.estadoSensor().sinal, true)
+  assert.equal(a.api.estadoSensor().fonte, 'teste')
+  assert.equal(a.api.estadoSensor().fotoNome, 'Foto do celular.jpg')
+  assert.equal(a.api.estadoSensor().ultimoQuadroEm, null)
+  const segunda = a.api.receberFoto('/9j/BBBB')
+  a.imagens.at(-1).onerror()
+  assert.match(await segunda, /danificado/)
+  assert.equal(a.api.fonteAtual(), imagem)
+  const substituida = a.api.receberFoto('/9j/CCCC')
+  a.imagens.at(-1).carregar()
+  assert.equal(await substituida, '')
+  assert.notEqual(a.api.fonteAtual(), imagem)
+  parar()
+})
+
+test('vídeo pode substituir foto do celular, mas preserva foto escolhida no computador', async () => {
+  const a = ambiente()
+  a.api.prepararFonteRede()
+  const parar = await a.api.iniciarPresenca(() => {})
+  const celular = a.api.receberFoto('/9j/AAAA')
+  a.imagens.at(-1).carregar()
+  await celular
+  a.quadro()
+  assert.equal(a.api.estadoSensor().fonte, 'rede')
+  assert.equal(a.api.estadoSensor().sinal, true)
+  assert.equal(a.api.estadoSensor().fotoNome, null)
+  a.avancar(6_001)
+  assert.equal(a.api.estadoSensor().sinal, false)
+  const local = a.api.definirFonteTeste(foto('local.jpg'))
+  a.imagens.at(-1).carregar()
+  await local
+  const imagem = a.api.fonteAtual()
+  a.api.receberQuadro('quadro-em-transito')
+  assert.equal(a.api.fonteAtual(), imagem)
+  assert.equal(a.api.estadoSensor().fotoNome, 'local.jpg')
+  parar()
+})
+
+test('foto do celular rejeita payload excessivo e não reaparece após pausa', async () => {
+  const a = ambiente()
+  a.api.prepararFonteRede()
+  const parar = await a.api.iniciarPresenca(() => {})
+  for (const payload of ['nao-e-base64', 'AAAA', '/9j/' + 'A'.repeat(4 * 1024 * 1024)])
+    assert.match(await a.api.receberFoto(payload), /JPEG válido de até 3 MB/)
+  assert.equal(a.imagens.length, 0)
+  const pendente = a.api.receberFoto('/9j/AAAA')
+  const imagem = a.imagens.at(-1)
+  parar()
+  a.api.pararQuadros()
+  imagem.carregar()
+  assert.match(await pendente, /cancelado/)
+  assert.equal(a.api.temFonteTeste(), false)
+  await a.api.receberFoto('/9j/AAAA')
+  assert.equal(a.imagens.length, 1)
+  assert.equal(a.api.estadoSensor().sinal, false)
 })
 
 test('quadros em trânsito após desligar não reativam nem reselecionam rede', async () => {

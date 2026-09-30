@@ -95,7 +95,10 @@ const api = {
     erro: async () => '',
     procurar: async () => [],
     testar: async () => 'Teste isolado: nenhum endereço foi acessado.',
-    qr: async () => ({ erro: 'Servidor desabilitado neste teste.' }),
+    qr: async () => ({
+      url: 'http://127.0.0.1:8790/?t=fixture',
+      qr: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M1 1h8v8H1z" /></svg>'
+    }),
     aoFrame: subscribe('frame')
   },
   rostos: {

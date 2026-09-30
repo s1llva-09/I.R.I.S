@@ -25,7 +25,7 @@ declare global {
         procurar: () => Promise<{ url: string; tipo: string; servidor: string }[]>
         testar: (alvo: string) => Promise<string>
         qr: () => Promise<{ url: string; qr: string } | { erro: string }>
-        aoFrame: (cb: (jpegBase64: string) => void) => () => void
+        aoFrame: (cb: (jpegBase64: string, foto?: boolean) => void) => () => void
       }
       seguranca: {
         painel: () => Promise<{

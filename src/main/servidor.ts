@@ -16,7 +16,7 @@ import QRCode from 'qrcode'
  *
  * O QUE ESTA PÁGINA CONSEGUE, e o limite é do navegador e não do código:
  *
- *   FOTO (funciona sempre) — `<input capture>` abre a câmera nativa do
+ *   FOTO — `<input capture>` permite abrir a câmera nativa do
  *   celular, devolve a imagem e ela sobe. Basta pra cadastrar um rosto e pra
  *   demonstrar reconhecimento, que é o caso de uso mais comum aqui.
  *
@@ -58,7 +58,7 @@ type Estado = () => { rostos: number; desconhecidos: number; conhecidos: string[
 
 let servidor: ReturnType<typeof createServer> | null = null
 let segredo = ''
-let aoQuadro: ((jpegBase64: string) => void) | null = null
+let aoQuadro: ((jpegBase64: string, foto?: boolean) => void) | null = null
 let lerEstado: Estado = () => ({ rostos: -1, desconhecidos: 0, conhecidos: [] })
 
 /** O IP desta máquina na rede doméstica — o que o celular consegue alcançar. */
@@ -83,145 +83,215 @@ function ipLocal(): string | null {
 
 function corpo(req: IncomingMessage): Promise<Buffer | null> {
   return new Promise((resolve) => {
+    if (Number(req.headers['content-length']) > TETO_POST) {
+      req.resume()
+      resolve(null)
+      return
+    }
+
     const partes: Buffer[] = []
     let total = 0
+    let concluido = false
 
     req.on('data', (p: Buffer) => {
+      if (concluido) return
       total += p.length
       if (total > TETO_POST) {
-        req.destroy()
-        return resolve(null)
+        concluido = true
+        partes.length = 0
+        resolve(null)
+        return
       }
       partes.push(p)
     })
-    req.on('end', () => resolve(Buffer.concat(partes)))
+    req.on('end', () => {
+      if (!concluido) resolve(Buffer.concat(partes))
+    })
+    req.on('aborted', () => resolve(null))
     req.on('error', () => resolve(null))
   })
 }
 
 /**
  * A página que o celular abre. Autocontida de propósito: sem build, sem
- * bundle, sem CSP pra negociar — o navegador do celular recebe um arquivo e
- * funciona. Ela é feia por escolha; quem olha é a pessoa segurando o
- * telefone, e o que importa é o botão funcionar de primeira.
+ * bundle — o navegador do celular recebe um arquivo. A imagem é convertida
+ * e reduzida antes do envio: uma foto original de celular passa facilmente
+ * do limite do servidor quando representada em base64.
  */
 function pagina(token: string): string {
   return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Íris — câmera</title>
+<title>Íris — conectar celular</title>
 <style>
-  :root { color-scheme: dark }
-  body { margin:0; background:#05090e; color:#eaf2f6;
-         font:14px/1.5 -apple-system, system-ui, sans-serif;
-         display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px }
-  video { width:100%; max-width:420px; border:1px solid rgba(234,242,246,.22); background:#000 }
-  button { background:none; border:1px solid rgba(234,242,246,.22); color:#eaf2f6;
-           padding:12px 20px; font:inherit; letter-spacing:.15em; text-transform:uppercase }
-  #s { color:#6d7f8b; font-size:12px; letter-spacing:.1em; text-transform:uppercase }
-  .on { color:#6fd39a !important }
+  :root { color-scheme:dark; font:15px/1.6 -apple-system,system-ui,sans-serif }
+  * { box-sizing:border-box }
+  body { margin:0; min-height:100svh; padding:28px 20px; color:#e9f7ff;
+    background:radial-gradient(ellipse at top,#102d45 0,transparent 65%),#07101b }
+  main { max-width:480px; margin:0 auto }
+  .brand { color:#62e2ef; font-size:12px; letter-spacing:.26em; text-transform:uppercase }
+  h1 { margin:20px 0 8px; font-size:30px; line-height:1.2; letter-spacing:-.04em }
+  p { color:#a7bfd2; margin:0 0 18px }
+  .panel { margin:22px 0; padding:20px; border:1px solid #243a4d; border-radius:20px;
+    background:#0b1827; box-shadow:0 18px 60px #0003 }
+  .mode { display:inline-block; color:#79e3ed; padding:5px 10px; border:1px solid #2c6570;
+    border-radius:30px; font-size:11px; text-transform:uppercase; letter-spacing:.1em }
+  video,img { width:100%; max-height:360px; object-fit:contain; background:#040a12;
+    border:1px solid #243a4d; border-radius:12px; margin:16px 0 }
+  button { width:100%; min-height:48px; margin-top:12px; border:1px solid #315066;
+    border-radius:12px; padding:12px 16px; background:#14283b; color:#e9f7ff;
+    font:inherit; font-size:14px; font-weight:600; cursor:pointer }
+  button.primary { color:#041824; background:#71e2ec; border-color:#71e2ec }
+  button:disabled { opacity:.45; cursor:wait }
+  button:focus-visible { outline:3px solid #fff; outline-offset:3px }
+  #s { min-height:48px; margin:18px 0 0; color:#bad0df; font-size:13px }
+  #s.on { color:#89e9c0 } #s.error { color:#ffb4b4 }
+  .note { font-size:12px; color:#8fa8bc }
+  [hidden] { display:none !important }
 </style></head><body>
-<h1 style="font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:#6d7f8b;margin:0">
-  Íris · câmera da porta</h1>
-<video id="v" playsinline muted></video>
-<button id="b">Ligar câmera</button>
-
-<label id="f" style="display:none">
-  <span style="display:inline-block;border:1px solid rgba(234,242,246,.22);padding:12px 20px;
-               letter-spacing:.15em;text-transform:uppercase">Tirar foto</span>
-  <input type="file" accept="image/*" capture="environment" hidden>
-</label>
-
-<p id="s">toque para começar</p>
+<main>
+<div class="brand">Íris / conexão local</div>
+<h1>Seu celular.<br>Os olhos da Íris.</h1>
+<p>Envie uma foto para visualizar no computador e cadastrar uma pessoa autorizada.</p>
+<section class="panel" aria-label="Enviar imagem">
+<span class="mode" id="modo">Foto pelo celular</span>
+<video id="v" playsinline muted hidden></video>
+<img id="preview" alt="Prévia da foto selecionada" hidden>
+<button id="b" hidden>Ligar câmera ao vivo</button>
+<button id="tirar" class="primary">Tirar foto</button>
+<input id="f" type="file" accept="image/*" capture="environment" hidden>
+<button id="escolher">Escolher da galeria</button>
+<input id="galeria" type="file" accept="image/*" hidden>
+<p id="s" role="status" aria-live="polite">Escolha uma foto ou abra a câmera do celular.</p>
+</section>
+<p class="note" id="limite">O QR envia fotos individuais. Nesta conexão HTTP, o navegador não libera
+vídeo ao vivo. Para transmissão contínua, conecte o celular como webcam no computador ou use um app MJPEG.</p>
+<p class="note">Mantenha a Íris aberta e os dois aparelhos na mesma rede. A foto é reduzida no celular
+antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
+</main>
 <script>
   const v = document.getElementById('v'), s = document.getElementById('s')
   const b = document.getElementById('b'), f = document.getElementById('f')
-  let timer = null
+  const galeria = document.getElementById('galeria'), preview = document.getElementById('preview')
+  const tirar = document.getElementById('tirar'), escolher = document.getElementById('escolher')
+  let timer = null, ocupado = false, iniciando = false
+  const aoVivoPossivel = Boolean(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
 
-  /**
-   * A checagem que precisa vir ANTES de qualquer tentativa.
-   *
-   * Em http:// o navegador não cria 'navigator.mediaDevices'. Chamar
-   * '.getUserMedia' nele dá "undefined is not an object" — mensagem que
-   * manda a pessoa procurar permissão de câmera nos ajustes do celular por
-   * meia hora. O problema é o protocolo, e dizer isso é o conserto.
-   */
-  const aoVivoPossivel = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+  function status(texto, classe = '') { s.textContent = texto; s.className = classe }
+  function atualizarBotoes() {
+    tirar.disabled = escolher.disabled = ocupado || Boolean(timer) || iniciando
+    b.disabled = ocupado || iniciando
+  }
+  tirar.onclick = () => { if (!ocupado) f.click() }
+  escolher.onclick = () => { if (!ocupado) galeria.click() }
 
-  if (!aoVivoPossivel) {
-    b.style.display = 'none'
-    v.style.display = 'none'
-    f.style.display = 'block'
-    s.innerHTML = 'vídeo ao vivo indisponível: o navegador só libera a câmera em ' +
-      '<b>https</b>, e esta conexão é http na rede local.<br><br>' +
-      'A foto abaixo funciona e serve pra cadastrar um rosto.'
+  if (aoVivoPossivel) {
+    b.hidden = false
+    document.getElementById('limite').textContent =
+      'A conexão permite vídeo ao vivo. Mantenha esta aba aberta e a tela acesa durante a transmissão.'
   }
 
-  // O getUserMedia exige GESTO do usuário no iOS — por isso o botão, e por
-  // isso ele não pode ser um autoplay disfarçado.
+  function parar() {
+    if (timer) clearInterval(timer)
+    timer = null
+    if (v.srcObject) v.srcObject.getTracks().forEach((track) => track.stop())
+    v.srcObject = null; v.hidden = true
+    b.textContent = 'Ligar câmera ao vivo'
+    document.getElementById('modo').textContent = 'Foto pelo celular'
+    atualizarBotoes()
+  }
+
   b.onclick = async () => {
+    if (timer) { parar(); status('Transmissão encerrada. Você pode enviar uma foto.'); return }
+    iniciando = true; atualizarBotoes()
     try {
-      // facingMode 'environment' = câmera de trás, que é a que aponta pra
-      // porta quando o celular está apoiado. Cai na frontal se não houver.
       v.srcObject = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: 640, height: 480 }
       })
       await v.play()
-      s.textContent = 'transmitindo'
-      s.className = 'on'
-      if (!timer) timer = setInterval(enviar, 200)
-    } catch (e) { s.textContent = 'sem permissão de câmera: ' + e.message }
+      v.hidden = false; preview.hidden = true
+      b.textContent = 'Parar transmissão'
+      document.getElementById('modo').textContent = 'Vídeo ao vivo'
+      status('Câmera ligada. Enviando o primeiro quadro…')
+      timer = setInterval(enviar, 200)
+    } catch (e) { parar(); status('Não consegui abrir a câmera. Confira a permissão ou envie uma foto.', 'error') }
+    finally { iniciando = false; atualizarBotoes() }
   }
 
   const c = document.createElement('canvas')
 
+  async function postar(b64, foto = false) {
+    if (b64.length > ${TETO_POST}) throw new Error('A foto ainda está grande demais. Escolha outra imagem menor.')
+    const controle = new AbortController()
+    const limite = setTimeout(() => controle.abort(), 15000)
+    try {
+      const resposta = await fetch('/quadro?t=${token}' + (foto ? '&foto=1' : ''), {
+        method:'POST', body:b64, signal:controle.signal
+      })
+      if (!resposta.ok) {
+        if (resposta.status === 401 || resposta.status === 403)
+          throw new Error('Esta conexão expirou. Abra um novo QR na Íris e conecte novamente.')
+        if (resposta.status === 413)
+          throw new Error('O computador recusou o tamanho da foto. Escolha uma imagem menor.')
+        throw new Error('O computador não aceitou a foto (erro ' + resposta.status + '). Tente novamente.')
+      }
+    } catch (e) {
+      if (e.name === 'AbortError' || e instanceof TypeError)
+        throw new Error('Não consegui enviar ao computador. Confira o Wi-Fi e se a Íris está aberta, e tente novamente.')
+      throw e
+    } finally { clearTimeout(limite) }
+  }
+
   async function enviar() {
-    if (!v.videoWidth) return
-    c.width = v.videoWidth; c.height = v.videoHeight
-    c.getContext('2d').drawImage(v, 0, 0)
-    // 0.6 de qualidade: a 640x480 dá ~25KB por quadro, que atravessa Wi-Fi
-    // doméstico a 5fps sem engasgar. Acima disso o ganho não muda a
-    // detecção e a latência sobe.
-    const b64 = c.toDataURL('image/jpeg', 0.6).split(',')[1]
+    if (ocupado || !v.videoWidth) return
+    ocupado = true; atualizarBotoes()
     try {
-      await fetch('/quadro?t=${token}', { method:'POST', body: b64 })
-    } catch { s.textContent = 'perdi a conexão com o PC'; s.className = '' }
+      c.width = v.videoWidth; c.height = v.videoHeight
+      c.getContext('2d').drawImage(v, 0, 0)
+      await postar(c.toDataURL('image/jpeg', 0.6).split(',')[1])
+      status('Transmitindo para a Íris.', 'on')
+    } catch (e) { parar(); status(e.message, 'error') }
+    finally { ocupado = false; atualizarBotoes() }
   }
 
-  /**
-   * A FOTO ÚNICA — o caminho que não depende de https.
-   *
-   * 'capture="environment"' faz o iOS abrir a câmera de trás direto em vez
-   * da galeria. Sobe pelo mesmo endpoint dos quadros: pro PC é um quadro
-   * como qualquer outro, então cadastro e reconhecimento funcionam iguais.
-   */
-  f.querySelector('input').onchange = async (ev) => {
+  async function normalizar(arq) {
+    if (!arq.size) throw new Error('O arquivo está vazio. Escolha outra foto.')
+    if (arq.size > 40 * 1024 * 1024) throw new Error('Escolha uma foto de até 40 MB.')
+    const url = URL.createObjectURL(arq)
+    try {
+      const img = await new Promise((ok, falhou) => {
+        const foto = new Image()
+        foto.onload = () => ok(foto)
+        foto.onerror = () => falhou(new Error('Não consegui abrir esta imagem. Se for HEIC/HEIF, exporte como JPG ou PNG e tente novamente.'))
+        foto.src = url
+      })
+      const escala = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * escala))
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * escala))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Não consegui preparar a foto neste navegador. Tente outro navegador.')
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      return canvas.toDataURL('image/jpeg', 0.82)
+    } finally { URL.revokeObjectURL(url) }
+  }
+
+  async function enviarFoto(ev) {
     const arq = ev.target.files && ev.target.files[0]
-    if (!arq) return
-    s.textContent = 'enviando…'
-
-    const b64 = await new Promise((ok) => {
-      const fr = new FileReader()
-      fr.onload = () => ok(String(fr.result).split(',')[1])
-      fr.readAsDataURL(arq)
-    })
-
+    if (!arq || ocupado || timer) return
+    ocupado = true; atualizarBotoes(); status('Preparando e enviando a foto…')
     try {
-      await fetch('/quadro?t=${token}', { method: 'POST', body: b64 })
-      s.textContent = 'foto enviada — cadastre o rosto na Íris'
-      s.className = 'on'
-    } catch { s.textContent = 'não consegui falar com o PC' }
+      const foto = await normalizar(arq)
+      preview.src = foto; preview.hidden = false
+      await postar(foto.split(',')[1], true)
+      status('Foto recebida no computador. Na Íris, revise a imagem e cadastre a pessoa autorizada.', 'on')
+    } catch (e) { status(e.message || 'Não consegui enviar a foto. Tente novamente.', 'error') }
+    finally { ev.target.value = ''; ocupado = false; atualizarBotoes() }
   }
-
-  if (aoVivoPossivel) {
-    // A tela apagando para a transmissão no celular. Dizer isso é mais
-    // honesto que descobrir depois que o alarme parou de funcionar às 3h.
-    s.insertAdjacentHTML('afterend',
-      '<p style="color:#6d7f8b;font-size:12px;max-width:420px;text-align:center">' +
-      'Mantenha esta aba aberta e a tela acesa. O navegador para a câmera quando ' +
-      'a tela apaga.</p>')
-  }
+  f.onchange = galeria.onchange = enviarFoto
+  window.addEventListener('pagehide', parar)
 </script></body></html>`
 }
 
@@ -246,7 +316,7 @@ function responder(req: IncomingMessage, res: ServerResponse): void {
         res.writeHead(413).end()
         return
       }
-      aoQuadro?.(b.toString('utf8'))
+      aoQuadro?.(b.toString('utf8'), url.searchParams.get('foto') === '1')
       res.writeHead(204).end()
     })
     return
@@ -268,7 +338,7 @@ function responder(req: IncomingMessage, res: ServerResponse): void {
  * quiser sem derrubar o celular que já está transmitindo.
  */
 export async function abrirServidor(
-  aoReceberQuadro: (jpegBase64: string) => void,
+  aoReceberQuadro: (jpegBase64: string, foto?: boolean) => void,
   estado: Estado
 ): Promise<{ url: string; qr: string } | { erro: string }> {
   aoQuadro = aoReceberQuadro

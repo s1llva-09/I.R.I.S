@@ -224,15 +224,44 @@ if (!process.versions.electron) {
       false,
       'Refuse dismisses the approval'
     )
-    // A generated blank local image verifies blob CSP, source loading and the packaged models.
-    await evaluate(`(async () => {
+    // Intercept the native file picker and exercise the visible button through a real click.
+    const imagemLocal = await evaluate(`(() => {
       const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 90;
       const ctx = canvas.getContext('2d'); ctx.fillStyle = '#1a3348'; ctx.fillRect(0,0,160,90);
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      const files = new DataTransfer(); files.items.add(new File([blob], 'teste_01.png', {type:'image/png'}));
-      const input = document.querySelector('.security-file-button input:not([multiple])');
-      input.files = files.files; input.dispatchEvent(new Event('change', {bubbles:true}));
+      return { png: canvas.toDataURL('image/png').split(',')[1], jpeg: canvas.toDataURL('image/jpeg').split(',')[1] };
     })()`)
+    const arquivoLocal = path.join(output, 'teste_01.png')
+    fs.writeFileSync(arquivoLocal, Buffer.from(imagemLocal.png, 'base64'))
+    win.webContents.debugger.attach('1.3')
+    await win.webContents.debugger.sendCommand('Page.enable')
+    await win.webContents.debugger.sendCommand('Page.setInterceptFileChooserDialog', {
+      enabled: true
+    })
+    let seletor
+    const aoAbrirSeletor = (_event, method, params) => {
+      if (method === 'Page.fileChooserOpened') seletor = params
+    }
+    win.webContents.debugger.on('message', aoAbrirSeletor)
+    await evaluate(
+      `document.querySelector('.security-source-actions button').scrollIntoView({block:'center'})`
+    )
+    await delay(200)
+    const ponto = await evaluate(
+      `(() => { const r = document.querySelector('.security-source-actions button').getBoundingClientRect(); return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)}; })()`
+    )
+    win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...ponto })
+    win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...ponto })
+    for (let i = 0; i < 30 && !seletor; i++) await delay(100)
+    assert(seletor?.backendNodeId, 'Visible Add Photo button opens the file picker')
+    await win.webContents.debugger.sendCommand('DOM.setFileInputFiles', {
+      files: [arquivoLocal],
+      backendNodeId: seletor.backendNodeId
+    })
+    win.webContents.debugger.removeListener('message', aoAbrirSeletor)
+    await win.webContents.debugger.sendCommand('Page.setInterceptFileChooserDialog', {
+      enabled: false
+    })
+    win.webContents.debugger.detach()
     await waitFor(
       `document.querySelector('.camera-badge')?.textContent.includes('IMAGEM DE TESTE')`,
       'test photo preview'
@@ -247,6 +276,61 @@ if (!process.versions.electron) {
       1380,
       900,
       (s) => s.text.includes('IMAGEM DE TESTE') && !s.text.includes('AO VIVO')
+    )
+    await evaluate(`(() => {
+      const files = new DataTransfer(); files.items.add(new File(['invalid'], 'iphone.heic', { type:'image/heic' }));
+      document.querySelector('.security-camera-panel').dispatchEvent(new DragEvent('drop', { bubbles:true, dataTransfer:files }));
+    })()`)
+    await waitFor(
+      `document.querySelector('.security-source-error')?.textContent.includes('HEIC')`,
+      'clear HEIC error'
+    )
+    assert(
+      await evaluate(
+        `document.querySelector('.camera-badge').textContent.includes('IMAGEM DE TESTE')`
+      ),
+      'Invalid file keeps previous image'
+    )
+    assert(
+      await evaluate(
+        `document.querySelector('.security-camera-panel').textContent.includes('teste_01.png')`
+      )
+    )
+    await evaluate(`(async () => {
+      const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 240;
+      const ctx = canvas.getContext('2d'); ctx.fillStyle = '#38545d'; ctx.fillRect(0,0,320,240);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve,'image/jpeg'));
+      const files = new DataTransfer(); files.items.add(new File([blob], 'foto-arrastada.jpg', {type:'image/jpeg'}));
+      document.querySelector('.security-camera-panel').dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:files}));
+    })()`)
+    await waitFor(
+      `document.querySelector('.security-camera-panel').textContent.includes('foto-arrastada.jpg')`,
+      'drag drop updates preview'
+    )
+    await click('.security-phone-guide .security-text-button')
+    await waitFor(`Boolean(document.querySelector('.security-qr'))`, 'phone photo session')
+    await delay(500)
+    await evaluate(`window.__uiTest.emit('frame', ${JSON.stringify(imagemLocal.jpeg)}, true)`)
+    await waitFor(
+      `document.querySelector('.security-camera-panel').textContent.includes('Foto do celular')`,
+      'phone photo appears'
+    )
+    await waitFor(
+      `document.querySelector('.camera-badge').textContent.includes('IMAGEM DE TESTE')`,
+      'phone photo is a still image'
+    )
+    await delay(6500)
+    assert(
+      await evaluate(
+        `document.querySelector('.camera-badge').textContent.includes('IMAGEM DE TESTE')`
+      ),
+      'Phone photo persists past the video timeout'
+    )
+    await check(
+      'foto-celular',
+      1380,
+      900,
+      (s) => s.text.includes('Foto do celular') && !s.text.includes('AO VIVO')
     )
     await click('.security-heading-actions button:last-child')
     await waitFor(

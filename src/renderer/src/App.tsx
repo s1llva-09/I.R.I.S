@@ -7,6 +7,7 @@ import {
   iniciarPresenca,
   pararPresenca,
   pararQuadros,
+  receberFoto,
   receberQuadro
 } from './presenca'
 import Seguranca from './Seguranca'
@@ -179,7 +180,10 @@ export default function App(): JSX.Element {
     // Os quadros da câmera de rede chegam aqui e não no painel: a câmera da
     // porta tem que continuar sendo lida com o painel fechado, senão o
     // alarme só funcionaria com alguém olhando a tela.
-    const pararFrames = window.api.camera.aoFrame(receberQuadro)
+    const pararFrames = window.api.camera.aoFrame((jpeg, foto) => {
+      if (foto) void receberFoto(jpeg)
+      else receberQuadro(jpeg)
+    })
 
     const pararCamera = window.api.seguranca.aoMudarCamera(() => {
       setCameraGeracao((g) => g + 1)

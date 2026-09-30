@@ -29,6 +29,9 @@ import { classificar, esperadoDe } from '../../reconhecimento'
 /** Cadência. 1,5s é abaixo do tempo de uma pessoa entrar num enquadramento. */
 const TIQUE = 1500
 const VALIDADE_QUADRO = 6000
+const LIMITE_FOTO = 25 * 1024 * 1024
+const LIMITE_FOTO_CELULAR = 3 * 1024 * 1024
+const TEMPO_CARGA_FOTO = 15_000
 
 /**
  * Distância euclidiana máxima entre descritores pra considerar a mesma
@@ -76,10 +79,14 @@ let redeSelecionada = false
 let quadro: HTMLImageElement | null = null
 let versaoQuadro = 0
 let versaoFoto = 0
+let fotoNome: string | null = null
+let fotoDoCelular = false
+let cancelarCargaFoto: (() => void) | null = null
 
 export type EstadoSensor = {
   ativo: boolean
   fonte: 'camera' | 'rede' | 'teste' | 'nenhuma'
+  fotoNome: string | null
   sinal: boolean
   modelos: 'nao-carregado' | 'carregando' | 'pronto' | 'erro'
   ultimoQuadroEm: number | null
@@ -149,6 +156,7 @@ export function estadoSensor(): EstadoSensor {
   return {
     ativo,
     fonte,
+    fotoNome,
     sinal: atual !== null,
     modelos,
     ultimoQuadroEm:
@@ -321,6 +329,7 @@ async function ligarCamera(ciclo: number, deviceId?: string): Promise<void> {
 }
 
 function desligar(): void {
+  cancelarFotoPendente()
   geracao++
   ativo = false
   if (relogio) clearInterval(relogio)
@@ -487,41 +496,115 @@ export async function capturarDescritor(): Promise<Float32Array | string> {
   }
 }
 
-/**
- * Põe (ou tira) uma imagem no lugar da câmera. Devolve o erro em texto se a
- * imagem não carregar — arquivo corrompido é comum e falhar calado aqui
- * pareceria "não detectou ninguém".
- */
-export function definirFonteTeste(arquivo: File | null): Promise<string> {
-  const versao = ++versaoFoto
-  versaoFonte++
-  fonteTeste = null
-  invalidarLeitura()
-  if (!arquivo) return Promise.resolve('')
+/** Falhas de formato não desligam a fonte que já estava funcionando. */
+export function validarFoto(arquivo: File): string {
+  const extensao = arquivo.name.split('.').pop()?.toLowerCase() ?? ''
+  const tipo = arquivo.type.toLowerCase()
+  if (/^hei[cf]$/.test(extensao) || /^image\/hei[cf](?:-sequence)?$/.test(tipo))
+    return 'Fotos HEIC/HEIF precisam ser exportadas como JPG ou PNG antes de carregar.'
+  if (
+    !/^(jpe?g|png|webp|bmp|gif|avif)$/.test(extensao) &&
+    !/^image\/(jpeg|png|webp|bmp|x-ms-bmp|gif|avif)$/.test(tipo)
+  )
+    return 'Formato não aceito. Escolha uma foto JPG, PNG, WebP, BMP, GIF ou AVIF.'
+  if (!arquivo.size) return 'O arquivo está vazio. Escolha outra foto.'
+  if (arquivo.size > LIMITE_FOTO)
+    return 'A foto excede 25 MB. Reduza o tamanho ou exporte uma cópia em JPG.'
+  return ''
+}
 
+function cancelarFotoPendente(): void {
+  versaoFoto++
+  cancelarCargaFoto?.()
+}
+
+/** Só troca a fonte depois de decodificar. Cancelamento também libera o blob. */
+function carregarFoto(
+  url: string,
+  nome: string,
+  celular: boolean,
+  liberar?: () => void
+): Promise<string> {
+  cancelarFotoPendente()
+  const versao = versaoFoto
   return new Promise((resolve) => {
     const img = new Image()
-    // objectURL e não base64: o arquivo pode ter alguns MB, e a string
-    // base64 disso vira lixo que o GC segura por muito mais tempo.
-    const url = URL.createObjectURL(arquivo)
-
+    let terminou = false
+    const concluir = (erro: string): void => {
+      if (terminou) return
+      terminou = true
+      window.clearTimeout(timeout)
+      img.onload = null
+      img.onerror = null
+      liberar?.()
+      if (cancelarCargaFoto === cancelar) cancelarCargaFoto = null
+      if (erro) img.src = ''
+      resolve(erro)
+    }
+    const cancelar = (): void => concluir('Carregamento da foto cancelado: a fonte mudou.')
+    const timeout = window.setTimeout(
+      () => concluir('A foto demorou demais para abrir. Tente uma cópia menor em JPG ou PNG.'),
+      TEMPO_CARGA_FOTO
+    )
+    cancelarCargaFoto = cancelar
     img.onload = () => {
-      // Revogar DEPOIS do load: a imagem já está decodificada em memória, e
-      // sem isto cada foto escolhida deixa um blob preso até a janela
-      // fechar. Numa sessão de teste são dezenas.
-      URL.revokeObjectURL(url)
-      if (versao !== versaoFoto) return resolve('')
+      if (terminou) return
+      if (versao !== versaoFoto) return cancelar()
+      if (!img.naturalWidth || !img.naturalHeight)
+        return concluir('Não foi possível ler essa imagem. Exporte uma cópia em JPG ou PNG.')
       fonteTeste = img
+      fotoNome = nome
+      fotoDoCelular = celular
       versaoFonte++
-      ultimoErro = null
-      resolve('')
+      versaoQuadro++
+      quadro = null
+      redeSelecionada = false
+      ultimoQuadroRede = null
+      if (modelos !== 'erro') ultimoErro = null
+      invalidarLeitura()
+      concluir('')
     }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      resolve('não consegui ler essa imagem')
-    }
+    img.onerror = () =>
+      concluir(
+        'Não foi possível ler essa imagem. O arquivo pode estar danificado; tente JPG ou PNG.'
+      )
     img.src = url
   })
+}
+
+/** Põe ou tira uma foto local sem apagar a anterior quando o arquivo falha. */
+export function definirFonteTeste(arquivo: File | null): Promise<string> {
+  if (!arquivo) {
+    cancelarFotoPendente()
+    fonteTeste = null
+    fotoNome = null
+    fotoDoCelular = false
+    versaoFonte++
+    invalidarLeitura()
+    return Promise.resolve('')
+  }
+  const erro = validarFoto(arquivo)
+  if (erro) return Promise.resolve(erro)
+  try {
+    const url = URL.createObjectURL(arquivo)
+    return carregarFoto(url, arquivo.name, false, () => URL.revokeObjectURL(url))
+  } catch {
+    return Promise.resolve('Não foi possível abrir essa foto. Escolha o arquivo novamente.')
+  }
+}
+
+/** Uma foto do celular permanece visível para permitir o cadastro sem pressa. */
+export function receberFoto(jpegBase64: string): Promise<string> {
+  if ((!ativo && !redeSelecionada) || (fonteTeste && !fotoDoCelular)) return Promise.resolve('')
+  if (
+    !jpegBase64 ||
+    jpegBase64.length > Math.ceil(LIMITE_FOTO_CELULAR / 3) * 4 ||
+    jpegBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(jpegBase64) ||
+    !jpegBase64.startsWith('/9j/')
+  )
+    return Promise.resolve('A foto do celular não é um JPEG válido de até 3 MB.')
+  return carregarFoto(`data:image/jpeg;base64,${jpegBase64}`, 'Foto do celular.jpg', true)
 }
 
 export function temFonteTeste(): boolean {
@@ -544,10 +627,12 @@ export function temFonteTeste(): boolean {
  */
 /** Seleciona a rede antes da conexão, sem confundir espera com sinal recebido. */
 export function prepararFonteRede(): void {
-  versaoFoto++
+  cancelarFotoPendente()
   versaoQuadro++
   versaoFonte++
   fonteTeste = null
+  fotoNome = null
+  fotoDoCelular = false
   quadro = null
   redeSelecionada = true
   ultimoQuadroRede = null
@@ -559,8 +644,8 @@ export function prepararFonteRede(): void {
 export function receberQuadro(jpegBase64: string): void {
   // Quadros em trânsito após desligar não podem selecionar novamente a rede.
   if (!ativo && !redeSelecionada) return
-  if (fonteTeste) return
-  if (!redeSelecionada) prepararFonteRede()
+  if (fonteTeste && !fotoDoCelular) return
+  if (fonteTeste || !redeSelecionada) prepararFonteRede()
   const versao = ++versaoQuadro
   const recebidoEm = Date.now()
   const imagem = new Image()
@@ -569,7 +654,7 @@ export function receberQuadro(jpegBase64: string): void {
     // A detecção que já começou mantém seu próprio elemento até terminar.
     quadro = imagem
     ultimoQuadroRede = recebidoEm
-    ultimoErro = null
+    if (modelos !== 'erro') ultimoErro = null
   }
   imagem.onerror = () => {
     if (versao !== versaoQuadro || !redeSelecionada) return
@@ -624,7 +709,14 @@ export async function iniciarPresenca(
     if (ciclo !== geracao) return parar
     ultimoErro = e instanceof Error ? e.message : 'Não consegui iniciar o sensor.'
     console.warn('[presença] câmera indisponível:', (e as Error).message)
-    if (!carregado || (!fonteTeste && !redeSelecionada)) {
+    if (!carregado) {
+      // Visualização e reconhecimento são independentes: uma foto válida
+      // continua na tela, mas nenhuma inferência usa modelos incompletos.
+      if (!fonteTeste && !redeSelecionada) desligar()
+      else invalidarLeitura()
+      return parar
+    }
+    if (!fonteTeste && !redeSelecionada) {
       desligar()
       return parar
     }

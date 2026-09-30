@@ -517,13 +517,13 @@ function registrarIPC(): void {
    * O QR que o celular lê pra virar a câmera da porta.
    *
    * Os quadros que chegam pelo servidor entram no MESMO caminho dos do
-   * MJPEG — `camera:frame`. Pro renderer é indistinguível de onde vieram, e
-   * é isso que mantém detecção, alarme e escalada de risco num caminho só.
+   * MJPEG — `camera:frame`. Fotos avulsas levam uma marca para permanecer
+   * no visor, sem expirar como vídeo nem serem apresentadas como ao vivo.
    */
   ipcMain.handle('camera:qr', (e) =>
     abrirServidor(
-      (jpeg) => {
-        if (!e.sender.isDestroyed()) e.sender.send('camera:frame', jpeg)
+      (jpeg, foto) => {
+        if (!e.sender.isDestroyed()) e.sender.send('camera:frame', jpeg, foto === true)
       },
       () => leituraAtual()
     )
