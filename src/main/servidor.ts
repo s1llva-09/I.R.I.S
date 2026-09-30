@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
-import { randomBytes } from 'crypto'
+import { randomBytes, X509Certificate } from 'crypto'
+import { createServer as createHttpsServer } from 'https'
+import { certificadoLocal } from './tlsLocal'
 import { networkInterfaces } from 'os'
 import QRCode from 'qrcode'
 
@@ -26,16 +28,9 @@ import QRCode from 'qrcode'
  *   que parece falta de permissão e não é: é o objeto não ter sido criado.
  *   Não há contorno em JavaScript; a exigência é do navegador.
  *
- * Tentei HTTPS com certificado autoassinado e abandonei por dois motivos
- * somados: o iOS recusa `getUserMedia` em certificado não confiável mesmo
- * depois de você aceitar o aviso (exige instalar perfil e habilitar
- * confiança total, seis passos nos Ajustes), e uma dependência a mais pra
- * gerar cert num caminho que pode falhar por versão do iOS é dívida pior
- * que o recurso.
- *
- * Pra vídeo ao vivo de verdade, o caminho que NÃO tem essa parede é o
- * inverso: o celular SERVE e a Íris consome (`camera.ts`). Servir não exige
- * contexto seguro — só capturar exige.
+ * HTTPS local é opcional. A CA é exclusiva deste computador e a chave
+ * privada fica cifrada pelo sistema. O usuário instala o certificado no
+ * celular e habilita sua confiança. Tokens HTTP e HTTPS são independentes.
  *
  * É também a resposta pro display da porta: a mesma página, aberta num
  * tablet velho ou num Raspberry, é o LCD com a cara da Íris.
@@ -58,6 +53,12 @@ type Estado = () => { rostos: number; desconhecidos: number; conhecidos: string[
 
 let servidor: ReturnType<typeof createServer> | null = null
 let segredo = ''
+let seguro: ReturnType<typeof createHttpsServer> | null = null
+let segredoSeguro = ''
+let raizPublica = ''
+let impressao = ''
+let geracaoServidor = 0
+const controles = new Set<ServerResponse>()
 let aoQuadro: ((jpegBase64: string, foto?: boolean) => void) | null = null
 let lerEstado: Estado = () => ({ rostos: -1, desconhecidos: 0, conhecidos: [] })
 
@@ -175,7 +176,7 @@ antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
   const b = document.getElementById('b'), f = document.getElementById('f')
   const galeria = document.getElementById('galeria'), preview = document.getElementById('preview')
   const tirar = document.getElementById('tirar'), escolher = document.getElementById('escolher')
-  let timer = null, ocupado = false, iniciando = false
+  let timer = null, ocupado = false, iniciando = false, geracao = 0, falhas = 0
   const aoVivoPossivel = Boolean(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
 
   function status(texto, classe = '') { s.textContent = texto; s.className = classe }
@@ -187,12 +188,18 @@ antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
   escolher.onclick = () => { if (!ocupado) galeria.click() }
 
   if (aoVivoPossivel) {
+    const controle = new EventSource('/controle?t=${token}')
+    controle.addEventListener('parar', () => {
+      parar(); controle.close(); status('Conexão encerrada no computador. Gere um novo QR para retomar.')
+    })
+    window.addEventListener('pagehide', () => controle.close())
     b.hidden = false
     document.getElementById('limite').textContent =
       'A conexão permite vídeo ao vivo. Mantenha esta aba aberta e a tela acesa durante a transmissão.'
   }
 
   function parar() {
+    geracao++
     if (timer) clearInterval(timer)
     timer = null
     if (v.srcObject) v.srcObject.getTracks().forEach((track) => track.stop())
@@ -205,10 +212,13 @@ antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
   b.onclick = async () => {
     if (timer) { parar(); status('Transmissão encerrada. Você pode enviar uma foto.'); return }
     iniciando = true; atualizarBotoes()
+    const ciclo = geracao
     try {
-      v.srcObject = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: 640, height: 480 }
       })
+      if (ciclo !== geracao) { stream.getTracks().forEach(t => t.stop()); return }
+      v.srcObject = stream
       await v.play()
       v.hidden = false; preview.hidden = true
       b.textContent = 'Parar transmissão'
@@ -250,8 +260,15 @@ antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
       c.width = v.videoWidth; c.height = v.videoHeight
       c.getContext('2d').drawImage(v, 0, 0)
       await postar(c.toDataURL('image/jpeg', 0.6).split(',')[1])
+      falhas = 0
       status('Transmitindo para a Íris.', 'on')
-    } catch (e) { parar(); status(e.message, 'error') }
+    } catch (e) {
+      if (/expirou/.test(e.message) || ++falhas >= 3) {
+        parar(); status('Transmissão parada após perda da conexão. Reconecte pelo QR.', 'error'); return
+      }
+      status('Reconectando automaticamente… ' + e.message, 'error')
+      await new Promise(ok => setTimeout(ok, 3000))
+    }
     finally { ocupado = false; atualizarBotoes() }
   }
 
@@ -297,21 +314,46 @@ antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
 
 function responder(req: IncomingMessage, res: ServerResponse): void {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('Referrer-Policy', 'no-referrer')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  const token = 'encrypted' in req.socket ? segredoSeguro : segredo
 
   // O token vale pra TUDO, inclusive a página: sem isso, quem estiver na
   // rede descobre o caminho e passa a empurrar quadros por conta própria.
-  if (url.searchParams.get('t') !== segredo) {
+  if (!token || url.searchParams.get('t') !== token) {
     res.writeHead(403).end('token inválido')
+    return
+  }
+  if (url.pathname === '/certificado.cer' && req.method === 'GET' && raizPublica) {
+    res
+      .writeHead(200, {
+        'content-type': 'application/x-x509-ca-cert',
+        'content-disposition': 'attachment; filename="Iris-Camera-Local.cer"'
+      })
+      .end(new X509Certificate(raizPublica).raw)
+    return
+  }
+  if (url.pathname === '/controle' && req.method === 'GET') {
+    res.writeHead(200, { 'content-type': 'text/event-stream', connection: 'keep-alive' })
+    res.write(': conectado\n\n')
+    controles.add(res)
+    req.on('close', () => controles.delete(res))
     return
   }
 
   if (url.pathname === '/' && req.method === 'GET') {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(pagina(segredo))
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(pagina(token))
     return
   }
 
   if (url.pathname === '/quadro' && req.method === 'POST') {
+    const sessao = geracaoServidor
     void corpo(req).then((b) => {
+      if (sessao !== geracaoServidor) {
+        res.writeHead(403).end()
+        return
+      }
       if (!b) {
         res.writeHead(413).end()
         return
@@ -348,7 +390,7 @@ export async function abrirServidor(
   if (!ip)
     return { erro: 'esta máquina não está numa rede — sem Wi-Fi não há como o celular chegar' }
 
-  if (!segredo) segredo = randomBytes(8).toString('hex')
+  if (!segredo) segredo = randomBytes(16).toString('hex')
 
   if (!servidor) {
     servidor = createServer(responder)
@@ -374,8 +416,61 @@ export async function abrirServidor(
 }
 
 export function fecharServidor(): void {
+  geracaoServidor++
+  for (const controle of controles) controle.end('event: parar\ndata: {}\n\n')
+  controles.clear()
+  seguro?.closeAllConnections()
+  seguro?.close()
+  seguro = null
+  segredoSeguro = ''
+  servidor?.closeAllConnections()
   servidor?.close()
   servidor = null
   aoQuadro = null
   segredo = ''
+}
+
+export async function abrirServidorSeguro(
+  aoReceberQuadro: (jpeg: string, foto?: boolean) => void,
+  estado: Estado
+): Promise<
+  { url: string; qr: string; certificadoQr: string; impressao: string } | { erro: string }
+> {
+  const ciclo = geracaoServidor
+  try {
+    const local = await abrirServidor(aoReceberQuadro, estado)
+    if ('erro' in local) return local
+    const ip = new URL(local.url).hostname
+    if (!seguro) {
+      const tls = await certificadoLocal(ip)
+      if (ciclo !== geracaoServidor) return { erro: 'Conexão cancelada.' }
+      raizPublica = tls.raiz
+      impressao = tls.impressao
+      segredoSeguro = randomBytes(32).toString('hex')
+      const novo = createHttpsServer(
+        { key: tls.key, cert: tls.cert, minVersion: 'TLSv1.2' },
+        responder
+      )
+      await new Promise<void>((resolve, reject) => {
+        novo.once('error', reject)
+        novo.listen(8791, '0.0.0.0', resolve)
+      })
+      if (ciclo !== geracaoServidor) {
+        novo.close()
+        return { erro: 'Conexão cancelada.' }
+      }
+      seguro = novo
+    }
+    const url = `https://${ip}:8791/?t=${segredoSeguro}`
+    const certificado = new URL(local.url)
+    certificado.pathname = '/certificado.cer'
+    return {
+      url,
+      qr: await QRCode.toString(url, { type: 'svg' }),
+      certificadoQr: await QRCode.toString(certificado.href, { type: 'svg' }),
+      impressao
+    }
+  } catch (e) {
+    return { erro: `Não foi possível iniciar HTTPS: ${(e as Error).message}` }
+  }
 }

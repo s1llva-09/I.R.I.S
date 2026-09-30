@@ -36,9 +36,50 @@ com GPU quando disponível e CPU como alternativa.
   páginas, RTSP e HLS não são aceitas nesse campo.
 
 O QR local da Íris usa HTTP e envia **fotos individuais**. Vídeo ao vivo pelo
-navegador exige um contexto seguro (HTTPS); para vídeo no uso local, escolha uma
-das opções de webcam acima. Se o celular não abrir a página do QR, confira a
+navegador também está disponível em **Celular ao vivo · HTTPS**, conforme abaixo.
+Se o celular não abrir a página do QR, confira a
 rede Wi-Fi e a permissão do aplicativo no Firewall do Windows para redes privadas.
+
+### Monitoramento, cadastro e privacidade
+
+- **Diagnóstico e privacidade:** conexão, idade do quadro, luminosidade média e
+  avisos de enquadramento. A luminosidade é uma estimativa da imagem inteira.
+- **Reconexão:** webcam tenta recuperar sinal a cada cinco segundos; MJPEG usa
+  quatro segundos. O celular tenta novamente após falhas transitórias e encerra
+  após três falhas consecutivas. Permissão negada exige ação do usuário.
+- **Cadastro guiado:** confirme o consentimento e capture três ângulos leves.
+  As três amostras são usadas na comparação. Fotos precisam ser diferentes;
+  avisos de iluminação, enquadramento e pessoa divergente impedem a captura.
+  Isso não comprova identidade nem presença física diante da câmera.
+- **Histórico visual:** mudanças de presença, horário e miniaturas opcionais.
+  Guarda até 200 eventos, exibe os últimos 50; imagens ficam desligadas por padrão.
+- **Ativar privacidade:** encerra sensor e conexões, limpa a imagem atual e
+  solicita ao navegador conectado que desligue a câmera. Se a rede estiver
+  interrompida, o celular encerra após três falhas de envio. Há botões separados
+  para remover miniaturas ou histórico de presença, com confirmação. As decisões
+  de risco e os cadastros são mantidos. Remoção é lógica, sem garantia de
+  apagamento forense de arquivos SQLite ou backups.
+
+### Celular ao vivo sem aplicativo externo
+
+1. Em Segurança → Gerenciar fontes, clique em **Celular ao vivo · HTTPS**.
+2. No telefone, escaneie o primeiro QR e instale o certificado **Iris Camera
+   Local**. Confira a impressão SHA-256 mostrada no computador antes de confiar.
+   No iPhone, instale o perfil em Geral → VPN e Gerenciamento de Dispositivo;
+   depois habilite confiança em Geral → Sobre → Certificados Confiáveis.
+   [Instruções da Apple](https://support.apple.com/en-ca/102390).
+   No Android, procure Segurança → Criptografia e credenciais → Instalar
+   certificado → Certificado de CA (os nomes variam conforme o aparelho).
+3. Escaneie o segundo QR no Safari/Chrome, permita a câmera e toque em
+   **Ligar câmera ao vivo**. Mantenha a tela ligada e a página em primeiro plano.
+4. Use **Parar transmissão** no celular ou **Ativar privacidade** no computador
+   para encerrar. Um novo pareamento revoga o anterior.
+
+A rede precisa permitir as portas TCP 8790 e 8791 entre os dispositivos. A CA é
+local e sua chave privada fica cifrada pelo sistema operacional. Instale apenas
+o certificado do seu computador; remova a confiança nas configurações do celular
+quando deixar de usar o recurso. Não compartilhe o QR de transmissão. Os testes
+usam Chromium com câmera simulada; Safari/iPhone e Android físicos exigem validação.
 
 ### Verificação
 
@@ -46,6 +87,7 @@ rede Wi-Fi e a permissão do aplicativo no Firewall do Windows para redes privad
 npm run teste:presenca
 npm run teste:interface
 npm run teste:servidor
+npm run teste:melhorias
 ```
 
 O primeiro comando verifica perda/recuperação de sinal e o ciclo de vida do sensor

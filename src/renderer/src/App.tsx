@@ -1,5 +1,6 @@
 // O 'type JSX' é obrigatório no React 19: o namespace JSX global sumiu,
 // agora vem do pacote. Sem ele, "Cannot find namespace 'JSX'".
+import { miniaturaAtual } from './diagnostico'
 import {
   capturarDescritor,
   definirGaleria,
@@ -251,7 +252,10 @@ export default function App(): JSX.Element {
         (l) => {
           if (morto) return
           setVisao(l)
-          window.api.presenca(l)
+          window.api.presenca(
+            l,
+            c.miniaturasSeguranca && l.rostos >= 0 ? miniaturaAtual() : undefined
+          )
         },
         String(c.cameraId ?? '')
       ).then((p) => {

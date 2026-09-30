@@ -332,12 +332,56 @@ if (!process.versions.electron) {
       900,
       (s) => s.text.includes('Foto do celular') && !s.text.includes('AO VIVO')
     )
-    await click('.security-heading-actions button:last-child')
+    await evaluate(`document.querySelector('.security-extras').scrollIntoView()`)
+    await waitFor(
+      `document.querySelector('.security-extras').textContent.includes('Presença simulada')`,
+      'visual history'
+    )
+    await check('diagnostico', 1380, 900, (s) => s.text.includes('Luminosidade média'))
+    await click('.security-extras input[type="checkbox"]')
+    await waitFor(
+      `window.__uiTest.config().miniaturasSeguranca === true`,
+      'thumbnail preference saved'
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.security-extras button')].find(b=>b.textContent.includes('Apagar histórico')).click()`
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.security-extras button')].find(b=>b.textContent.includes('Cancelar')).click()`
+    )
+    assert.equal(
+      await evaluate(
+        `document.querySelector('.security-extras').textContent.includes('Presença simulada')`
+      ),
+      true
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.security-extras button')].find(b=>b.textContent.includes('Apagar histórico')).click()`
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.security-extras button')].find(b=>b.textContent.includes('Confirmar exclusão')).click()`
+    )
+    await waitFor(
+      `document.querySelector('.security-extras').textContent.includes('Nenhuma mudança')`,
+      'history deleted'
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.security-extras button')].find(b=>b.textContent.includes('Ativar privacidade')).click()`
+    )
     await waitFor(
       `document.querySelector('.camera-badge')?.textContent.includes('SEM TRANSMISSÃO')`,
       'paused camera has no stale picture'
     )
     assert.equal(await evaluate(`window.__uiTest.config().cameraAtiva`), false)
+    await evaluate(
+      `[...document.querySelectorAll('button')].find(b => b.textContent.includes('Celular ao vivo')).click()`
+    )
+    await waitFor(`!!document.querySelector('.security-tls-guide')`, 'HTTPS pairing instructions')
+    win.setContentSize(700, 650)
+    await waitFor('window.innerWidth === 700', 'narrow viewport')
+    await evaluate(`document.querySelector('.security-management').open = true`)
+    await evaluate(`document.querySelector('.security-tls-guide').scrollIntoView()`)
+    await check('pareamento-https', 700, 650, (s) => s.text.includes('Certificados Confiáveis'))
     assert.deepEqual(failures, [], `Runtime errors: ${failures.join('; ')}`)
     const report = {
       passed: results.length,

@@ -17,17 +17,29 @@ declare global {
       falar: (texto: string) => void
       pararFala: () => void
       mudo: (mudo: boolean) => void
-      presenca: (leitura: { rostos: number; desconhecidos: number; conhecidos: string[] }) => void
+      presenca: (
+        leitura: { rostos: number; desconhecidos: number; conhecidos: string[] },
+        miniatura?: string
+      ) => void
       camera: {
         conectar: (url: string) => Promise<boolean>
         desconectar: () => Promise<void>
         erro: () => Promise<string>
         procurar: () => Promise<{ url: string; tipo: string; servidor: string }[]>
         testar: (alvo: string) => Promise<string>
-        qr: () => Promise<{ url: string; qr: string } | { erro: string }>
+        qr: (
+          seguro?: boolean
+        ) => Promise<
+          { url: string; qr: string; certificadoQr?: string; impressao?: string } | { erro: string }
+        >
         aoFrame: (cb: (jpegBase64: string, foto?: boolean) => void) => () => void
       }
       seguranca: {
+        visuais: () => Promise<
+          { id: number; momento: string; texto: string; miniatura: string | null }[]
+        >
+        limpar: (tipo: 'imagens' | 'historico') => Promise<void>
+        privacidade: () => Promise<void>
         painel: () => Promise<{
           rostos: { nome: string; criado_em: string }[]
           alarmes: { id: number; momento: string; resultado: string }[]

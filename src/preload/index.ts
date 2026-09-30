@@ -63,8 +63,10 @@ const api = {
    * Vai só o NÚMERO. O frame não atravessa a ponte, e não atravessa porque
    * não existe caminho: o preload não expõe nada que aceite imagem.
    */
-  presenca: (leitura: { rostos: number; desconhecidos: number; conhecidos: string[] }): void =>
-    ipcRenderer.send('presenca:leitura', leitura),
+  presenca: (
+    leitura: { rostos: number; desconhecidos: number; conhecidos: string[] },
+    miniatura?: string
+  ): void => ipcRenderer.send('presenca:leitura', leitura, miniatura),
 
   /**
    * Cadastro de rosto autorizado (2.6).
@@ -74,6 +76,9 @@ const api = {
    * teria que ser aberto de propósito.
    */
   seguranca: {
+    visuais: () => ipcRenderer.invoke('seguranca:visuais'),
+    limpar: (tipo: 'imagens' | 'historico') => ipcRenderer.invoke('seguranca:limpar', tipo),
+    privacidade: () => ipcRenderer.invoke('seguranca:privacidade'),
     /** Tudo que o painel desenha, numa chamada só. */
     painel: (): Promise<unknown> => ipcRenderer.invoke('seguranca:painel'),
     /** Guarda a medição de reconhecimento junto dos outros números do TCC. */
@@ -118,8 +123,11 @@ const api = {
     testar: (alvo: string): Promise<string> => ipcRenderer.invoke('camera:testar', alvo),
 
     /** Sobe o servidor local e devolve o QR pro celular ler. */
-    qr: (): Promise<{ url: string; qr: string } | { erro: string }> =>
-      ipcRenderer.invoke('camera:qr'),
+    qr: (
+      seguro = false
+    ): Promise<
+      { url: string; qr: string; certificadoQr?: string; impressao?: string } | { erro: string }
+    > => ipcRenderer.invoke('camera:qr', seguro),
     aoFrame: (cb: (jpegBase64: string, foto?: boolean) => void): (() => void) =>
       ouvir('camera:frame', cb)
   },

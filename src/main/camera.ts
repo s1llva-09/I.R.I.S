@@ -39,6 +39,7 @@ let req: ReturnType<typeof get> | null = null
 let timer: NodeJS.Timeout | null = null
 let urlAtual = ''
 let ouvinte: Ouvinte | null = null
+let geracao = 0
 
 /** Último erro legível, pra UI dizer o que houve em vez de "não pegou". */
 let ultimoErro = ''
@@ -61,10 +62,11 @@ function fechar(): void {
  * deixaria de fora justamente as câmeras baratas que este caminho existe
  * pra atender.
  */
-function consumir(res: IncomingMessage): void {
+function consumir(res: IncomingMessage, ciclo: number): void {
   let buf = Buffer.alloc(0)
 
   res.on('data', (pedaco: Buffer) => {
+    if (ciclo !== geracao) return
     buf = Buffer.concat([buf, pedaco])
 
     if (buf.length > TETO_FRAME) {
@@ -92,12 +94,16 @@ function consumir(res: IncomingMessage): void {
     }
   })
 
-  res.on('end', () => agendarReconexao('a câmera encerrou a transmissão'))
-  res.on('error', (e) => agendarReconexao(e.message))
+  res.on('end', () => {
+    if (ciclo === geracao) agendarReconexao('a câmera encerrou a transmissão')
+  })
+  res.on('error', (e) => {
+    if (ciclo === geracao) agendarReconexao(e.message)
+  })
 }
 
 function agendarReconexao(motivo: string): void {
-  ultimoErro = motivo
+  ultimoErro = `Reconectando… ${motivo}`
   fechar()
   if (!urlAtual) return
   timer = setTimeout(() => urlAtual && conectar(urlAtual, ouvinte!), RECONEXAO)
@@ -105,6 +111,7 @@ function agendarReconexao(motivo: string): void {
 
 /** Abre (ou reabre) o stream. URL vazia desliga. */
 export function conectar(url: string, aoFrame: Ouvinte): void {
+  const ciclo = ++geracao
   fechar()
   urlAtual = url.trim()
   ouvinte = aoFrame
@@ -115,21 +122,30 @@ export function conectar(url: string, aoFrame: Ouvinte): void {
 
   try {
     req = get(urlAtual, { timeout: 8000 }, (res) => {
+      if (ciclo !== geracao) {
+        res.destroy()
+        return
+      }
       if (!res.statusCode || res.statusCode >= 400) {
         res.resume()
         return agendarReconexao(`a câmera respondeu ${res.statusCode}`)
       }
-      consumir(res)
+      consumir(res, ciclo)
     })
 
-    req.on('timeout', () => agendarReconexao('a câmera não respondeu em 8s'))
-    req.on('error', (e) => agendarReconexao(e.message))
+    req.on('timeout', () => {
+      if (ciclo === geracao) agendarReconexao('a câmera não respondeu em 8s')
+    })
+    req.on('error', (e) => {
+      if (ciclo === geracao) agendarReconexao(e.message)
+    })
   } catch (e) {
     agendarReconexao((e as Error).message)
   }
 }
 
 export function desconectarCamera(): void {
+  geracao++
   urlAtual = ''
   ouvinte = null
   ultimoErro = ''

@@ -22,6 +22,9 @@ import { ajustarRitmo, aquecerVoz, falar, pararFala } from './voz'
 import { GATILHOS, iniciarGatilhos, pararGatilhos } from './gatilhos'
 import {
   cadastrarRosto,
+  registrarEventoVisual,
+  eventosVisuais,
+  limparSeguranca,
   decisoes,
   esquecerRosto,
   eventosVigilancia,
@@ -30,7 +33,7 @@ import {
 } from './banco'
 import { iniciarFila, pararFila } from './fila'
 import { conectar, desconectarCamera, erroCamera, procurarCameras, testarEndereco } from './camera'
-import { abrirServidor, fecharServidor } from './servidor'
+import { abrirServidor, abrirServidorSeguro, fecharServidor } from './servidor'
 import {
   abrirPainelSeguranca,
   leituraAtual,
@@ -475,9 +478,43 @@ function registrarIPC(): void {
   ipcMain.on('voz:falar', (_e, texto: string) => falar(texto))
   ipcMain.on('voz:parar', () => pararFala())
   ipcMain.on('voz:mudo', (_e, mudo: boolean) => (vozMuda = mudo))
-  ipcMain.on('presenca:leitura', (_e, l: Leitura) => {
+  let ultimoEstadoVisual = ''
+  let ultimoEventoVisual = 0
+  ipcMain.on('presenca:leitura', (_e, l: Leitura, miniatura?: string) => {
     reportarPresenca(l)
     vigiar(l)
+    if (!ler('cameraAtiva')) return
+    const texto =
+      l.rostos < 0
+        ? 'Sinal indisponível'
+        : l.rostos === 0
+          ? 'Ambiente sem rostos detectados'
+          : `${l.rostos} rosto(s), ${l.desconhecidos} sem correspondência${l.conhecidos.length ? ': ' + l.conhecidos.join(', ') : ''}`
+    if (texto !== ultimoEstadoVisual && Date.now() - ultimoEventoVisual > 5000) {
+      ultimoEstadoVisual = texto
+      ultimoEventoVisual = Date.now()
+      const imagem =
+        ler('miniaturasSeguranca') &&
+        l.rostos >= 0 &&
+        typeof miniatura === 'string' &&
+        miniatura.length < 100_000 &&
+        /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(miniatura)
+          ? miniatura
+          : undefined
+      registrarEventoVisual(texto, imagem)
+    }
+  })
+  ipcMain.handle('seguranca:visuais', () => eventosVisuais())
+  ipcMain.handle('seguranca:limpar', (_e, tipo: 'imagens' | 'historico') => {
+    limparSeguranca(tipo)
+    ultimoEstadoVisual = ''
+  })
+  ipcMain.handle('seguranca:privacidade', () => {
+    gravar('cameraAtiva', false)
+    desconectarCamera()
+    fecharServidor()
+    reportarPresenca({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+    janela?.webContents.send('camera:mudou', false)
   })
 
   ipcMain.handle('rostos:lista', () =>
@@ -520,8 +557,8 @@ function registrarIPC(): void {
    * MJPEG — `camera:frame`. Fotos avulsas levam uma marca para permanecer
    * no visor, sem expirar como vídeo nem serem apresentadas como ao vivo.
    */
-  ipcMain.handle('camera:qr', (e) =>
-    abrirServidor(
+  ipcMain.handle('camera:qr', (e, seguro = false) =>
+    (seguro ? abrirServidorSeguro : abrirServidor)(
       (jpeg, foto) => {
         if (!e.sender.isDestroyed()) e.sender.send('camera:frame', jpeg, foto === true)
       },

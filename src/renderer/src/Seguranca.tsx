@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import Visor from './Visor'
+import SegurancaExtras from './SegurancaExtras'
+import { diagnosticarImagem } from './diagnostico'
 import {
   aoMudarCameras,
   capturarDescritor,
@@ -7,6 +9,7 @@ import {
   definirGaleria,
   definirLimiar,
   estadoSensor,
+  fonteAtual,
   listarCameras,
   medirReconhecimento,
   pararQuadros,
@@ -100,6 +103,8 @@ export default function Seguranca({
   const [sensor, setSensor] = useState(estadoSensor)
   const [agora, setAgora] = useState(Date.now)
   const [nome, setNome] = useState('')
+  const [amostras, setAmostras] = useState<number[][]>([])
+  const ultimaFotoCadastro = useRef<unknown>(null)
   const [consentimento, setConsentimento] = useState(false)
   const [cadastroAberto, setCadastroAberto] = useState(false)
   const [estado, setEstado] = useState('')
@@ -115,7 +120,12 @@ export default function Seguranca({
   const [medindo, setMedindo] = useState('')
   const [url, setUrl] = useState('')
   const [achadas, setAchadas] = useState<{ url: string; tipo: string }[]>([])
-  const [qr, setQr] = useState<{ svg: string; url: string } | null>(null)
+  const [qr, setQr] = useState<{
+    svg: string
+    url: string
+    certificadoQr?: string
+    impressao?: string
+  } | null>(null)
   const [fontesAbertas, setFontesAbertas] = useState(false)
   const [abaEventos, setAbaEventos] = useState<'alarmes' | 'decisoes'>('alarmes')
   const fontes = useRef<HTMLDetailsElement>(null)
@@ -277,16 +287,20 @@ export default function Seguranca({
       painelCamera.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
-  const conectarCelular = (): void => {
+  const conectarCelular = (seguro = false): void => {
     void executar('qr', async () => {
       await ativarSensor()
       await window.api.camera.desconectar()
       prepararFonteRede()
       setQr(null)
-      const resposta = await window.api.camera.qr()
+      const resposta = await window.api.camera.qr(seguro)
       if ('erro' in resposta) throw new Error(resposta.erro)
-      setQr({ svg: resposta.qr, url: resposta.url })
-      setEstado('QR pronto. Abra no iPhone ou Android, na mesma rede Wi-Fi, e envie uma foto.')
+      setQr({ ...resposta, svg: resposta.qr })
+      setEstado(
+        seguro
+          ? 'HTTPS pronto. Instale o certificado no celular e abra o QR de transmissão.'
+          : 'QR pronto. Abra no iPhone ou Android, na mesma rede Wi-Fi, e envie uma foto.'
+      )
     })
   }
   const cadastrar = (): void => {
@@ -296,9 +310,27 @@ export default function Seguranca({
         throw new Error('Confirme a autorização da pessoa para cadastrar o rosto.')
       if (!ligada || !sensor.sinal)
         throw new Error('Conecte uma câmera ou carregue uma foto antes de cadastrar.')
+      const qualidade = diagnosticarImagem()
+      if (qualidade.avisos.length) throw new Error(qualidade.avisos.join(' '))
+      const fonte = fonteAtual()
+      if (sensor.fonte === 'teste' && fonte === ultimaFotoCadastro.current)
+        throw new Error('Envie outra foto com um ângulo diferente para a próxima etapa.')
       const descritor = await capturarDescritor()
       if (typeof descritor === 'string') throw new Error(descritor)
-      await window.api.rostos.cadastrar(nome.trim(), [...descritor])
+      if (amostras.length && Math.hypot(...descritor.map((v, i) => v - amostras[0][i])) > 0.6)
+        throw new Error(
+          'A captura difere muito da primeira. Mantenha a mesma pessoa e melhore a iluminação.'
+        )
+      const novas = [...amostras, [...descritor]]
+      if (novas.length < 3) {
+        ultimaFotoCadastro.current = fonte
+        setAmostras(novas)
+        setEstado(`Captura ${novas.length}/3 concluída. Ajuste levemente o ângulo para continuar.`)
+        return
+      }
+      await window.api.rostos.cadastrar(nome.trim(), novas.flat())
+      setAmostras([])
+      ultimaFotoCadastro.current = null
       await atualizarGaleria()
       setNome('')
       setConsentimento(false)
@@ -776,7 +808,11 @@ export default function Seguranca({
             <button
               className="security-button"
               aria-expanded={cadastroAberto}
-              onClick={() => setCadastroAberto(!cadastroAberto)}
+              onClick={() => {
+                setCadastroAberto(!cadastroAberto)
+                setAmostras([])
+                ultimaFotoCadastro.current = null
+              }}
             >
               <span>+</span> Cadastrar pessoa
             </button>
@@ -793,7 +829,11 @@ export default function Seguranca({
               <input
                 id="security-nome"
                 value={nome}
-                onChange={(e) => setNome(e.target.value)}
+                onChange={(e) => {
+                  setNome(e.target.value)
+                  setAmostras([])
+                  ultimaFotoCadastro.current = null
+                }}
                 placeholder="Uma pessoa de frente para a câmera"
                 maxLength={80}
                 required
@@ -810,18 +850,43 @@ export default function Seguranca({
                   pedir sua remoção.
                 </span>
               </label>
+              <p>
+                Etapa {amostras.length + 1}/3:{' '}
+                {
+                  [
+                    'Olhe de frente para a câmera.',
+                    'Vire levemente o rosto para a esquerda.',
+                    'Vire levemente o rosto para a direita.'
+                  ][amostras.length]
+                }{' '}
+                Mantenha uma pessoa na imagem. Em fotos, envie uma imagem diferente a cada etapa.
+              </p>
               <button
                 className="security-button security-button-primary"
                 type="submit"
                 disabled={!!ocupado || !consentimento}
               >
-                {ocupado === 'cadastro' ? 'Analisando rosto…' : 'Capturar e cadastrar'}
+                {ocupado === 'cadastro'
+                  ? 'Analisando rosto…'
+                  : amostras.length === 2
+                    ? 'Concluir cadastro'
+                    : `Capturar ${amostras.length + 1}/3`}
               </button>
             </form>
           )}
         </section>
       </div>
 
+      <SegurancaExtras
+        sensor={sensor}
+        aoMudar={() => {
+          aoTrocarFonte()
+          void recarregar()
+          setAmostras([])
+          ultimaFotoCadastro.current = null
+          setQr(null)
+        }}
+      />
       <details
         className="security-panel security-management"
         ref={fontes}
@@ -878,7 +943,7 @@ export default function Seguranca({
             </p>
             <button
               className="security-text-button"
-              onClick={conectarCelular}
+              onClick={() => conectarCelular()}
               disabled={!!ocupado || !configPronta}
             >
               Gerar QR para enviar foto
@@ -916,9 +981,16 @@ export default function Seguranca({
               <button
                 className="security-button"
                 disabled={!!ocupado || !configPronta}
-                onClick={conectarCelular}
+                onClick={() => conectarCelular()}
               >
                 Enviar foto pelo celular
+              </button>
+              <button
+                className="security-button"
+                disabled={!!ocupado || !configPronta}
+                onClick={() => conectarCelular(true)}
+              >
+                Celular ao vivo · HTTPS
               </button>
               <button
                 type="button"
@@ -944,6 +1016,37 @@ export default function Seguranca({
             )}
             {qr && (
               <div className="security-qr">
+                {qr.certificadoQr && (
+                  <div className="security-tls-guide">
+                    <h3>1. Preparar o celular (uma vez por computador)</h3>
+                    <p>
+                      Escaneie este QR para baixar o certificado público Iris Camera Local. Ele
+                      permite confiar no HTTPS deste computador. Instale somente se este for seu
+                      computador e confira a impressão SHA-256.
+                    </p>
+                    <div dangerouslySetInnerHTML={{ __html: qr.certificadoQr }} />
+                    <code>{qr.impressao}</code>
+                    <p>
+                      iPhone: Ajustes → Geral → VPN e Gerenciamento de Dispositivo → instalar
+                      perfil. Depois Geral → Sobre → Certificados Confiáveis → habilitar Iris Camera
+                      Local.
+                    </p>
+                    <p>
+                      Android: Configurações → Segurança → Criptografia e credenciais → Instalar
+                      certificado → Certificado de CA. Os nomes variam por fabricante.
+                    </p>
+                    <p>
+                      Para remover a confiança depois, exclua esse certificado nas mesmas
+                      configurações. A chave privada permanece protegida neste computador.
+                    </p>
+                    <h3>2. Conectar e transmitir</h3>
+                    <p>
+                      Escaneie o QR abaixo no Safari ou Chrome, autorize a câmera e toque em Ligar
+                      câmera ao vivo. Mantenha a aba aberta e a tela ligada. O QR é a chave de
+                      pareamento; não compartilhe.
+                    </p>
+                  </div>
+                )}
                 <div dangerouslySetInnerHTML={{ __html: qr.svg }} />
                 <p>{qr.url}</p>
                 <button

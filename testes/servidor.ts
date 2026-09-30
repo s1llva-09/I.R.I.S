@@ -1,6 +1,14 @@
 import { app, BrowserWindow, nativeImage } from 'electron'
 import { request } from 'http'
-import { abrirServidor, fecharServidor } from '../src/main/servidor'
+import { request as requestHttps } from 'https'
+import { mkdirSync, mkdtempSync, readFileSync } from 'fs'
+import { join } from 'path'
+import { abrirServidor, abrirServidorSeguro, fecharServidor } from '../src/main/servidor'
+
+mkdirSync('out/testes', { recursive: true })
+app.setPath('userData', mkdtempSync(join(process.cwd(), 'out/testes/servidor-')))
+app.commandLine.appendSwitch('use-fake-device-for-media-stream')
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 
 /**
  * Self-check do servidor da câmera do celular (2.6). Sem celular: o que
@@ -187,6 +195,55 @@ async function main(): Promise<void> {
       () => ({ rostos: 0, desconhecidos: 0, conhecidos: [] })
     )
     ok(!('erro' in denovo) && denovo.url === r.url, 'chamar de novo não sobe um segundo servidor')
+
+    let recebidos = 0
+    const seguro = await abrirServidorSeguro(
+      () => recebidos++,
+      () => ({ rostos: 0, desconhecidos: 0, conhecidos: [] })
+    )
+    if ('erro' in seguro) throw new Error(seguro.erro)
+    const ca = JSON.parse(
+      readFileSync(join(app.getPath('userData'), 'camera-tls/autoridade.json'), 'utf8')
+    ).cert
+    const consultar = (url: string): Promise<number> =>
+      new Promise((resolve, reject) => {
+        const req = requestHttps(url, { ca }, (res) => {
+          res.resume()
+          resolve(res.statusCode ?? 0)
+        })
+        req.on('error', reject)
+        req.end()
+      })
+    ok((await consultar(seguro.url)) === 200, 'HTTPS valida a cadeia e o IP com a CA local')
+    const invasao = new URL(seguro.url)
+    invasao.searchParams.set('t', new URL(r.url).searchParams.get('t')!)
+    ok((await consultar(invasao.href)) === 403, 'token HTTP não autoriza a sessão HTTPS')
+    const certificado = new URL(r.url)
+    certificado.pathname = '/certificado.cer'
+    ok(
+      (await buscar(certificado.href)).status === 200,
+      'certificado público disponível para instalar no celular'
+    )
+    janela.webContents.session.setCertificateVerifyProc((req, callback) => {
+      callback(req.hostname === new URL(seguro.url).hostname ? 0 : -3)
+    })
+    await janela.loadURL(seguro.url)
+    ok(
+      await janela.webContents.executeJavaScript(
+        'window.isSecureContext && !document.getElementById("b").hidden'
+      ),
+      'página HTTPS habilita vídeo ao vivo'
+    )
+    await janela.webContents.executeJavaScript('document.getElementById("b").click()')
+    for (let i = 0; i < 50 && recebidos < 2; i++)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    ok(recebidos >= 2, 'câmera simulada envia quadros contínuos pelo HTTPS')
+    fecharServidor()
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    ok(
+      await janela.webContents.executeJavaScript('document.getElementById("v").srcObject === null'),
+      'encerrar a sessão desliga a câmera remota'
+    )
 
     console.log('\nOK')
   } catch (e) {

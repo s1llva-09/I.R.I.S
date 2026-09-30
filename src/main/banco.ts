@@ -892,6 +892,13 @@ db.exec(`
 `)
 
 export function cadastrarRosto(nome: string, descritor: number[]): void {
+  if (
+    !nome.trim() ||
+    nome.length > 80 ||
+    ![128, 384].includes(descritor.length) ||
+    !descritor.every(Number.isFinite)
+  )
+    throw new Error('Cadastro facial inválido.')
   // Recadastrar sobrescreve: cortou o cabelo, botou óculos, o vetor mudou.
   db.prepare(
     `INSERT INTO rostos (nome, descritor, criado_em) VALUES (?, ?, ?)
@@ -899,7 +906,12 @@ export function cadastrarRosto(nome: string, descritor: number[]): void {
   ).run(nome, Buffer.from(new Float32Array(descritor).buffer), new Date().toISOString())
 }
 
-export function rostosCadastrados(): { nome: string; descritor: number[]; criado_em: string }[] {
+export function rostosCadastrados(): {
+  nome: string
+  descritor: number[]
+  descritores: number[][]
+  criado_em: string
+}[] {
   return (
     db.prepare('SELECT nome, descritor, criado_em FROM rostos ORDER BY nome').all() as {
       nome: string
@@ -911,6 +923,9 @@ export function rostosCadastrados(): { nome: string; descritor: number[]; criado
     // O Buffer pode ser uma VISTA sobre um buffer maior — byteOffset
     // explícito, mesmo cuidado do vetor da memória.
     descritor: [...new Float32Array(r.descritor.buffer, r.descritor.byteOffset, 128)],
+    descritores: Array.from({ length: r.descritor.byteLength / 512 }, (_, i) => [
+      ...new Float32Array(r.descritor.buffer, r.descritor.byteOffset + i * 512, 128)
+    ]),
     criado_em: r.criado_em
   }))
 }
@@ -918,6 +933,42 @@ export function rostosCadastrados(): { nome: string; descritor: number[]; criado
 /** O direito ao esquecimento, que numa base biométrica não é opcional. */
 export function esquecerRosto(nome: string): boolean {
   return db.prepare('DELETE FROM rostos WHERE nome = ?').run(nome).changes > 0
+}
+
+db.exec(`CREATE TABLE IF NOT EXISTS eventos_visuais (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, momento TEXT NOT NULL, texto TEXT NOT NULL, miniatura TEXT
+)`)
+
+export function registrarEventoVisual(texto: string, miniatura?: string): void {
+  db.transaction(() => {
+    db.prepare('INSERT INTO eventos_visuais (momento, texto, miniatura) VALUES (?, ?, ?)').run(
+      new Date().toISOString(),
+      texto,
+      miniatura ?? null
+    )
+    db.prepare(
+      'DELETE FROM eventos_visuais WHERE id NOT IN (SELECT id FROM eventos_visuais ORDER BY id DESC LIMIT 200)'
+    ).run()
+  })()
+}
+export function eventosVisuais(): {
+  id: number
+  momento: string
+  texto: string
+  miniatura: string | null
+}[] {
+  return db.prepare('SELECT * FROM eventos_visuais ORDER BY id DESC LIMIT 50').all() as ReturnType<
+    typeof eventosVisuais
+  >
+}
+export function limparSeguranca(tipo: 'imagens' | 'historico'): void {
+  if (tipo === 'imagens') db.prepare('UPDATE eventos_visuais SET miniatura = NULL').run()
+  else if (tipo === 'historico')
+    db.transaction(() => {
+      db.prepare('DELETE FROM eventos_visuais').run()
+      db.prepare("DELETE FROM execucoes WHERE ferramenta LIKE 'vigilancia:%'").run()
+    })()
+  else throw new Error('Opção inválida')
 }
 
 /** Os alarmes de vigilância, do mais recente pro mais antigo (2.6). */

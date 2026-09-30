@@ -28,6 +28,7 @@ type Config = {
   vozAtiva: boolean
   /** Sensor de presença por câmera (2.6). Opt-in. */
   cameraAtiva: boolean
+  miniaturasSeguranca: boolean
   /** Qual câmera usar. Vazio = a padrão do sistema. */
   cameraId: string
   /** Distância máxima entre descritores pra ser a mesma pessoa (2.6). */
@@ -73,6 +74,7 @@ const PADRAO: Config = {
    * o que ligou.
    */
   cameraAtiva: false,
+  miniaturasSeguranca: false,
 
   /**
    * Máquina com uma webcam só nunca precisa disto. Duas — a do notebook e um

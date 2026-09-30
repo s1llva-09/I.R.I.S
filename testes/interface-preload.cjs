@@ -4,6 +4,9 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 const listeners = new Map()
 const noop = () => {}
+let eventosVisuais = [
+  { id: 1, momento: '2026-09-30T01:00:00Z', texto: 'Presença simulada', miniatura: null }
+]
 const subscribe = (name) => (callback) => {
   const callbacks = listeners.get(name) || new Set()
   callbacks.add(callback)
@@ -53,6 +56,14 @@ const api = {
   mudo: noop,
   presenca: noop,
   seguranca: {
+    visuais: async () => eventosVisuais,
+    limpar: async (tipo) => {
+      if (tipo === 'historico') eventosVisuais = []
+    },
+    privacidade: async () => {
+      cfg.cameraAtiva = false
+      emit('camera', false)
+    },
     painel: async () => ({
       rostos: populated ? [{ nome: 'Pessoa de teste', criado_em: '2026-09-28T12:00:00.000Z' }] : [],
       alarmes: populated
@@ -95,7 +106,13 @@ const api = {
     erro: async () => '',
     procurar: async () => [],
     testar: async () => 'Teste isolado: nenhum endereço foi acessado.',
-    qr: async () => ({
+    qr: async (seguro) => ({
+      ...(seguro
+        ? {
+            certificadoQr: '<svg viewBox="0 0 10 10"><path d="M1 1h8v8H1z" /></svg>',
+            impressao: 'AA:BB:CC:DD:EE:FF'
+          }
+        : {}),
       url: 'http://127.0.0.1:8790/?t=fixture',
       qr: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M1 1h8v8H1z" /></svg>'
     }),

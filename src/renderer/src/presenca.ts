@@ -675,9 +675,15 @@ export function pararQuadros(): void {
 }
 
 /** Troca o cadastro em uso. Chamado no início e a cada cadastro novo. */
-export function definirGaleria(pessoas: { nome: string; descritor: number[] }[]): void {
+export function definirGaleria(
+  pessoas: { nome: string; descritor: number[]; descritores?: number[][] }[]
+): void {
   galeria = pessoas.map(
-    (p) => new faceapi.LabeledFaceDescriptors(p.nome, [new Float32Array(p.descritor)])
+    (p) =>
+      new faceapi.LabeledFaceDescriptors(
+        p.nome,
+        (p.descritores ?? [p.descritor]).map((d) => new Float32Array(d))
+      )
   )
 }
 
@@ -701,6 +707,7 @@ export async function iniciarPresenca(
     // A conclusão de um início antigo nunca desliga o sensor que o substituiu.
     if (ciclo === geracao) desligar()
   }
+  let podeReconectar = true
   try {
     await carregarModelos()
     if (ciclo !== geracao) return parar
@@ -717,13 +724,14 @@ export async function iniciarPresenca(
       return parar
     }
     if (!fonteTeste && !redeSelecionada) {
-      desligar()
-      return parar
+      podeReconectar = !['NotAllowedError', 'SecurityError'].includes((e as Error).name)
     }
   }
   if (ciclo !== geracao) return parar
 
   let ocupado = false
+  let reconectando = false
+  let ultimaTentativa = Date.now()
   const tique = (): void => {
     if (ciclo !== geracao) return
     // Verifica o sinal mesmo durante uma inferência lenta, limpando nomes antigos.
@@ -734,6 +742,39 @@ export async function iniciarPresenca(
         ultimoErro = 'Sem quadros recentes da câmera local.'
       }
       invalidarLeitura()
+      if (
+        podeReconectar &&
+        !fonteTeste &&
+        !redeSelecionada &&
+        !reconectando &&
+        Date.now() - ultimaTentativa >= 5000
+      ) {
+        reconectando = true
+        ultimaTentativa = Date.now()
+        ultimoErro = 'Reconectando à câmera…'
+        versaoFonte++
+        stream?.getTracks().forEach((t) => t.stop())
+        stream = null
+        if (video) {
+          video.pause()
+          video.srcObject = null
+        }
+        video = null
+        ultimoQuadroCamera = null
+        void ligarCamera(ciclo, deviceId)
+          .then(() => {
+            if (ciclo === geracao) ultimoErro = null
+          })
+          .catch((e: Error) => {
+            if (ciclo === geracao) {
+              ultimoErro = `Reconectando: ${e.message}`
+              podeReconectar = !['NotAllowedError', 'SecurityError'].includes(e.name)
+            }
+          })
+          .finally(() => {
+            reconectando = false
+          })
+      }
       return
     }
     // O reconhecimento leva mais que um tique em máquina lenta. Sem esta

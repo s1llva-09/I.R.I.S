@@ -361,25 +361,27 @@ test('desligar e religar durante carga compartilhada de modelos só inicia a câ
   pararNovo()
 })
 
-test('webcam sem novos frames expira apesar de track live e volta com novo frame', async () => {
-  const a = ambiente()
+test('webcam congelada é reconectada automaticamente e pausa impede novas tentativas', async () => {
+  const a = ambiente({ obterCamera: () => Promise.resolve(a.criarStream()) })
   const leituras = []
   const parar = await a.api.iniciarPresenca((l) => leituras.push(l))
   await flush()
   assert.equal(a.api.estadoSensor().sinal, true)
   a.avancar(6001)
-  assert.equal(a.padrao.track.readyState, 'live')
   assert.equal(a.api.fonteAtual(), null)
   assert.equal(a.api.ultimasCaixas().length, 0)
   await a.tique()
   assert.equal(leituras.at(-1).rostos, -1)
-  assert.match(a.api.estadoSensor().erro, /câmera local/)
-  a.videos[0].proximoQuadro()
+  assert.equal(a.cameraChamadas(), 2)
+  a.videos.at(-1).proximoQuadro()
   await a.tique()
   assert.equal(a.api.estadoSensor().sinal, true)
   assert.equal(a.api.estadoSensor().erro, null)
   assert.equal(leituras.at(-1).rostos, 1)
   parar()
+  a.avancar(20_000)
+  await a.tique()
+  assert.equal(a.cameraChamadas(), 2)
 })
 
 test('validação orienta sobre formatos, arquivo vazio e limite antes de decodificar', async () => {
