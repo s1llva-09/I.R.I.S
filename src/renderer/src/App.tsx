@@ -16,6 +16,7 @@ import Porta from './Porta'
 import { useEffect, useRef, useState, type JSX } from 'react'
 import Painel from './Painel'
 import { Atencao, Enviar, Prompt, Pulso, Seta } from './icones'
+import WebcamsContinuas from './WebcamsContinuas'
 import Shell, { BoasVindas, type Destino } from './Shell'
 import { alternarVoz, criarLeitor, parar } from './voz'
 import Config from './Config'
@@ -691,6 +692,7 @@ export default function App(): JSX.Element {
           }}
         />
       )}
+      <WebcamsContinuas />
     </Shell>
   )
 }

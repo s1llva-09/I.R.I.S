@@ -34,6 +34,34 @@ declare global {
         >
         aoFrame: (cb: (jpegBase64: string, foto?: boolean) => void) => () => void
       }
+      vigilancia: {
+        estado: () => Promise<import('../shared/vigilancia').EstadoVigilancia>
+        salvar: (valor: import('../shared/vigilancia').AjustesVigilancia) => Promise<void>
+        armar: () => Promise<void>
+        desarmar: () => Promise<void>
+        limpar: () => Promise<void>
+        repetir: (id: string) => Promise<void>
+        testar: () => Promise<void>
+        removerCelular: (id: string) => Promise<void>
+        enderecos: () => Promise<string[]>
+        abrirCelular: (ip: string) => Promise<{url:string;qr:string;certificadoQr:string;impressao:string}>
+        revogarCelular: () => Promise<void>
+      }
+      central: {
+        sair: () => Promise<void>
+        quadro: (id: string) => Promise<import('../shared/cameras').QuadroCamera | null>
+        webcam: (id: string, sessao: string, jpeg: string) => void
+        listar: () => Promise<import('../shared/cameras').CameraPainel[]>
+        salvar: (
+          camera: import('../shared/cameras').CameraSalva
+        ) => Promise<import('../shared/cameras').CameraSalva>
+        remover: (id: string) => Promise<void>
+        conectar: (id: string) => Promise<void>
+        parar: (id: string) => Promise<void>
+        pararTudo: () => Promise<void>
+        aoFrame: (cb: (quadro: import('../shared/cameras').QuadroCamera) => void) => () => void
+        aoPausar: (cb: () => void) => () => void
+      }
       seguranca: {
         visuais: () => Promise<
           { id: number; momento: string; texto: string; miniatura: string | null }[]

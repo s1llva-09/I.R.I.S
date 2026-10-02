@@ -17,7 +17,12 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import icon from '../../resources/icon.png?asset'
 import { conversar } from './llm'
 import { vigiarFoco, pararVigiaFoco, janelaEmFoco, primeiraLeitura, catalogo } from './ferramentas'
-import { rotular, usoHoje } from './banco'
+import { rotular, usoHoje, lerConfig, gravarConfig } from './banco'
+import { Vigilancia } from './vigilancia'
+import { AcessoRemoto, enderecosPrivados } from './acessoRemoto'
+import { removerPush } from './notificacoesCelular'
+import { criarCentralCameras } from './centralCameras'
+import type { CameraSalva } from '../shared/cameras'
 import { ajustarRitmo, aquecerVoz, falar, pararFala } from './voz'
 import { GATILHOS, iniciarGatilhos, pararGatilhos } from './gatilhos'
 import {
@@ -44,6 +49,21 @@ import {
 import { gravar, ler, lerTudo, primeiraExecucao } from './config'
 
 let janela: BrowserWindow | null = null
+const central = criarCentralCameras(
+  () => (lerConfig('centralCameras') as CameraSalva[] | null) ?? [],
+  (cameras) => gravarConfig('centralCameras', cameras),
+  (quadro) => {
+    if (janela && !janela.isDestroyed()) janela.webContents.send('central:frame', quadro)
+  }
+)
+const vigilancia = new Vigilancia(central)
+const remoto = new AcessoRemoto(central, () => vigilancia.estado())
+function sairDoMosaico(): void {
+  for (const c of central.listar()) if (!vigilancia.protegido(c.id)) central.parar(c.id)
+}
+function exigirDesarmado(id: string): void {
+  if (vigilancia.protegido(id)) throw new Error('Desarme a prote??o antes de alterar esta c?mera.')
+}
 let tray: Tray | null = null // module-scope de propósito: se for local, o GC come o ícone
 let saindoDeVerdade = false
 
@@ -102,9 +122,12 @@ function criarJanela(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      backgroundThrottling: false
     }
   })
+  janela.webContents.on('render-process-gone', () => sairDoMosaico())
+  janela.webContents.on('did-start-loading', () => sairDoMosaico())
 
   /**
    * Espera o vigia ler a janela ANTES de aparecer.
@@ -363,6 +386,26 @@ function vigiar(l: Leitura): void {
 const pendentes = new Map<string, (ok: boolean) => void>()
 
 function registrarIPC(): void {
+  ipcMain.handle('central:listar', () => central.listar())
+  ipcMain.handle('central:salvar', (_e, camera: CameraSalva) => { exigirDesarmado(camera.id); return central.salvar(camera) })
+  ipcMain.handle('central:remover', (_e, id: string) => { exigirDesarmado(id); return central.remover(id) })
+  ipcMain.handle('central:conectar', (_e, id: string) => central.conectar(id))
+  ipcMain.handle('central:parar', (_e, id: string) => { exigirDesarmado(id); return central.parar(id) })
+  ipcMain.handle('central:pararTudo', () => { vigilancia.desarmar(); central.pararTudo() })
+  ipcMain.handle('central:sair', sairDoMosaico)
+  ipcMain.handle('central:quadro', (_e, id: string) => central.quadro(id))
+  ipcMain.on('central:webcam', (_e, id: string, sessao: string, jpeg: string) => central.receberWebcam(id, sessao, jpeg))
+  ipcMain.handle('vigilancia:estado', () => vigilancia.estado())
+  ipcMain.handle('vigilancia:salvar', (_e, valor) => vigilancia.salvar(valor))
+  ipcMain.handle('vigilancia:armar', () => vigilancia.armar())
+  ipcMain.handle('vigilancia:desarmar', () => vigilancia.desarmar())
+  ipcMain.handle('vigilancia:limpar', () => vigilancia.limpar())
+  ipcMain.handle('vigilancia:repetir', (_e, id: string) => vigilancia.repetir(id))
+  ipcMain.handle('vigilancia:testar', () => vigilancia.testar())
+  ipcMain.handle('vigilancia:removerCelular', (_e, id: string) => removerPush(id))
+  ipcMain.handle('vigilancia:enderecos', enderecosPrivados)
+  ipcMain.handle('vigilancia:abrirCelular', (_e, ip: string) => remoto.abrir(ip))
+  ipcMain.handle('vigilancia:revogarCelular', () => remoto.revogar())
   /**
    * O que a barra de status desenha. Os dois já estão prontos na memória do
    * main (o vigia mantém o foco, o SQLite responde em microssegundos), então
@@ -510,6 +553,9 @@ function registrarIPC(): void {
     ultimoEstadoVisual = ''
   })
   ipcMain.handle('seguranca:privacidade', () => {
+    vigilancia.privacidade()
+    central.pararTudo()
+    janela?.webContents.send('central:pausar')
     gravar('cameraAtiva', false)
     desconectarCamera()
     fecharServidor()
@@ -607,6 +653,8 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, w) => optimizer.watchWindowShortcuts(w))
 
   registrarIPC()
+  vigilancia.iniciar()
+  void remoto.restaurar().catch(() => console.warn('Reabra o acesso ao celular no painel de seguran?a.'))
   criarJanela()
   criarTray()
   aquecerVoz()
@@ -640,6 +688,9 @@ app.on('before-quit', () => {
 app.on('window-all-closed', () => {})
 
 app.on('will-quit', () => {
+  vigilancia.fechar()
+  remoto.parar()
+  central.pararTudo()
   globalShortcut.unregisterAll()
   pararGatilhos()
   pararFila()

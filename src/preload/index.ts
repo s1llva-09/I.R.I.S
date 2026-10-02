@@ -108,6 +108,35 @@ const api = {
       })
   },
 
+  vigilancia: {
+    estado: () => ipcRenderer.invoke('vigilancia:estado'),
+    salvar: (valor: import('../shared/vigilancia').AjustesVigilancia) => ipcRenderer.invoke('vigilancia:salvar', valor),
+    armar: () => ipcRenderer.invoke('vigilancia:armar'),
+    desarmar: () => ipcRenderer.invoke('vigilancia:desarmar'),
+    limpar: () => ipcRenderer.invoke('vigilancia:limpar'),
+    repetir: (id: string) => ipcRenderer.invoke('vigilancia:repetir', id),
+    testar: () => ipcRenderer.invoke('vigilancia:testar'),
+    removerCelular: (id: string) => ipcRenderer.invoke('vigilancia:removerCelular', id),
+    enderecos: () => ipcRenderer.invoke('vigilancia:enderecos'),
+    abrirCelular: (ip: string) => ipcRenderer.invoke('vigilancia:abrirCelular', ip),
+    revogarCelular: () => ipcRenderer.invoke('vigilancia:revogarCelular')
+  },
+  central: {
+    sair: () => ipcRenderer.invoke('central:sair'),
+    quadro: (id: string) => ipcRenderer.invoke('central:quadro', id),
+    webcam: (id: string, sessao: string, jpeg: string) => ipcRenderer.send('central:webcam', id, sessao, jpeg),
+    listar: () => ipcRenderer.invoke('central:listar'),
+    salvar: (camera: import('../shared/cameras').CameraSalva) =>
+      ipcRenderer.invoke('central:salvar', camera),
+    remover: (id: string) => ipcRenderer.invoke('central:remover', id),
+    conectar: (id: string) => ipcRenderer.invoke('central:conectar', id),
+    parar: (id: string) => ipcRenderer.invoke('central:parar', id),
+    pararTudo: () => ipcRenderer.invoke('central:pararTudo'),
+    aoFrame: (cb: (quadro: import('../shared/cameras').QuadroCamera) => void) =>
+      ouvir('central:frame', cb),
+    aoPausar: (cb: () => void) => ouvir('central:pausar', cb)
+  },
+
   /**
    * A câmera de rede. O main é quem fala com ela; aqui só chegam quadros
    * JPEG já em base64, que o renderer vira `data:` URL.

@@ -196,6 +196,9 @@ export function gravar<K extends keyof Config>(chave: K, valor: Config[K]): void
 export function lerTudo(): Record<string, unknown> {
   const gravado = lerTudoConfig()
   const tudo: Record<string, unknown> = { ...PADRAO, ...gravado }
+  delete tudo.chavesPush
+  delete tudo.celularesPush
+  delete tudo.acessoCelular
 
   for (const k of SECRETAS) {
     const real = ler(k) as string

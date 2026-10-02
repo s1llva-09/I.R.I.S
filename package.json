@@ -26,6 +26,7 @@
     "teste:servidor": "electron-vite build && electron out/main/teste-servidor.js",
     "teste:presenca": "node --test testes/presenca.cjs",
     "teste:melhorias": "electron-vite build && electron out/main/teste-melhorias.js",
+    "teste:cameras": "electron-vite build && electron out/main/teste-cameras.js",
     "teste:interface": "npm run build && node testes/interface.cjs"
   },
   "dependencies": {
@@ -39,7 +40,8 @@
     "recharts": "^3.10.1",
     "selfsigned": "^5.5.0",
     "sqlite-vec": "^0.1.9",
-    "systeminformation": "^5.33.1"
+    "systeminformation": "^5.33.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
@@ -50,6 +52,7 @@
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.1.1",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",

@@ -4,7 +4,14 @@ import { join } from 'path'
 import { X509Certificate } from 'crypto'
 import { generate } from 'selfsigned'
 
-export async function certificadoLocal(
+let fila: Promise<unknown> = Promise.resolve()
+export function certificadoLocal(ip: string): ReturnType<typeof gerarCertificadoLocal> {
+  const tarefa = fila.then(() => gerarCertificadoLocal(ip))
+  fila = tarefa.catch(() => undefined)
+  return tarefa
+}
+
+async function gerarCertificadoLocal(
   ip: string
 ): Promise<{ key: string; cert: string; raiz: string; impressao: string }> {
   if (!safeStorage.isEncryptionAvailable())

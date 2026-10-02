@@ -12,6 +12,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
+          'detector-pessoas': resolve('src/main/detectorPessoasWorker.ts'),
           rodar: resolve('testes/rodar.ts'),
           sonda: resolve('testes/sonda.ts'),
           // 'fila-teste' pelo mesmo motivo do 'teste-gatilhos': src/main/fila.ts
@@ -20,6 +21,7 @@ export default defineConfig({
           rede: resolve('testes/rede.ts'),
           'teste-servidor': resolve('testes/servidor.ts'),
           'teste-melhorias': resolve('testes/melhorias.ts'),
+          'teste-cameras': resolve('testes/cameras.ts'),
           // 'teste-gatilhos' e não 'gatilhos': a entrada vira out/main/<nome>.js,
           // e src/main/gatilhos.ts já disputa esse nome como chunk compartilhado.
           'teste-gatilhos': resolve('testes/gatilhos.ts')

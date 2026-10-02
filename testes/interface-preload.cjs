@@ -35,6 +35,7 @@ const cfg = {
 }
 let populated = false
 let rejectNextSave = false
+let cameras = []
 const api = {
   enviar: async () => ({ ok: false, erro: 'Resposta simulada para verificação da interface.' }),
   estado: async () => ({
@@ -55,12 +56,48 @@ const api = {
   pararFala: noop,
   mudo: noop,
   presenca: noop,
+  central: {
+    listar: async () => cameras.map((c) => ({ ...c })),
+    salvar: async (c) => {
+      const salva = {
+        ...c,
+        id: c.id || String(cameras.length + 1),
+        ligada: false,
+        sessao: null,
+        ultimoQuadro: null,
+        foto: false,
+        erro: ''
+      }
+      cameras = c.id
+        ? cameras.map((x) => (x.id === c.id ? { ...x, ...c } : x))
+        : [...cameras, salva]
+      return salva
+    },
+    remover: async (id) => {
+      cameras = cameras.filter((c) => c.id !== id)
+    },
+    conectar: async (id) => {
+      cameras = cameras.map((c) =>
+        c.id === id ? { ...c, ligada: true, sessao: String(Date.now()) } : c
+      )
+    },
+    parar: async (id) => {
+      cameras = cameras.map((c) => (c.id === id ? { ...c, ligada: false, sessao: null } : c))
+    },
+    pararTudo: async () => {
+      cameras = cameras.map((c) => ({ ...c, ligada: false, sessao: null }))
+    },
+    aoFrame: subscribe('centralFrame'),
+    aoPausar: subscribe('centralPausar')
+  },
   seguranca: {
     visuais: async () => eventosVisuais,
     limpar: async (tipo) => {
       if (tipo === 'historico') eventosVisuais = []
     },
     privacidade: async () => {
+      await api.central.pararTudo()
+      emit('centralPausar')
       cfg.cameraAtiva = false
       emit('camera', false)
     },

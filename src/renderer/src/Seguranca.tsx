@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import Visor from './Visor'
+import CentralCameras from './CentralCameras'
 import SegurancaExtras from './SegurancaExtras'
 import { diagnosticarImagem } from './diagnostico'
 import {
@@ -438,11 +439,12 @@ export default function Seguranca({
         </div>
       </div>
 
+      <CentralCameras />
       <div className="security-metrics" aria-label="Resumo do monitoramento">
         {[
           {
             icon: 'camera' as const,
-            label: 'FONTES ATIVAS',
+            label: 'FONTE DO RECONHECIMENTO',
             value: sinal ? '01' : '00',
             detail: sinal ? fonteNome : 'Nenhuma imagem disponível',
             color: 'cyan'

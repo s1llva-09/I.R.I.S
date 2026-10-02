@@ -47,80 +47,81 @@ import QRCode from 'qrcode'
 /** Acima disto não é foto de câmera, é alguém testando o servidor. */
 const TETO_POST = 3_000_000
 
-const PORTA = 8790
-
 type Estado = () => { rostos: number; desconhecidos: number; conhecidos: string[] }
 
-let servidor: ReturnType<typeof createServer> | null = null
-let segredo = ''
-let seguro: ReturnType<typeof createHttpsServer> | null = null
-let segredoSeguro = ''
-let raizPublica = ''
-let impressao = ''
-let geracaoServidor = 0
-const controles = new Set<ServerResponse>()
-let aoQuadro: ((jpegBase64: string, foto?: boolean) => void) | null = null
-let lerEstado: Estado = () => ({ rostos: -1, desconhecidos: 0, conhecidos: [] })
+// Cada câmera tem servidor, token e ciclo de vida próprios.
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function criarServidorCelular(PORTA = 8790, PORTA_SEGURA = 8791) {
+  let servidor: ReturnType<typeof createServer> | null = null
+  let segredo = ''
+  let seguro: ReturnType<typeof createHttpsServer> | null = null
+  let segredoSeguro = ''
+  let raizPublica = ''
+  let impressao = ''
+  let geracaoServidor = 0
+  const controles = new Set<ServerResponse>()
+  let aoQuadro: ((jpegBase64: string, foto?: boolean) => void) | null = null
+  let lerEstado: Estado = () => ({ rostos: -1, desconhecidos: 0, conhecidos: [] })
 
-/** O IP desta máquina na rede doméstica — o que o celular consegue alcançar. */
-function ipLocal(): string | null {
-  const candidatos: string[] = []
+  /** O IP desta máquina na rede doméstica — o que o celular consegue alcançar. */
+  function ipLocal(): string | null {
+    const candidatos: string[] = []
 
-  for (const lista of Object.values(networkInterfaces())) {
-    for (const i of lista ?? []) {
-      const v4 = i.family === 'IPv4' || (i.family as unknown as number) === 4
-      if (v4 && !i.internal) candidatos.push(i.address)
+    for (const lista of Object.values(networkInterfaces())) {
+      for (const i of lista ?? []) {
+        const v4 = i.family === 'IPv4' || (i.family as unknown as number) === 4
+        if (v4 && !i.internal) candidatos.push(i.address)
+      }
     }
+
+    // 192.168 primeiro, pelo mesmo motivo da varredura: VPN (26.x, 25.x) vem
+    // antes na lista do Node e o celular não alcança aquele endereço.
+    return (
+      candidatos.sort(
+        (a, b) => Number(b.startsWith('192.168.')) - Number(a.startsWith('192.168.'))
+      )[0] ?? null
+    )
   }
 
-  // 192.168 primeiro, pelo mesmo motivo da varredura: VPN (26.x, 25.x) vem
-  // antes na lista do Node e o celular não alcança aquele endereço.
-  return (
-    candidatos.sort(
-      (a, b) => Number(b.startsWith('192.168.')) - Number(a.startsWith('192.168.'))
-    )[0] ?? null
-  )
-}
-
-function corpo(req: IncomingMessage): Promise<Buffer | null> {
-  return new Promise((resolve) => {
-    if (Number(req.headers['content-length']) > TETO_POST) {
-      req.resume()
-      resolve(null)
-      return
-    }
-
-    const partes: Buffer[] = []
-    let total = 0
-    let concluido = false
-
-    req.on('data', (p: Buffer) => {
-      if (concluido) return
-      total += p.length
-      if (total > TETO_POST) {
-        concluido = true
-        partes.length = 0
+  function corpo(req: IncomingMessage): Promise<Buffer | null> {
+    return new Promise((resolve) => {
+      if (Number(req.headers['content-length']) > TETO_POST) {
+        req.resume()
         resolve(null)
         return
       }
-      partes.push(p)
-    })
-    req.on('end', () => {
-      if (!concluido) resolve(Buffer.concat(partes))
-    })
-    req.on('aborted', () => resolve(null))
-    req.on('error', () => resolve(null))
-  })
-}
 
-/**
- * A página que o celular abre. Autocontida de propósito: sem build, sem
- * bundle — o navegador do celular recebe um arquivo. A imagem é convertida
- * e reduzida antes do envio: uma foto original de celular passa facilmente
- * do limite do servidor quando representada em base64.
- */
-function pagina(token: string): string {
-  return `<!doctype html>
+      const partes: Buffer[] = []
+      let total = 0
+      let concluido = false
+
+      req.on('data', (p: Buffer) => {
+        if (concluido) return
+        total += p.length
+        if (total > TETO_POST) {
+          concluido = true
+          partes.length = 0
+          resolve(null)
+          return
+        }
+        partes.push(p)
+      })
+      req.on('end', () => {
+        if (!concluido) resolve(Buffer.concat(partes))
+      })
+      req.on('aborted', () => resolve(null))
+      req.on('error', () => resolve(null))
+    })
+  }
+
+  /**
+   * A página que o celular abre. Autocontida de propósito: sem build, sem
+   * bundle — o navegador do celular recebe um arquivo. A imagem é convertida
+   * e reduzida antes do envio: uma foto original de celular passa facilmente
+   * do limite do servidor quando representada em base64.
+   */
+  function pagina(token: string): string {
+    return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -310,167 +311,170 @@ antes de ser enviada. Prefira um rosto de frente, com boa iluminação.</p>
   f.onchange = galeria.onchange = enviarFoto
   window.addEventListener('pagehide', parar)
 </script></body></html>`
-}
-
-function responder(req: IncomingMessage, res: ServerResponse): void {
-  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
-  res.setHeader('Cache-Control', 'no-store')
-  res.setHeader('Referrer-Policy', 'no-referrer')
-  res.setHeader('X-Content-Type-Options', 'nosniff')
-  const token = 'encrypted' in req.socket ? segredoSeguro : segredo
-
-  // O token vale pra TUDO, inclusive a página: sem isso, quem estiver na
-  // rede descobre o caminho e passa a empurrar quadros por conta própria.
-  if (!token || url.searchParams.get('t') !== token) {
-    res.writeHead(403).end('token inválido')
-    return
   }
-  if (url.pathname === '/certificado.cer' && req.method === 'GET' && raizPublica) {
-    res
-      .writeHead(200, {
-        'content-type': 'application/x-x509-ca-cert',
-        'content-disposition': 'attachment; filename="Iris-Camera-Local.cer"'
+
+  function responder(req: IncomingMessage, res: ServerResponse): void {
+    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Referrer-Policy', 'no-referrer')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    const token = 'encrypted' in req.socket ? segredoSeguro : segredo
+
+    // O token vale pra TUDO, inclusive a página: sem isso, quem estiver na
+    // rede descobre o caminho e passa a empurrar quadros por conta própria.
+    if (!token || url.searchParams.get('t') !== token) {
+      res.writeHead(403).end('token inválido')
+      return
+    }
+    if (url.pathname === '/certificado.cer' && req.method === 'GET' && raizPublica) {
+      res
+        .writeHead(200, {
+          'content-type': 'application/x-x509-ca-cert',
+          'content-disposition': 'attachment; filename="Iris-Camera-Local.cer"'
+        })
+        .end(new X509Certificate(raizPublica).raw)
+      return
+    }
+    if (url.pathname === '/controle' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'text/event-stream', connection: 'keep-alive' })
+      res.write(': conectado\n\n')
+      controles.add(res)
+      req.on('close', () => controles.delete(res))
+      return
+    }
+
+    if (url.pathname === '/' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(pagina(token))
+      return
+    }
+
+    if (url.pathname === '/quadro' && req.method === 'POST') {
+      const sessao = geracaoServidor
+      void corpo(req).then((b) => {
+        if (sessao !== geracaoServidor) {
+          res.writeHead(403).end()
+          return
+        }
+        if (!b) {
+          res.writeHead(413).end()
+          return
+        }
+        aoQuadro?.(b.toString('utf8'), url.searchParams.get('foto') === '1')
+        res.writeHead(204).end()
       })
-      .end(new X509Certificate(raizPublica).raw)
-    return
-  }
-  if (url.pathname === '/controle' && req.method === 'GET') {
-    res.writeHead(200, { 'content-type': 'text/event-stream', connection: 'keep-alive' })
-    res.write(': conectado\n\n')
-    controles.add(res)
-    req.on('close', () => controles.delete(res))
-    return
-  }
-
-  if (url.pathname === '/' && req.method === 'GET') {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(pagina(token))
-    return
-  }
-
-  if (url.pathname === '/quadro' && req.method === 'POST') {
-    const sessao = geracaoServidor
-    void corpo(req).then((b) => {
-      if (sessao !== geracaoServidor) {
-        res.writeHead(403).end()
-        return
-      }
-      if (!b) {
-        res.writeHead(413).end()
-        return
-      }
-      aoQuadro?.(b.toString('utf8'), url.searchParams.get('foto') === '1')
-      res.writeHead(204).end()
-    })
-    return
-  }
-
-  if (url.pathname === '/estado' && req.method === 'GET') {
-    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(lerEstado()))
-    return
-  }
-
-  res.writeHead(404).end()
-}
-
-/**
- * Sobe o servidor e devolve o endereço + o QR em SVG.
- *
- * Idempotente: chamar de novo devolve o mesmo endereço em vez de subir um
- * segundo servidor na mesma porta — o painel pode pedir o QR quantas vezes
- * quiser sem derrubar o celular que já está transmitindo.
- */
-export async function abrirServidor(
-  aoReceberQuadro: (jpegBase64: string, foto?: boolean) => void,
-  estado: Estado
-): Promise<{ url: string; qr: string } | { erro: string }> {
-  aoQuadro = aoReceberQuadro
-  lerEstado = estado
-
-  const ip = ipLocal()
-  if (!ip)
-    return { erro: 'esta máquina não está numa rede — sem Wi-Fi não há como o celular chegar' }
-
-  if (!segredo) segredo = randomBytes(16).toString('hex')
-
-  if (!servidor) {
-    servidor = createServer(responder)
-    const subiu = await new Promise<string>((resolve) => {
-      servidor!.once('error', (e) => resolve(e.message))
-      // 0.0.0.0 e não 127.0.0.1: o celular é outro dispositivo, e localhost
-      // não é alcançável de fora da máquina.
-      servidor!.listen(PORTA, '0.0.0.0', () => resolve(''))
-    })
-
-    if (subiu) {
-      servidor = null
-      return { erro: `não consegui abrir a porta ${PORTA}: ${subiu}` }
+      return
     }
+
+    if (url.pathname === '/estado' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(lerEstado()))
+      return
+    }
+
+    res.writeHead(404).end()
   }
 
-  const url = `http://${ip}:${PORTA}/?t=${segredo}`
-  // SVG e não PNG: escala sem serrilhar na tela do painel, e o celular lê
-  // melhor um QR nítido — leitura falha é o modo de falha mais chato aqui,
-  // porque parece que o QR está errado.
-  const qr = await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 })
-  return { url, qr }
-}
+  /**
+   * Sobe o servidor e devolve o endereço + o QR em SVG.
+   *
+   * Idempotente: chamar de novo devolve o mesmo endereço em vez de subir um
+   * segundo servidor na mesma porta — o painel pode pedir o QR quantas vezes
+   * quiser sem derrubar o celular que já está transmitindo.
+   */
+  async function abrirServidor(
+    aoReceberQuadro: (jpegBase64: string, foto?: boolean) => void,
+    estado: Estado
+  ): Promise<{ url: string; qr: string } | { erro: string }> {
+    aoQuadro = aoReceberQuadro
+    lerEstado = estado
 
-export function fecharServidor(): void {
-  geracaoServidor++
-  for (const controle of controles) controle.end('event: parar\ndata: {}\n\n')
-  controles.clear()
-  seguro?.closeAllConnections()
-  seguro?.close()
-  seguro = null
-  segredoSeguro = ''
-  servidor?.closeAllConnections()
-  servidor?.close()
-  servidor = null
-  aoQuadro = null
-  segredo = ''
-}
+    const ip = ipLocal()
+    if (!ip)
+      return { erro: 'esta máquina não está numa rede — sem Wi-Fi não há como o celular chegar' }
 
-export async function abrirServidorSeguro(
-  aoReceberQuadro: (jpeg: string, foto?: boolean) => void,
-  estado: Estado
-): Promise<
-  { url: string; qr: string; certificadoQr: string; impressao: string } | { erro: string }
-> {
-  const ciclo = geracaoServidor
-  try {
-    const local = await abrirServidor(aoReceberQuadro, estado)
-    if ('erro' in local) return local
-    const ip = new URL(local.url).hostname
-    if (!seguro) {
-      const tls = await certificadoLocal(ip)
-      if (ciclo !== geracaoServidor) return { erro: 'Conexão cancelada.' }
-      raizPublica = tls.raiz
-      impressao = tls.impressao
-      segredoSeguro = randomBytes(32).toString('hex')
-      const novo = createHttpsServer(
-        { key: tls.key, cert: tls.cert, minVersion: 'TLSv1.2' },
-        responder
-      )
-      await new Promise<void>((resolve, reject) => {
-        novo.once('error', reject)
-        novo.listen(8791, '0.0.0.0', resolve)
+    if (!segredo) segredo = randomBytes(16).toString('hex')
+
+    if (!servidor) {
+      servidor = createServer(responder)
+      const subiu = await new Promise<string>((resolve) => {
+        servidor!.once('error', (e) => resolve(e.message))
+        // 0.0.0.0 e não 127.0.0.1: o celular é outro dispositivo, e localhost
+        // não é alcançável de fora da máquina.
+        servidor!.listen(PORTA, '0.0.0.0', () => resolve(''))
       })
-      if (ciclo !== geracaoServidor) {
-        novo.close()
-        return { erro: 'Conexão cancelada.' }
+
+      if (subiu) {
+        servidor = null
+        return { erro: `não consegui abrir a porta ${PORTA}: ${subiu}` }
       }
-      seguro = novo
     }
-    const url = `https://${ip}:8791/?t=${segredoSeguro}`
-    const certificado = new URL(local.url)
-    certificado.pathname = '/certificado.cer'
-    return {
-      url,
-      qr: await QRCode.toString(url, { type: 'svg' }),
-      certificadoQr: await QRCode.toString(certificado.href, { type: 'svg' }),
-      impressao
-    }
-  } catch (e) {
-    return { erro: `Não foi possível iniciar HTTPS: ${(e as Error).message}` }
+
+    const url = `http://${ip}:${PORTA}/?t=${segredo}`
+    // SVG e não PNG: escala sem serrilhar na tela do painel, e o celular lê
+    // melhor um QR nítido — leitura falha é o modo de falha mais chato aqui,
+    // porque parece que o QR está errado.
+    const qr = await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 })
+    return { url, qr }
   }
+
+  function fecharServidor(): void {
+    geracaoServidor++
+    for (const controle of controles) controle.end('event: parar\ndata: {}\n\n')
+    controles.clear()
+    seguro?.closeAllConnections()
+    seguro?.close()
+    seguro = null
+    segredoSeguro = ''
+    servidor?.closeAllConnections()
+    servidor?.close()
+    servidor = null
+    aoQuadro = null
+    segredo = ''
+  }
+
+  async function abrirServidorSeguro(
+    aoReceberQuadro: (jpeg: string, foto?: boolean) => void,
+    estado: Estado
+  ): Promise<
+    { url: string; qr: string; certificadoQr: string; impressao: string } | { erro: string }
+  > {
+    const ciclo = geracaoServidor
+    try {
+      const local = await abrirServidor(aoReceberQuadro, estado)
+      if ('erro' in local) return local
+      const ip = new URL(local.url).hostname
+      if (!seguro) {
+        const tls = await certificadoLocal(ip)
+        if (ciclo !== geracaoServidor) return { erro: 'Conexão cancelada.' }
+        raizPublica = tls.raiz
+        impressao = tls.impressao
+        segredoSeguro = randomBytes(32).toString('hex')
+        const novo = createHttpsServer(
+          { key: tls.key, cert: tls.cert, minVersion: 'TLSv1.2' },
+          responder
+        )
+        await new Promise<void>((resolve, reject) => {
+          novo.once('error', reject)
+          novo.listen(PORTA_SEGURA, '0.0.0.0', resolve)
+        })
+        if (ciclo !== geracaoServidor) {
+          novo.close()
+          return { erro: 'Conexão cancelada.' }
+        }
+        seguro = novo
+      }
+      const url = `https://${ip}:${PORTA_SEGURA}/?t=${segredoSeguro}`
+      const certificado = new URL(local.url)
+      certificado.pathname = '/certificado.cer'
+      return {
+        url,
+        qr: await QRCode.toString(url, { type: 'svg' }),
+        certificadoQr: await QRCode.toString(certificado.href, { type: 'svg' }),
+        impressao
+      }
+    } catch (e) {
+      return { erro: `Não foi possível iniciar HTTPS: ${(e as Error).message}` }
+    }
+  }
+  return { abrirServidor, abrirServidorSeguro, fecharServidor }
 }
+export const { abrirServidor, abrirServidorSeguro, fecharServidor } = criarServidorCelular()

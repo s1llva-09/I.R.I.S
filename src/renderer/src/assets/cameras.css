@@ -1,0 +1,233 @@
+.camera-control {
+  padding: 24px;
+  margin: 0 0 24px;
+}
+.camera-control-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.camera-control h2 {
+  font-size: 22px;
+  margin: 8px 0;
+}
+.camera-control p {
+  color: #9db4ce;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.camera-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 0;
+}
+.camera-control label {
+  display: grid;
+  gap: 7px;
+  color: #c3d6e9;
+  font-size: 12px;
+}
+.camera-control input,
+.camera-control select {
+  background: #080f1a;
+  color: #d4eaff;
+  border: 1px solid #26384c;
+  border-radius: 8px;
+  padding: 10px;
+  min-width: 0;
+  width: 100%;
+}
+.camera-edit-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #295064;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+.camera-edit-form h3,
+.camera-edit-form > div,
+.camera-edit-form > p {
+  grid-column: 1 / -1;
+}
+.camera-edit-form small {
+  color: #9db4ce;
+}
+.camera-edit-form button {
+  margin-right: 10px;
+}
+.camera-mosaic {
+  display: grid;
+  gap: 16px;
+}
+.camera-columns-1 {
+  grid-template-columns: 1fr;
+}
+.camera-columns-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.camera-columns-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.camera-mosaic > [hidden] {
+  display: none;
+}
+.camera-card {
+  border: 1px solid #26384c;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #09121f;
+}
+.camera-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.camera-card small {
+  color: #68ddeb;
+  font-size: 11px;
+}
+.camera-card h3 {
+  margin: 5px 0 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.camera-card header > span {
+  color: #91a2b6;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.camera-card header > .camera-online {
+  color: #64e8b7;
+}
+.camera-tile-viewport {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: radial-gradient(ellipse at top, #15344855, transparent), #03090f;
+  overflow: hidden;
+}
+.camera-tile-viewport video,
+.camera-tile-viewport img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.camera-tile-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px;
+}
+.camera-tile-empty > span,
+.camera-control-empty > span {
+  color: #68ddeb;
+  font-size: 32px;
+}
+.camera-tile-empty strong {
+  font-size: 13px;
+  margin-top: 10px;
+}
+.camera-tile-empty p {
+  max-width: 36ch;
+  font-size: 11px;
+}
+.camera-tile-time {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  font: 10px var(--font-mono);
+  background: #06111dd9;
+  padding: 6px 8px;
+  border-radius: 5px;
+}
+.camera-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+}
+.camera-card button,
+.camera-pairing summary {
+  font-size: 11px;
+  color: #b8e7f4;
+  background: #142335;
+  border: 1px solid #26384c;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.camera-card button:focus-visible {
+  outline: 2px solid #68ddeb;
+  outline-offset: 2px;
+}
+.camera-pairing {
+  padding: 0 12px 14px;
+}
+.camera-pairing > div {
+  max-width: 190px;
+  background: white;
+  padding: 5px;
+  margin: 12px 0;
+}
+.camera-pairing svg {
+  width: 100%;
+  height: auto;
+}
+.camera-pairing code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+.camera-card:fullscreen {
+  display: flex;
+  flex-direction: column;
+  background: #03090f;
+  border: 0;
+  border-radius: 0;
+}
+.camera-card:fullscreen .camera-tile-viewport {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+.camera-card:fullscreen .camera-pairing {
+  display: none;
+}
+.camera-control-empty {
+  text-align: center;
+  padding: 35px 15px;
+  border: 1px dashed #294052;
+  border-radius: 14px;
+}
+.camera-control-note {
+  margin: 16px 0 0;
+}
+@media (max-width: 1100px) {
+  .camera-columns-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  .camera-columns-2,
+  .camera-columns-3,
+  .camera-edit-form {
+    grid-template-columns: 1fr;
+  }
+  .camera-control-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .camera-control {
+    padding: 16px;
+  }
+}

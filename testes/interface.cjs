@@ -382,6 +382,94 @@ if (!process.versions.electron) {
     await evaluate(`document.querySelector('.security-management').open = true`)
     await evaluate(`document.querySelector('.security-tls-guide').scrollIntoView()`)
     await check('pareamento-https', 700, 650, (s) => s.text.includes('Certificados Confiáveis'))
+    win.setContentSize(1380, 900)
+    await delay(200)
+    const preencherCamera = async (valores) => {
+      for (const [indice, valor] of valores.entries()) {
+        await evaluate(`(() => {
+          const input = document.querySelectorAll('.camera-edit-form input')[${indice}];
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(valor)});
+          input.dispatchEvent(new Event('input', { bubbles:true }));
+        })()`)
+      }
+      await evaluate(`document.querySelector('.camera-edit-form').requestSubmit()`)
+      await waitFor(`!document.querySelector('.camera-edit-form')`, 'camera saved')
+    }
+    for (const ambiente of ['Sala', 'Quarto']) {
+      await click('.camera-control-heading button')
+      await preencherCamera([`Câmera ${ambiente}`, ambiente, 'http://127.0.0.1:9000/video'])
+    }
+    assert.equal(await evaluate(`document.querySelectorAll('.camera-card').length`), 2)
+    await evaluate(
+      `[...document.querySelectorAll('.camera-toolbar button')].find(b=>b.textContent.includes('Conectar todas')).click()`
+    )
+    await waitFor(
+      `[...document.querySelectorAll('.camera-card footer button:first-child')].every(b=>b.textContent === 'Pausar')`,
+      'two cameras connected'
+    )
+    await evaluate(`(() => {
+      const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 400;
+      const ctx = canvas.getContext('2d');
+      ['1','2'].forEach((id, i) => { ctx.fillStyle = i ? '#234b3e' : '#19364b'; ctx.fillRect(0,0,640,400); ctx.fillStyle='#bdf0ff'; ctx.font='32px sans-serif'; ctx.fillText(i ? 'Quarto • imagem simulada' : 'Sala • imagem simulada',40,200);
+        window.__uiTest.emit('centralFrame', { id, jpeg:canvas.toDataURL('image/jpeg').split(',')[1], foto:true, momento:Date.now() });
+      });
+    })()`)
+    await waitFor(`document.querySelectorAll('.camera-online').length === 2`, 'two decoded feeds')
+    await evaluate(`document.querySelector('.camera-control').scrollIntoView()`)
+    await check(
+      'multicameras',
+      1380,
+      900,
+      (s) => s.text.includes('Câmera Sala') && s.text.includes('Câmera Quarto')
+    )
+    await evaluate(
+      `(() => { const s=document.querySelector('[aria-label="Filtrar ambiente"]'); s.value='Quarto'; s.dispatchEvent(new Event('change',{bubbles:true})) })()`
+    )
+    assert.equal(
+      await evaluate(`document.querySelectorAll('.camera-mosaic > div:not([hidden])').length`),
+      1
+    )
+    await evaluate(
+      `(() => { const s=document.querySelector('[aria-label="Filtrar ambiente"]'); s.value=''; s.dispatchEvent(new Event('change',{bubbles:true})) })()`
+    )
+    await evaluate(
+      `[...document.querySelector('[data-camera-id="1"]').querySelectorAll('button')].find(b=>b.textContent==='Editar').click()`
+    )
+    await preencherCamera(['Sala principal', 'Sala', 'http://127.0.0.1:9000/video'])
+    assert.equal(
+      await evaluate(`document.querySelector('[data-camera-id="1"] h3').textContent`),
+      'Sala principal'
+    )
+    await evaluate(
+      `[...document.querySelector('[data-camera-id="1"]').querySelectorAll('button')].find(b=>b.textContent==='Pausar').click()`
+    )
+    await waitFor(
+      `document.querySelector('[data-camera-id="1"] header').textContent.includes('Pausada')`,
+      'isolated pause'
+    )
+    assert.equal(
+      await evaluate(
+        `document.querySelector('[data-camera-id="2"] header').textContent.includes('Foto')`
+      ),
+      true
+    )
+    win.setContentSize(700, 650)
+    await delay(200)
+    await evaluate(`document.querySelector('.camera-control').scrollIntoView()`)
+    await check('multicameras-compacto', 700, 650, (s) => s.text.includes('Sala principal'))
+    await evaluate(
+      `[...document.querySelector('[data-camera-id="2"]').querySelectorAll('button')].find(b=>b.textContent==='Remover').click()`
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.camera-control button')].find(b=>b.textContent==='Confirmar remoção').click()`
+    )
+    await waitFor(`document.querySelectorAll('.camera-card').length === 1`, 'camera removed')
+    await click('.sidebar button[title="Assistente"]')
+    await click('.sidebar button[title="Segurança"]')
+    await waitFor(
+      `document.querySelector('.camera-card h3')?.textContent === 'Sala principal'`,
+      'camera saved across navigation'
+    )
     assert.deepEqual(failures, [], `Runtime errors: ${failures.join('; ')}`)
     const report = {
       passed: results.length,

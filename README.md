@@ -12,7 +12,30 @@ Fotos de teste são identificadas como simulação; imagem sem sinal não perman
 marcada como transmissão ao vivo. Os modelos faciais são carregados localmente,
 com GPU quando disponível e CPU como alternativa.
 
-### Fotos e celular
+### Painel de várias câmeras
+
+Em **Segurança → Suas câmeras → Adicionar câmera**, informe um nome, um ambiente
+(Sala, Quarto, Garagem…) e escolha a fonte:
+
+- **Rede:** endereço do vídeo MJPEG HTTP. RTSP/HLS precisam de conversor.
+- **Celular:** salve e clique em **Conectar celular** no cartão; cada aparelho
+  recebe um QR HTTPS independente. O certificado local é o mesmo para todos.
+- **Webcam / USB / Camo:** escolha o dispositivo na lista. Uma webcam pode ser
+  cadastrada uma vez; o sistema operacional pode limitar seu uso simultâneo com
+  o visor de reconhecimento individual.
+
+O mosaico comporta até 12 cadastros, com filtro por ambiente, uma a três colunas,
+ampliação, edição, remoção e pausa individual ou de todas. Nomes e ambientes
+ficam salvos. Alterar apenas o nome mantém a conexão; mudar a fonte exige
+reconectar. Os celulares usam pares de portas TCP entre 8800 e 8823 na rede local.
+
+As imagens são simultâneas, sem gravação de vídeo. Ao sair da tela, as conexões
+do mosaico são encerradas; ao voltar, clique em Conectar. **Ativar privacidade**
+também encerra todas as fontes. O mosaico não executa reconhecimento facial em
+todas as câmeras: a análise e o cadastro abaixo continuam na fonte do visor
+individual. Não confunda a contagem desse sensor com a do mosaico.
+
+### Foto e conexão individual
 
 - **Foto no computador:** clique em **Adicionar foto** acima do visor ou arraste
   uma imagem para ele. São aceitos JPG, PNG, WebP, BMP, GIF e AVIF até 25 MB.
@@ -88,6 +111,7 @@ npm run teste:presenca
 npm run teste:interface
 npm run teste:servidor
 npm run teste:melhorias
+npm run teste:cameras
 ```
 
 O primeiro comando verifica perda/recuperação de sinal e o ciclo de vida do sensor
