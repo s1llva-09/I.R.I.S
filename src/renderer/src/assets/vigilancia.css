@@ -1,0 +1,313 @@
+.vigia-panel {
+  padding: 24px;
+  margin-block: 18px;
+  background: linear-gradient(135deg, rgba(22, 56, 72, 0.32), rgba(10, 17, 31, 0.9));
+}
+.vigia-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+.vigia-heading h2 {
+  font-size: 26px;
+  margin: 6px 0;
+}
+.vigia-heading p {
+  color: var(--text-muted, #93a8bc);
+}
+.vigia-mode {
+  border: 1px solid #405369;
+  padding: 9px 14px;
+  border-radius: 100px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.vigia-mode-armado {
+  color: #70e4d0;
+  border-color: #3b897d;
+  background: #123931;
+}
+.vigia-mode-preparando {
+  color: #e5d38b;
+  border-color: #756e41;
+}
+.vigia-mode-erro {
+  color: #ffb0b8;
+  border-color: #9c495b;
+}
+.vigia-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.vigia-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #263f51;
+  border-radius: 12px;
+  padding: 15px;
+  background: rgba(9, 19, 31, 0.65);
+}
+.vigia-metrics strong {
+  font-size: 25px;
+  color: #8ce7e0;
+  font-weight: 500;
+}
+.vigia-metrics span,
+.vigia-hint {
+  color: #9badc1;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.vigia-actions,
+.vigia-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 14px 0;
+}
+.vigia-health {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 15px 0;
+}
+.vigia-health > div {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-left: 2px solid #58c5b1;
+  background: #111f2c;
+  border-radius: 4px;
+  gap: 6px;
+}
+.vigia-health span {
+  font-size: 12px;
+  color: #9cbbcd;
+}
+.vigia-health .vigia-health-bad {
+  border-color: #e88889;
+}
+.vigia-details {
+  border-top: 1px solid #294052;
+  padding-block: 16px;
+}
+.vigia-details summary {
+  cursor: pointer;
+  color: #bdd5e9;
+  font-weight: 500;
+}
+.vigia-details > p {
+  line-height: 1.7;
+}
+.vigia-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.vigia-fieldset:disabled {
+  opacity: 0.65;
+}
+.vigia-form-row label,
+.vigia-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #b6cbde;
+}
+.vigia-form-row label {
+  flex: 1;
+  min-width: 180px;
+}
+.vigia-form-row button {
+  align-self: flex-end;
+}
+.vigia-panel select,
+.vigia-panel input:not([type='checkbox']) {
+  background: #0e1c2b;
+  color: #d5e8f7;
+  border: 1px solid #36536b;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  min-width: 0;
+  width: 100%;
+}
+.vigia-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 20px 0;
+}
+.vigia-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.vigia-check input {
+  accent-color: #6cd8d5;
+}
+.vigia-zone-editor {
+  position: relative;
+  max-width: 780px;
+  margin: 12px auto;
+  cursor: crosshair;
+  background: #060c14;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.vigia-zone-editor img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.vigia-zone-editor svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.vigia-zone-editor polygon {
+  fill: #54e2ca29;
+  stroke: #67dfc5;
+  stroke-width: 3;
+}
+.vigia-zone-editor polyline {
+  fill: none;
+  stroke: #f6db7b;
+  stroke-width: 4;
+}
+.vigia-zone-editor circle {
+  fill: #f6db7b;
+}
+.vigia-zone-empty {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4/3;
+  color: #8fa8bf;
+}
+.vigia-zone-list > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-block: 10px;
+}
+.vigia-zone-list span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #193342;
+  border: 1px solid #375b69;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.vigia-zone-list button {
+  background: none;
+  color: #bfe5ea;
+  border: 0;
+  cursor: pointer;
+  font-size: 20px;
+}
+.vigia-pairing {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.vigia-pairing > div {
+  padding: 18px;
+  background: #101e2b;
+  border: 1px solid #29495c;
+  border-radius: 12px;
+}
+.vigia-pairing svg {
+  width: 180px;
+  height: 180px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+}
+.vigia-pairing code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  color: #c2dce3;
+}
+.vigia-pairing p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.vigia-device-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block: 14px;
+}
+.vigia-events {
+  max-height: 580px;
+  overflow: auto;
+  margin-top: 12px;
+}
+.vigia-events article {
+  display: flex;
+  gap: 18px;
+  padding: 16px 0;
+  border-top: 1px solid #294052;
+}
+.vigia-events article > div {
+  flex: 1;
+}
+.vigia-events strong {
+  display: block;
+  margin-top: 4px;
+}
+.vigia-events p {
+  margin: 7px 0;
+}
+.vigia-events time {
+  font-size: 11px;
+  color: #69d2cc;
+}
+.vigia-events small {
+  color: #a8b9ce;
+  font-size: 11px;
+  display: block;
+}
+.vigia-events img {
+  width: 160px;
+  height: 110px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #08121c;
+}
+@media (max-width: 850px) {
+  .vigia-heading {
+    flex-direction: column;
+    gap: 5px;
+  }
+  .vigia-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .vigia-form-grid,
+  .vigia-pairing {
+    grid-template-columns: 1fr;
+  }
+  .vigia-events article {
+    flex-direction: column;
+  }
+  .vigia-events img {
+    width: 100%;
+    height: auto;
+  }
+}

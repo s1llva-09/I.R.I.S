@@ -62,10 +62,11 @@ function sairDoMosaico(): void {
   for (const c of central.listar()) if (!vigilancia.protegido(c.id)) central.parar(c.id)
 }
 function exigirDesarmado(id: string): void {
-  if (vigilancia.protegido(id)) throw new Error('Desarme a prote??o antes de alterar esta c?mera.')
+  if (vigilancia.protegido(id)) throw new Error('Desarme a proteção antes de alterar esta câmera.')
 }
 let tray: Tray | null = null // module-scope de propósito: se for local, o GC come o ícone
 let saindoDeVerdade = false
+let falhasInterface: number[] = []
 
 /**
  * Um turno de chat está no ar? É o que impede o gatilho de disparar uma
@@ -126,7 +127,17 @@ function criarJanela(): void {
       backgroundThrottling: false
     }
   })
-  janela.webContents.on('render-process-gone', () => sairDoMosaico())
+  const conteudo = janela.webContents
+  conteudo.on('render-process-gone', (_e, detalhes) => {
+    sairDoMosaico()
+    if (!vigilancia.ativo() || saindoDeVerdade || detalhes.reason === 'clean-exit') return
+    falhasInterface = falhasInterface.filter((t) => Date.now() - t < 60000)
+    falhasInterface.push(Date.now())
+    if (falhasInterface.length > 3) return
+    setTimeout(() => {
+      if (!saindoDeVerdade && vigilancia.ativo() && !conteudo.isDestroyed()) conteudo.reload()
+    }, 2000)
+  })
   janela.webContents.on('did-start-loading', () => sairDoMosaico())
 
   /**
@@ -387,14 +398,31 @@ const pendentes = new Map<string, (ok: boolean) => void>()
 
 function registrarIPC(): void {
   ipcMain.handle('central:listar', () => central.listar())
-  ipcMain.handle('central:salvar', (_e, camera: CameraSalva) => { exigirDesarmado(camera.id); return central.salvar(camera) })
-  ipcMain.handle('central:remover', (_e, id: string) => { exigirDesarmado(id); return central.remover(id) })
+  ipcMain.handle('central:salvar', (_e, camera: CameraSalva) => {
+    exigirDesarmado(camera.id)
+    return central.salvar(camera)
+  })
+  ipcMain.handle('central:remover', (_e, id: string) => {
+    exigirDesarmado(id)
+    return central.remover(id)
+  })
   ipcMain.handle('central:conectar', (_e, id: string) => central.conectar(id))
-  ipcMain.handle('central:parar', (_e, id: string) => { exigirDesarmado(id); return central.parar(id) })
-  ipcMain.handle('central:pararTudo', () => { vigilancia.desarmar(); central.pararTudo() })
+  ipcMain.handle('central:parar', (_e, id: string) => {
+    exigirDesarmado(id)
+    return central.parar(id)
+  })
+  ipcMain.handle('central:pararTudo', () => {
+    vigilancia.desarmar()
+    central.pararTudo()
+  })
   ipcMain.handle('central:sair', sairDoMosaico)
   ipcMain.handle('central:quadro', (_e, id: string) => central.quadro(id))
-  ipcMain.on('central:webcam', (_e, id: string, sessao: string, jpeg: string) => central.receberWebcam(id, sessao, jpeg))
+  ipcMain.on('central:falhaWebcam', (_e, id: string, sessao: string, permissao: boolean) =>
+    central.falhaWebcam(id, sessao, permissao)
+  )
+  ipcMain.on('central:webcam', (_e, id: string, sessao: string, jpeg: string) =>
+    central.receberWebcam(id, sessao, jpeg)
+  )
   ipcMain.handle('vigilancia:estado', () => vigilancia.estado())
   ipcMain.handle('vigilancia:salvar', (_e, valor) => vigilancia.salvar(valor))
   ipcMain.handle('vigilancia:armar', () => vigilancia.armar())
@@ -405,7 +433,10 @@ function registrarIPC(): void {
   ipcMain.handle('vigilancia:removerCelular', (_e, id: string) => removerPush(id))
   ipcMain.handle('vigilancia:enderecos', enderecosPrivados)
   ipcMain.handle('vigilancia:abrirCelular', (_e, ip: string) => remoto.abrir(ip))
-  ipcMain.handle('vigilancia:revogarCelular', () => remoto.revogar())
+  ipcMain.handle('vigilancia:revogarCelular', () => {
+    vigilancia.cancelarAlertas('Acessos ao celular revogados.')
+    remoto.revogar()
+  })
   /**
    * O que a barra de status desenha. Os dois já estão prontos na memória do
    * main (o vigia mantém o foco, o SQLite responde em microssegundos), então
@@ -654,7 +685,9 @@ app.whenReady().then(() => {
 
   registrarIPC()
   vigilancia.iniciar()
-  void remoto.restaurar().catch(() => console.warn('Reabra o acesso ao celular no painel de seguran?a.'))
+  void remoto
+    .restaurar()
+    .catch(() => console.warn('Reabra o acesso ao celular no painel de segurança.'))
   criarJanela()
   criarTray()
   aquecerVoz()

@@ -79,7 +79,11 @@ function CameraCard({
         </span>
       </header>
       <div className="camera-tile-viewport">
-        <img src={imagem || undefined} alt={`Imagem de ${camera.nome}`} style={{ visibility: sinal ? "visible" : "hidden" }} />
+        <img
+          src={imagem || undefined}
+          alt={`Imagem de ${camera.nome}`}
+          style={{ visibility: sinal ? 'visible' : 'hidden' }}
+        />
         {!sinal && (
           <div className="camera-tile-empty">
             <span>◈</span>
@@ -184,7 +188,7 @@ export default function CentralCameras(): JSX.Element {
     )
     const parar = window.api.central.aoPausar(() => {
       geracao.current++
-      
+
       void atualizar().catch(() => {})
     })
     return () => {
@@ -287,7 +291,7 @@ export default function CentralCameras(): JSX.Element {
           className="security-button"
           onClick={() => {
             geracao.current++
-            
+
             void window.api.central
               .pararTudo()
               .then(atualizar)
@@ -462,9 +466,9 @@ export default function CentralCameras(): JSX.Element {
         ))}
       </div>
       <p className="camera-control-note">
-        Visualização simultânea, sem gravação de vídeo. Ao sair desta tela, as conexões do mosaico
-        são encerradas. O reconhecimento facial abaixo analisa somente a fonte selecionada no visor
-        individual.
+        Visualização simultânea, sem gravação de vídeo. Câmeras protegidas continuam monitorando ao
+        sair desta tela ou minimizar a Íris. O reconhecimento facial abaixo analisa somente a fonte
+        selecionada no visor individual.
       </p>
     </section>
   )

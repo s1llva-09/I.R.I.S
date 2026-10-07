@@ -14,6 +14,7 @@ const subscribe = (name) => (callback) => {
   return () => callbacks.delete(callback)
 }
 const emit = (name, ...args) => {
+  if (name === 'centralFrame') quadros.set(args[0].id, args[0])
   for (const callback of listeners.get(name) || []) callback(...args)
 }
 const cfg = {
@@ -36,6 +37,25 @@ const cfg = {
 let populated = false
 let rejectNextSave = false
 let cameras = []
+const quadros = new Map()
+let numeroQuadros = 0
+let monitor = {
+  modo: 'desarmado',
+  erro: '',
+  modelo: 'Detector simulado',
+  cameras: [],
+  eventos: [],
+  notificacoes: { configurado: false, dispositivos: [] },
+  ajustes: {
+    cameras: [],
+    permanencia: 3,
+    intervalo: 120,
+    confianca: 0.65,
+    guardarImagem: false,
+    retencaoDias: 7,
+    agenda: { ativa: false, inicio: '22:00', fim: '06:00', dias: [0, 1, 2, 3, 4, 5, 6] }
+  }
+}
 const api = {
   enviar: async () => ({ ok: false, erro: 'Resposta simulada para verificação da interface.' }),
   estado: async () => ({
@@ -56,7 +76,50 @@ const api = {
   pararFala: noop,
   mudo: noop,
   presenca: noop,
+  vigilancia: {
+    estado: async () => structuredClone(monitor),
+    salvar: async (ajustes) => {
+      monitor.ajustes = structuredClone(ajustes)
+    },
+    armar: async () => {
+      monitor.modo = 'armado'
+    },
+    desarmar: async () => {
+      monitor.modo = 'desarmado'
+      monitor.ajustes.agenda.ativa = false
+    },
+    limpar: async () => {
+      monitor.eventos = []
+    },
+    repetir: async () => {},
+    testar: async () => {},
+    removerCelular: async () => {},
+    enderecos: async () => ['192.168.1.5'],
+    abrirCelular: async () => ({
+      url: 'https://192.168.1.5:8798/#fixture',
+      qr: '<svg viewBox="0 0 10 10"></svg>',
+      certificadoQr: '<svg viewBox="0 0 10 10"></svg>',
+      impressao: 'AA:BB:CC'
+    }),
+    revogarCelular: async () => {
+      monitor.notificacoes = { configurado: false, dispositivos: [] }
+    }
+  },
   central: {
+    falhaWebcam: noop,
+    sair: async () => {
+      cameras = cameras.map((c) =>
+        monitor.modo === 'armado' && monitor.ajustes.cameras.some((x) => x.cameraId === c.id)
+          ? c
+          : { ...c, ligada: false, sessao: null }
+      )
+    },
+    quadro: async (id) => quadros.get(id) || null,
+    webcam: (id, sessao, jpeg) => {
+      if (!cameras.some((c) => c.id === id && c.sessao === sessao && c.ligada)) return
+      numeroQuadros++
+      emit('centralFrame', { id, jpeg, foto: false, momento: Date.now() })
+    },
     listar: async () => cameras.map((c) => ({ ...c })),
     salvar: async (c) => {
       const salva = {
@@ -85,6 +148,8 @@ const api = {
       cameras = cameras.map((c) => (c.id === id ? { ...c, ligada: false, sessao: null } : c))
     },
     pararTudo: async () => {
+      monitor.modo = 'desarmado'
+      monitor.ajustes.agenda.ativa = false
       cameras = cameras.map((c) => ({ ...c, ligada: false, sessao: null }))
     },
     aoFrame: subscribe('centralFrame'),
@@ -185,7 +250,9 @@ contextBridge.exposeInMainWorld('__uiTest', {
     rejectNextSave = true
   },
   emit,
-  config: () => ({ ...cfg })
+  config: () => ({ ...cfg }),
+  monitor: () => structuredClone(monitor),
+  quadros: () => numeroQuadros
 })
 window.addEventListener('error', (event) => ipcRenderer.send('ui-test:error', event.message))
 window.addEventListener('unhandledrejection', (event) =>

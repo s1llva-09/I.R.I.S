@@ -24,19 +24,41 @@ export function criarCentralCameras(
 ) {
   const sessoes = new Map<string, Sessao>()
   const quadros = new Map<string, QuadroCamera>()
-  function publicar(id: string, jpeg: string, foto=false): void {
-    const s=sessoes.get(id)
-    if(!s) return
-    s.ultimoQuadro=Date.now(); s.foto=foto
-    if(!foto && Date.now()-s.ultimoEnvio<200) return
-    s.ultimoEnvio=Date.now()
-    const q={id,jpeg,foto,momento:s.ultimoQuadro}; quadros.set(id,q); enviar(q)
+  function publicar(id: string, jpeg: string, foto = false): void {
+    const s = sessoes.get(id)
+    if (!s) return
+    s.ultimoQuadro = Date.now()
+    s.foto = foto
+    s.erro = ''
+    if (!foto && Date.now() - s.ultimoEnvio < 200) return
+    s.ultimoEnvio = Date.now()
+    const q = { id, jpeg, foto, momento: s.ultimoQuadro }
+    quadros.set(id, q)
+    enviar(q)
   }
-  function receberWebcam(id:string,sessao:string,jpeg:string):void {
-    const s=sessoes.get(id)
-    if(!s || s.id!==sessao || !ler().some(c=>c.id===id && c.tipo==='webcam')) return
-    if(typeof jpeg!=='string' || jpeg.length>1_000_000 || !/^\/9j\/[A-Za-z0-9+/=]+$/.test(jpeg)) return
-    publicar(id,jpeg)
+  function receberWebcam(id: string, sessao: string, jpeg: string): void {
+    const s = sessoes.get(id)
+    if (!s || s.id !== sessao || !ler().some((c) => c.id === id && c.tipo === 'webcam')) return
+    if (
+      typeof jpeg !== 'string' ||
+      jpeg.length > 1_000_000 ||
+      !/^\/9j\/[A-Za-z0-9+/=]+$/.test(jpeg)
+    )
+      return
+    publicar(id, jpeg)
+  }
+  function falhaWebcam(id: string, sessao: string, permissao: boolean): void {
+    const s = sessoes.get(id)
+    if (
+      !s ||
+      s.id !== sessao ||
+      typeof permissao !== 'boolean' ||
+      !ler().some((c) => c.id === id && c.tipo === 'webcam')
+    )
+      return
+    s.erro = permissao
+      ? 'Permita o acesso à webcam nas configurações do sistema e conecte novamente.'
+      : 'Não foi possível abrir a webcam. Tentando reconectar.'
   }
   function parar(id: string): void {
     const s = sessoes.get(id)
@@ -123,10 +145,10 @@ export function criarCentralCameras(
       porta
     }
     sessoes.set(id, s)
-    if(c.tipo==='webcam') return
+    if (c.tipo === 'webcam') return
     const quadro = (jpeg: string, foto = false): void => {
       if (sessoes.get(id) !== s) return
-      publicar(id,jpeg,foto)
+      publicar(id, jpeg, foto)
     }
     if (c.tipo === 'rede') s.rede.conectar(c.endereco, quadro)
     else {
@@ -143,5 +165,15 @@ export function criarCentralCameras(
       s.pareamento = resultado
     }
   }
-  return { listar, salvar, remover, conectar, parar, pararTudo, receberWebcam, quadro: (id:string):QuadroCamera|null => quadros.get(id)??null }
+  return {
+    listar,
+    salvar,
+    remover,
+    conectar,
+    parar,
+    pararTudo,
+    receberWebcam,
+    falhaWebcam,
+    quadro: (id: string): QuadroCamera | null => quadros.get(id) ?? null
+  }
 }

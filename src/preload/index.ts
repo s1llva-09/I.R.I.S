@@ -110,7 +110,8 @@ const api = {
 
   vigilancia: {
     estado: () => ipcRenderer.invoke('vigilancia:estado'),
-    salvar: (valor: import('../shared/vigilancia').AjustesVigilancia) => ipcRenderer.invoke('vigilancia:salvar', valor),
+    salvar: (valor: import('../shared/vigilancia').AjustesVigilancia) =>
+      ipcRenderer.invoke('vigilancia:salvar', valor),
     armar: () => ipcRenderer.invoke('vigilancia:armar'),
     desarmar: () => ipcRenderer.invoke('vigilancia:desarmar'),
     limpar: () => ipcRenderer.invoke('vigilancia:limpar'),
@@ -122,9 +123,12 @@ const api = {
     revogarCelular: () => ipcRenderer.invoke('vigilancia:revogarCelular')
   },
   central: {
+    falhaWebcam: (id: string, sessao: string, permissao: boolean) =>
+      ipcRenderer.send('central:falhaWebcam', id, sessao, permissao),
     sair: () => ipcRenderer.invoke('central:sair'),
     quadro: (id: string) => ipcRenderer.invoke('central:quadro', id),
-    webcam: (id: string, sessao: string, jpeg: string) => ipcRenderer.send('central:webcam', id, sessao, jpeg),
+    webcam: (id: string, sessao: string, jpeg: string) =>
+      ipcRenderer.send('central:webcam', id, sessao, jpeg),
     listar: () => ipcRenderer.invoke('central:listar'),
     salvar: (camera: import('../shared/cameras').CameraSalva) =>
       ipcRenderer.invoke('central:salvar', camera),

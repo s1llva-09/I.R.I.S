@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import Visor from './Visor'
 import CentralCameras from './CentralCameras'
+import VigilanciaPainel from './VigilanciaPainel'
 import SegurancaExtras from './SegurancaExtras'
 import { diagnosticarImagem } from './diagnostico'
 import {
@@ -440,6 +441,7 @@ export default function Seguranca({
       </div>
 
       <CentralCameras />
+      <VigilanciaPainel />
       <div className="security-metrics" aria-label="Resumo do monitoramento">
         {[
           {

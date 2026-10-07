@@ -24,6 +24,7 @@ if (!process.versions.electron) {
   fs.mkdirSync(output, { recursive: true })
   app.setPath('userData', path.join(output, 'profile'))
   app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('use-fake-device-for-media-stream')
   app.commandLine.appendSwitch('force-device-scale-factor', '1')
   const failures = []
   const results = []
@@ -469,6 +470,85 @@ if (!process.versions.electron) {
     await waitFor(
       `document.querySelector('.camera-card h3')?.textContent === 'Sala principal'`,
       'camera saved across navigation'
+    )
+    await evaluate(`document.querySelector('.vigia-panel details').open=true`)
+    await evaluate(
+      `(() => {const s=document.querySelector('.vigia-panel select');s.value='1';s.dispatchEvent(new Event('change',{bubbles:true}))})()`
+    )
+    await waitFor(
+      `!!document.querySelector('.vigia-zone-editor img')`,
+      'zone preview from cached frame'
+    )
+    await evaluate(`document.querySelector('.vigia-zone-editor').scrollIntoView()`)
+    await evaluate(
+      `(() => { const el=document.querySelector('.vigia-zone-editor');const r=el.getBoundingClientRect();[[.2,.2],[.8,.2],[.8,.8],[.2,.8]].forEach(([x,y])=>el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.left+x*r.width,clientY:r.top+y*r.height}))) })()`
+    )
+    await delay(200)
+    assert.equal(await evaluate(`document.querySelectorAll('.vigia-zone-editor circle').length`), 4)
+    await evaluate(
+      `[...document.querySelectorAll('.vigia-panel button')].find(b=>b.textContent==='Adicionar área').click()`
+    )
+    await waitFor(`!!document.querySelector('.vigia-zone-saved')`, 'zone added')
+    await evaluate(
+      `[...document.querySelectorAll('.vigia-panel button')].find(b=>b.textContent==='Salvar proteção').click()`
+    )
+    await waitFor(`window.__uiTest.monitor().ajustes.cameras.length===1`, 'zone persisted')
+    await evaluate(
+      `[...document.querySelectorAll('.vigia-panel button')].find(b=>b.textContent==='Ativar Fora de casa').click()`
+    )
+    await waitFor(
+      `document.querySelector('.vigia-mode').textContent.includes('ativo')`,
+      'armed state'
+    )
+    assert.equal(await evaluate(`document.querySelector('.vigia-fieldset').disabled`), true)
+    await click('.sidebar button[title="Assistente"]')
+    assert.equal(await evaluate(`window.__uiTest.monitor().modo`), 'armado')
+    await click('.sidebar button[title="Segurança"]')
+    await waitFor(
+      `document.querySelector('.vigia-mode')?.textContent.includes('ativo')`,
+      'monitor remains armed across navigation'
+    )
+    await evaluate(`document.querySelector('.vigia-panel').scrollIntoView()`)
+    await check('vigilancia-compacto', 700, 650, (s) => s.text.includes('Fora de casa'))
+    await evaluate(
+      `[...document.querySelectorAll('.vigia-panel details')].find(d=>d.querySelector('summary').textContent.includes('Íris no celular')).open=true`
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.vigia-panel button')].find(b=>b.textContent==='Parear Íris no celular').click()`
+    )
+    await waitFor(`!!document.querySelector('.vigia-pairing')`, 'phone companion pairing')
+    await evaluate(`document.querySelector('.vigia-pairing').scrollIntoView()`)
+    await check('iris-celular-pareamento', 700, 650, (s) =>
+      s.text.includes('Adicionar à Tela de Início')
+    )
+    await evaluate(
+      `[...document.querySelectorAll('.vigia-panel button')].find(b=>b.textContent==='Desarmar proteção').click()`
+    )
+    await waitFor(`window.__uiTest.monitor().modo==='desarmado'`, 'disarmed state')
+    isolatedSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media'))
+    isolatedSession.setPermissionCheckHandler((_wc, permission) => permission === 'media')
+    await evaluate(`(async()=>{
+      const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});stream.getTracks().forEach(t=>t.stop());
+      const d=(await navigator.mediaDevices.enumerateDevices()).find(d=>d.kind==='videoinput');
+      const c=await window.api.central.salvar({id:'',nome:'Webcam simulada',ambiente:'Teste',tipo:'webcam',endereco:d.deviceId});
+      const m=window.__uiTest.monitor();m.ajustes.cameras.push({cameraId:c.id,zonas:[{id:'webcam',nome:'Teste',pontos:[{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}]}]});
+      await window.api.vigilancia.salvar(m.ajustes);await window.api.vigilancia.armar();await window.api.central.conectar(c.id);
+    })()`)
+    await waitFor(`window.__uiTest.quadros()>2`, 'background webcam captures frames')
+    await click('.sidebar button[title="Assistente"]')
+    const antes = await evaluate(`window.__uiTest.quadros()`)
+    await waitFor(`window.__uiTest.quadros()>${antes}+3`, 'webcam continues outside security view')
+    await evaluate(`window.api.central.pararTudo()`)
+    await delay(1500)
+    const parados = await evaluate(`window.__uiTest.quadros()`)
+    await delay(600)
+    assert.equal(await evaluate(`window.__uiTest.quadros()`), parados, 'Pause stops webcam capture')
+    await check(
+      'webcam-em-segundo-plano',
+      700,
+      650,
+      (s) => s.selected.includes('Assistente'),
+      false
     )
     assert.deepEqual(failures, [], `Runtime errors: ${failures.join('; ')}`)
     const report = {

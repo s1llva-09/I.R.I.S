@@ -44,10 +44,13 @@ declare global {
         testar: () => Promise<void>
         removerCelular: (id: string) => Promise<void>
         enderecos: () => Promise<string[]>
-        abrirCelular: (ip: string) => Promise<{url:string;qr:string;certificadoQr:string;impressao:string}>
+        abrirCelular: (
+          ip: string
+        ) => Promise<{ url: string; qr: string; certificadoQr: string; impressao: string }>
         revogarCelular: () => Promise<void>
       }
       central: {
+        falhaWebcam: (id: string, sessao: string, permissao: boolean) => void
         sair: () => Promise<void>
         quadro: (id: string) => Promise<import('../shared/cameras').QuadroCamera | null>
         webcam: (id: string, sessao: string, jpeg: string) => void

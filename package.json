@@ -27,7 +27,9 @@
     "teste:presenca": "node --test testes/presenca.cjs",
     "teste:melhorias": "electron-vite build && electron out/main/teste-melhorias.js",
     "teste:cameras": "electron-vite build && electron out/main/teste-cameras.js",
-    "teste:interface": "npm run build && node testes/interface.cjs"
+    "teste:interface": "npm run build && node testes/interface.cjs",
+    "teste:vigilancia": "electron-vite build && node testes/vigilancia.cjs",
+    "teste:detector": "electron-vite build && node testes/detector.cjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

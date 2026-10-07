@@ -971,16 +971,36 @@ export function limparSeguranca(tipo: 'imagens' | 'historico'): void {
   else throw new Error('Opção inválida')
 }
 
-db.exec(`CREATE TABLE IF NOT EXISTS eventos_perimetro (id TEXT PRIMARY KEY, momento INTEGER NOT NULL, dados TEXT NOT NULL)`)
-export function salvarEventoPerimetro(evento: import('../shared/vigilancia').EventoVigilancia): void {
-  db.prepare('INSERT OR REPLACE INTO eventos_perimetro (id,momento,dados) VALUES (?,?,?)').run(evento.id,evento.momento,JSON.stringify(evento))
-  db.prepare('DELETE FROM eventos_perimetro WHERE id NOT IN (SELECT id FROM eventos_perimetro ORDER BY momento DESC LIMIT 500)').run()
+db.exec(
+  `CREATE TABLE IF NOT EXISTS eventos_perimetro (id TEXT PRIMARY KEY, momento INTEGER NOT NULL, dados TEXT NOT NULL)`
+)
+export function salvarEventoPerimetro(
+  evento: import('../shared/vigilancia').EventoVigilancia
+): void {
+  db.prepare('INSERT OR REPLACE INTO eventos_perimetro (id,momento,dados) VALUES (?,?,?)').run(
+    evento.id,
+    evento.momento,
+    JSON.stringify(evento)
+  )
+  db.prepare(
+    'DELETE FROM eventos_perimetro WHERE id NOT IN (SELECT id FROM eventos_perimetro ORDER BY momento DESC LIMIT 500)'
+  ).run()
 }
-export function listarEventosPerimetro(dias=7): import('../shared/vigilancia').EventoVigilancia[] {
-  db.prepare('DELETE FROM eventos_perimetro WHERE momento < ?').run(Date.now()-Math.max(1,Math.min(30,dias))*86400000)
-  return (db.prepare('SELECT dados FROM eventos_perimetro ORDER BY momento DESC LIMIT 500').all() as {dados:string}[]).map(r=>JSON.parse(r.dados))
+export function listarEventosPerimetro(
+  dias = 7,
+  apenasPendentes = false
+): import('../shared/vigilancia').EventoVigilancia[] {
+  db.prepare('DELETE FROM eventos_perimetro WHERE momento < ?').run(
+    Date.now() - Math.max(1, Math.min(30, dias)) * 86400000
+  )
+  const consulta = apenasPendentes
+    ? "SELECT dados FROM eventos_perimetro WHERE json_extract(dados, '$.entrega') = 'pendente' ORDER BY momento ASC LIMIT 500"
+    : 'SELECT dados FROM eventos_perimetro ORDER BY momento DESC LIMIT 500'
+  return (db.prepare(consulta).all() as { dados: string }[]).map((r) => JSON.parse(r.dados))
 }
-export function apagarEventosPerimetro():void { db.prepare('DELETE FROM eventos_perimetro').run() }
+export function apagarEventosPerimetro(): void {
+  db.prepare('DELETE FROM eventos_perimetro').run()
+}
 
 /** Os alarmes de vigilância, do mais recente pro mais antigo (2.6). */
 export function eventosVigilancia(limite = 20): {

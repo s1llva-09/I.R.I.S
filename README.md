@@ -104,6 +104,94 @@ o certificado do seu computador; remova a confiança nas configurações do celu
 quando deixar de usar o recurso. Não compartilhe o QR de transmissão. Os testes
 usam Chromium com câmera simulada; Safari/iPhone e Android físicos exigem validação.
 
+### Fora de casa: proteção por áreas
+
+Em **Segurança → Fora de casa**, escolha uma câmera cadastrada no mosaico,
+conecte a prévia e marque de 3 a 12 pontos sobre o chão que deseja proteger.
+Dê um nome e clique em **Adicionar área**. É possível selecionar até cinco
+áreas por câmera, ou usar a imagem inteira. Salve e ative **Fora de casa**.
+
+- A análise usa um detector local de **pessoas** (YOLOS tiny), inclusive quando
+  o rosto não está visível. No primeiro uso, o modelo é baixado do Hugging Face;
+  depois fica no diretório de dados do aplicativo. Nenhum quadro é enviado a
+  uma API de IA. O reconhecimento facial do visor individual é independente.
+- O ponto entre os pés precisa permanecer na área durante o tempo configurado
+  e aparecer em pelo menos duas imagens diferentes. O intervalo entre alertas
+  vale por área. Isso reduz avisos de passagem rápida; não comprova invasão,
+  identidade ou presença física diante da câmera.
+- Câmeras protegidas continuam conectadas ao mudar de tela, minimizar ou fechar
+  a janela para a bandeja. A captura de webcams também permanece ativa. Sair
+  da Íris encerra o monitoramento. Ao recarregar a interface, fontes de rede
+  permanecem conectadas e webcams precisam retomar a captura. Se a interface
+  encerrar inesperadamente durante a proteção, a Íris tenta recarregá-la até
+  três vezes por minuto. Falhas persistentes ficam nos avisos de sinal/análise.
+- Uma câmera sem vídeo recente por 15 segundos gera um evento; a recuperação
+  gera outro. Fotos avulsas não são tratadas como vídeo. O painel mostra a idade
+  da análise, pessoas detectadas e falhas. Várias câmeras dividem um detector;
+  se a análise atrasar, reduza o número de câmeras protegidas.
+- A agenda pode atravessar a meia-noite e usa o horário do computador. Os dias
+  selecionados correspondem ao início do período. **Desarmar proteção** e
+  **Pausar todas** também desativam a agenda, evitando uma reativação inesperada.
+- O histórico guarda até 500 eventos por 1 a 30 dias; o PC exibe os últimos 100
+  e o celular, os últimos 50. Uma imagem de cada evento de pessoa é opcional,
+  desligada por padrão. Desativar essa opção afeta novas imagens; use **Apagar
+  histórico** para remover as anteriores. Não há gravação contínua de vídeo.
+
+O computador precisa permanecer ligado, com a Íris em execução. O aplicativo
+solicita ao sistema evitar suspensão automática enquanto protege, mas não impede
+desligamento, suspensão manual ou fechamento da tampa. Se o próprio computador
+ou sua internet cair, ele não consegue enviar um aviso de sua própria queda.
+Iluminação, obstruções e enquadramento influenciam a detecção; teste as áreas no
+ambiente real antes de depender dos alertas.
+
+### A própria Íris no celular
+
+Em **Fora de casa → Íris no celular**, escolha um endereço privado do PC e
+clique em **Parear Íris no celular**. O painel móvel tem apenas o essencial:
+estado da proteção, câmeras ao vivo, eventos e autorização de notificações.
+As regras e configurações ficam no computador.
+
+1. Instale e confie no certificado local pelo primeiro QR, conferindo a
+   impressão exibida no PC. As instruções são as mesmas do celular como câmera.
+2. Abra o segundo QR. No iPhone, Safari → Compartilhar → **Adicionar à Tela de
+   Início**. No Android, Chrome → **Instalar aplicativo** ou **Adicionar à tela
+   inicial**. Abra a Íris pelo ícone. Se pedir novo pareamento, copie o link
+   privado no PC e cole no campo do aplicativo instalado.
+3. Toque em **Ativar notificações** no celular. No PC, use **Enviar alerta de
+   teste** e confira o histórico e a notificação recebida.
+4. Para ver as câmeras e o histórico fora de casa, mantenha uma **VPN privada**
+   conectando PC e celular e pareie usando o endereço dessa VPN. O QR da LAN
+   funciona dentro da rede de casa; ele sozinho não fornece acesso por 4G/5G.
+
+O painel é servido por HTTPS na porta TCP **8798**; a **8799** fornece apenas o
+certificado público. O firewall e a VPN precisam permitir essas portas entre
+seus dispositivos. O servidor escuta apenas no endereço privado escolhido.
+A configuração de VPN, firewall e permissões no telefone depende do ambiente;
+não é feita automaticamente pelo aplicativo.
+
+Notificações usam Web Push do navegador e exigem internet no PC e no telefone.
+No iPhone, é necessário iOS 16.4 ou posterior e abrir o aplicativo instalado
+na tela inicial ([documentação do WebKit](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)).
+Depois de autorizadas, a página não precisa ficar aberta para receber avisos.
+A notificação contém o nome da câmera e o texto; imagens são consultadas apenas
+no painel autenticado. A fila tenta novamente após falhas transitórias, evita
+duplicar envios já aceitos para outros celulares e expira alertas após uma hora.
+**Aceito pelo serviço de notificações** não confirma que a pessoa recebeu ou leu.
+
+O link de pareamento é privado. O token sai da barra de endereço depois do
+pareamento, e a sessão usa cookie seguro inacessível ao JavaScript. **Revogar
+todos os acessos** invalida as sessões e remove os celulares da lista de alertas.
+**Remover notificações** desativa somente os avisos daquele aparelho; para
+revogar o acesso às imagens, revogue todos os acessos e pareie novamente os
+aparelhos autorizados. **Desconectar este navegador** encerra sua sessão e
+solicita o cancelamento da inscrição de notificações no navegador.
+
+O modo **Ativar privacidade** desarma a proteção, desliga a agenda, interrompe
+as câmeras e cancela alertas ainda pendentes. Eventos anteriores continuam no
+histórico até serem apagados ou vencerem a retenção. Avisos já enviados não
+podem ser recolhidos. A remoção dos registros é lógica, sem garantia de
+apagamento forense do SQLite ou de backups.
+
 ### Verificação
 
 ```bash
@@ -112,6 +200,8 @@ npm run teste:interface
 npm run teste:servidor
 npm run teste:melhorias
 npm run teste:cameras
+npm run teste:vigilancia
+npm run teste:detector
 ```
 
 O primeiro comando verifica perda/recuperação de sinal e o ciclo de vida do sensor
@@ -123,6 +213,16 @@ O terceiro verifica o servidor local e o envio de fotos pela página móvel em
 Chromium, incluindo redução de imagens grandes, erros HTTP e falhas de conexão.
 Uma câmera física, a qualidade do reconhecimento com pessoas reais e as conexões
 de rede precisam ser validadas no ambiente de uso.
+
+`teste:vigilancia` usa banco isolado e testa perímetros, horários, confirmação,
+queda/recuperação, cancelamento e fila de alertas com transporte simulado. Também
+abre o painel móvel em Chromium invisível, verificando HTTPS, autenticação,
+layout, histórico e revogação. Nenhum push real é enviado. `teste:detector`
+baixa o modelo e uma imagem pública do repositório Ultralytics, verifica pessoas
+reais nessa imagem, ausência de pessoas em imagem vazia e tratamento de JPEG
+inválido. Isso valida a integração, não mede a precisão em uma casa real.
+Push, instalação e conexão por VPN precisam ser confirmados em iPhone/Android
+físicos; não foram validados nesses aparelhos pelos testes automatizados.
 
 ## Recommended IDE Setup
 
