@@ -3,6 +3,7 @@ import Rosto from './Rosto'
 import { estadoDoRosto } from '../../reconhecimento'
 import Visor from './Visor'
 import { estadoSensor, type Leitura } from './presenca'
+import { Escudo } from './icones'
 
 /** Estado do reconhecimento e imagem da câmera para consulta no modo porta. */
 export default function Porta({
@@ -14,6 +15,7 @@ export default function Porta({
 }): JSX.Element {
   const estado = estadoDoRosto(visao)
   const alerta = estado === 'alerta'
+  const sensor = estadoSensor()
 
   const [agora, setAgora] = useState(() => new Date())
   useEffect(() => {
@@ -26,9 +28,12 @@ export default function Porta({
       <div className="door-header">
         <div>
           <h1>Íris · porta</h1>
-          <span>{visao.rostos < 0 ? 'sensor desligado' : `${visao.rostos} em quadro`}</span>
+          <span>Monitor de presença</span>
         </div>
-        <time>{agora.toLocaleTimeString('pt-BR')}</time>
+        <div className="door-clock">
+          <span>Horário local</span>
+          <time>{agora.toLocaleTimeString('pt-BR')}</time>
+        </div>
 
         {aoFechar && (
           <button onClick={aoFechar} className="security-button">
@@ -38,11 +43,34 @@ export default function Porta({
       </div>
 
       <div className="door-content">
-        <Rosto estado={estado} nome={visao.conhecidos.join(', ')} disponivel={visao.rostos >= 0} />
         <section className="door-feed" aria-label="Câmera do modo porta">
-          <h2>Imagem da câmera</h2>
-          <Visor ativo={estadoSensor().ativo} alerta={alerta} />
+          <div className="door-feed-heading">
+            <h2>Imagem da câmera</h2>
+            <span>Fonte do reconhecimento</span>
+          </div>
+          <Visor ativo={sensor.ativo} alerta={alerta} />
         </section>
+        <div className="door-presence">
+          <Rosto
+            estado={estado}
+            nome={visao.conhecidos.join(', ')}
+            disponivel={visao.rostos >= 0}
+          />
+          <dl className="door-readings" aria-label="Última leitura de presença">
+            <div>
+              <dt>Rostos na imagem</dt>
+              <dd>{visao.rostos < 0 ? '—' : visao.rostos}</dd>
+            </div>
+            <div>
+              <dt>Sem cadastro</dt>
+              <dd>{visao.rostos < 0 ? '—' : visao.desconhecidos}</dd>
+            </div>
+          </dl>
+          <p className="door-privacy">
+            <Escudo />
+            Os rostos são analisados neste computador.
+          </p>
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 .camera-control {
   padding: 24px;
   margin: 0 0 24px;
+  scroll-margin-top: 16px;
 }
 .camera-control-heading {
   display: flex;
@@ -9,8 +10,23 @@
   gap: 16px;
 }
 .camera-control h2 {
-  font-size: 22px;
-  margin: 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+.camera-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.camera-count {
+  border: 1px solid var(--color-fio-forte);
+  border-radius: 6px;
+  padding: 3px 7px;
+  color: var(--color-tinta-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .camera-control p {
   color: #a4acb9;
@@ -22,7 +38,46 @@
   align-items: end;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 20px 0;
+  padding: 18px 0;
+  border-top: 1px solid var(--color-fio);
+  margin-top: 20px;
+}
+.camera-layout-field {
+  display: grid;
+  gap: 7px;
+  color: var(--color-tinta-2);
+  font-size: 12px;
+}
+.camera-layout-options {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--color-fio-forte);
+  border-radius: 8px;
+  background: var(--color-sulco);
+  gap: 3px;
+}
+.camera-layout-options button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 5px;
+  padding: 6px 9px;
+  color: var(--color-tinta-3);
+}
+.camera-layout-options button:hover {
+  color: var(--color-tinta);
+  background: #242932;
+}
+.camera-layout-options button[aria-pressed='true'] {
+  color: #d6e3ff;
+  background: #2b3852;
+}
+.camera-control .camera-layout-options svg {
+  width: 16px;
+  height: 16px;
+}
+.camera-batch-connect {
+  margin-left: auto;
 }
 .camera-control label {
   display: grid;
@@ -47,7 +102,19 @@
   padding: 20px;
   border: 1px solid #3b4351;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin: 20px 0;
+  background: var(--color-sulco);
+}
+.camera-form-heading h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.camera-form-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-fio);
 }
 .camera-edit-form h3,
 .camera-edit-form > div,
@@ -58,7 +125,7 @@
   color: #a4acb9;
 }
 .camera-edit-form button {
-  margin-right: 10px;
+  margin-right: 0;
 }
 .camera-mosaic {
   display: grid;
@@ -77,8 +144,8 @@
   display: none;
 }
 .camera-card {
-  border: 1px solid #333b48;
-  border-radius: 14px;
+  border: 1px solid var(--color-fio-forte);
+  border-radius: 10px;
   overflow: hidden;
   background: #191c22;
 }
@@ -90,25 +157,41 @@
   padding: 14px 16px;
 }
 .camera-card small {
-  color: #8eaef6;
+  color: var(--color-tinta-3);
   font-size: 11px;
 }
 .camera-card h3 {
-  margin: 5px 0 0;
+  margin: 3px 0 0;
   font-size: 15px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .camera-card header > span {
   color: #a4acb9;
   font-size: 11px;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: 1px solid var(--color-fio);
+  border-radius: 5px;
+}
+.camera-connection i {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.camera-card header > .camera-waiting {
+  color: #e1c28e;
 }
 .camera-card header > .camera-online {
   color: #82c4a0;
 }
 .camera-tile-viewport {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   background: #0d0f13;
   overflow: hidden;
 }
@@ -155,18 +238,53 @@
 .camera-card footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-fio);
 }
 .camera-card button,
 .camera-pairing summary {
-  font-size: 11px;
+  font-size: 12px;
   color: #c4cbd7;
-  background: #2b313c;
-  border: 1px solid #333b48;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   cursor: pointer;
+}
+.camera-card footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.camera-control .camera-card footer svg {
+  width: 14px;
+  height: 14px;
+}
+.camera-card button:hover:not(:disabled) {
+  background: #262c36;
+  border-color: var(--color-fio-forte);
+}
+.camera-card footer .camera-connect {
+  border-color: var(--color-fio-forte);
+  background: #242932;
+  margin-right: auto;
+}
+.camera-card footer .camera-remove {
+  color: #aeb4be;
+}
+.camera-card footer .camera-remove:hover:not(:disabled) {
+  color: var(--color-perigo);
+  background: #352329;
+  border-color: #70434c;
+}
+.camera-card button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.camera-card-error {
+  margin: 0 12px 12px;
+  color: var(--color-perigo) !important;
 }
 .camera-card button:focus-visible {
   outline: 2px solid #8eaef6;
@@ -210,14 +328,55 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   text-align: center;
-  padding: 35px 15px;
-  border: 1px dashed #333b48;
-  border-radius: 14px;
+  padding: 28px 20px;
+  margin-top: 22px;
+  border: 1px solid var(--color-fio);
+  border-radius: 8px;
+  background: var(--color-sulco);
+}
+.camera-empty-emblem {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: #242a34;
+  border-radius: 10px;
+  margin-bottom: 5px;
+  color: var(--color-tinta-2);
+}
+.camera-control .camera-empty-emblem svg {
+  width: 26px;
+  height: 26px;
+}
+.camera-control-empty h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.camera-control-empty p {
+  max-width: 48ch;
+}
+.camera-control-empty button {
+  margin-top: 7px;
 }
 .camera-control-note {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
+  color: var(--color-tinta-3);
+  font-size: 12px;
+}
+.camera-control-note summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.camera-control .camera-control-note svg {
+  width: 14px;
+  height: 14px;
+}
+.camera-control-note p {
+  margin-top: 10px;
 }
 @media (max-width: 1100px) {
   .camera-columns-3 {
@@ -236,5 +395,8 @@
   }
   .camera-control {
     padding: 16px;
+  }
+  .camera-batch-connect {
+    margin-left: 0;
   }
 }

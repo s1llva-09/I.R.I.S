@@ -140,7 +140,11 @@ export default function VigilanciaPainel(): JSX.Element {
       (c) => !c.erro && c.ultimaAnalise !== null && agora - c.ultimaAnalise < 15000
     ).length ?? 0
   return (
-    <section className="security-panel vigia-panel" aria-labelledby="vigia-titulo">
+    <section
+      id="seguranca-protecao"
+      className="security-panel vigia-panel"
+      aria-labelledby="vigia-titulo"
+    >
       <div className="vigia-heading">
         <div>
           <p className="security-eyebrow">Proteção por áreas</p>
@@ -232,7 +236,16 @@ export default function VigilanciaPainel(): JSX.Element {
       {!!estado?.cameras.length && (
         <div className="vigia-health">
           {estado.cameras.map((s) => (
-            <div key={s.id} className={s.erro ? 'vigia-health-bad' : ''}>
+            <div
+              key={s.id}
+              className={
+                s.erro
+                  ? 'vigia-health-bad'
+                  : s.ultimaAnalise !== null && agora - s.ultimaAnalise < 15000
+                    ? 'vigia-health-ok'
+                    : ''
+              }
+            >
               <strong>{cameras.find((c) => c.id === s.id)?.nome ?? 'Câmera'}</strong>
               <span>
                 {s.erro ||

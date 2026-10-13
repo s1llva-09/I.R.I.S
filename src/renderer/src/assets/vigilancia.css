@@ -2,6 +2,7 @@
   padding: 24px;
   margin-block: 18px;
   background: var(--color-chapa);
+  scroll-margin-top: 16px;
 }
 .vigia-heading {
   display: flex;
@@ -10,11 +11,15 @@
   gap: 20px;
 }
 .vigia-heading h2 {
-  font-size: 26px;
+  font-size: 22px;
+  font-weight: 600;
   margin: 6px 0;
 }
 .vigia-heading p {
   color: var(--text-muted, #a4acb9);
+  font-size: 13px;
+  line-height: 1.7;
+  max-width: 66ch;
 }
 .vigia-mode {
   border: 1px solid #405369;
@@ -39,17 +44,22 @@
 .vigia-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 0;
   margin: 20px 0;
+  border: 1px solid var(--color-fio-forte);
+  border-radius: 8px;
+  overflow: hidden;
 }
 .vigia-metrics > div {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border: 1px solid #333b48;
-  border-radius: 12px;
+  border-right: 1px solid var(--color-fio-forte);
   padding: 15px;
-  background: #1d232b;
+  background: transparent;
+}
+.vigia-metrics > div:last-child {
+  border-right: 0;
 }
 .vigia-metrics strong {
   font-size: 25px;
@@ -80,7 +90,7 @@
   display: flex;
   flex-direction: column;
   padding: 12px;
-  border-left: 2px solid #82c4a0;
+  border-left: 2px solid var(--color-fio-forte);
   background: #1d232b;
   border-radius: 4px;
   gap: 6px;
@@ -91,6 +101,9 @@
 }
 .vigia-health .vigia-health-bad {
   border-color: #ed939d;
+}
+.vigia-health .vigia-health-ok {
+  border-color: var(--color-ok);
 }
 .vigia-details {
   border-top: 1px solid #333b48;
@@ -153,7 +166,7 @@
   margin: 12px 0;
 }
 .vigia-check input {
-  accent-color: #6cd8d5;
+  accent-color: var(--color-sinal);
 }
 .vigia-zone-editor {
   position: relative;
@@ -298,6 +311,12 @@
   }
   .vigia-metrics {
     grid-template-columns: 1fr 1fr;
+  }
+  .vigia-metrics > div:nth-child(2) {
+    border-right: 0;
+  }
+  .vigia-metrics > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--color-fio-forte);
   }
   .vigia-form-grid,
   .vigia-pairing {

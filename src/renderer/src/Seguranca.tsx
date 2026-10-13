@@ -424,10 +424,38 @@ export default function Seguranca({
           </h1>
           <p>Acompanhe as câmeras, configure a proteção e consulte os eventos.</p>
         </div>
-        <div className="security-heading-actions">
+        <div className="security-heading-return">
           <button className="security-button security-button-quiet" onClick={aoFechar}>
             Voltar ao assistente <Icone nome="arrow" />
           </button>
+        </div>
+      </div>
+
+      <nav className="security-section-nav" aria-label="Seções da central de segurança">
+        {[
+          ['seguranca-cameras', 'Câmeras'],
+          ['seguranca-protecao', 'Fora de casa'],
+          ['seguranca-reconhecimento', 'Reconhecimento'],
+          ['atividade-titulo', 'Eventos']
+        ].map(([id, titulo]) => (
+          <button
+            key={id}
+            onClick={() => document.getElementById(id)?.scrollIntoView({ block: 'start' })}
+          >
+            {titulo}
+          </button>
+        ))}
+        <button onClick={abrirFontes}>Conexões</button>
+      </nav>
+      <CentralCameras />
+      <VigilanciaPainel />
+      <div id="seguranca-reconhecimento" className="security-section-heading">
+        <div>
+          <h2>Reconhecimento facial</h2>
+          <p>Cadastro e análise da fonte selecionada no visor.</p>
+        </div>
+        <div className="security-heading-actions">
+          {' '}
           <button
             className={`security-button ${ligada ? '' : 'security-button-primary'}`}
             disabled={!!ocupado || !configPronta}
@@ -437,13 +465,6 @@ export default function Seguranca({
             {ocupado === 'sensor' ? 'Atualizando…' : ligada ? 'Pausar sensor' : 'Ativar câmera'}
           </button>
         </div>
-      </div>
-
-      <CentralCameras />
-      <VigilanciaPainel />
-      <div className="security-section-heading">
-        <h2>Reconhecimento facial</h2>
-        <p>Cadastro e análise da fonte selecionada no visor.</p>
       </div>
       <div className="security-metrics" aria-label="Resumo do monitoramento">
         {[

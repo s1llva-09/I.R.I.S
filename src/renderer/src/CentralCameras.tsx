@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import type { CameraSalva, CameraPainel } from '../../shared/cameras'
 import { listarCameras } from './presenca'
-import { Adicionar, Camera } from './icones'
+import { Adicionar, Camera, Colunas, Iniciar, Pausa, Ampliar, Escudo } from './icones'
 import './assets/cameras.css'
 
 const novaCamera = (): CameraSalva => ({
@@ -16,12 +16,14 @@ function CameraCard({
   camera,
   editar,
   remover,
-  alternar
+  alternar,
+  ocupado
 }: {
   camera: CameraPainel
   editar: () => void
   remover: () => void
   alternar: () => void
+  ocupado: boolean
 }): JSX.Element {
   const card = useRef<HTMLElement>(null)
   const [imagem, setImagem] = useState('')
@@ -69,7 +71,10 @@ function CameraCard({
           <small>{camera.ambiente}</small>
           <h3>{camera.nome}</h3>
         </div>
-        <span className={sinal ? 'camera-online' : ''}>
+        <span
+          className={`camera-connection ${sinal ? 'camera-online' : ativa ? 'camera-waiting' : ''}`}
+        >
+          <i aria-hidden="true" />
           {!ativa
             ? 'Pausada'
             : sinal
@@ -111,7 +116,8 @@ function CameraCard({
         )}
       </div>
       <footer>
-        <button onClick={alternar}>
+        <button className="camera-connect" onClick={alternar} disabled={ocupado}>
+          {ativa ? <Pausa /> : <Iniciar />}
           {ativa ? 'Pausar' : camera.tipo === 'celular' ? 'Conectar celular' : 'Conectar'}
         </button>
         <button
@@ -119,11 +125,21 @@ function CameraCard({
             void card.current?.requestFullscreen().catch(() => setErro('Não foi possível ampliar.'))
           }
         >
+          <Ampliar />
           Ampliar
         </button>
-        <button onClick={editar}>Editar</button>
-        <button onClick={remover}>Remover</button>
+        <button onClick={editar} disabled={ocupado}>
+          Editar
+        </button>
+        <button className="camera-remove" onClick={remover} disabled={ocupado}>
+          Remover
+        </button>
       </footer>
+      {erro && sinal && (
+        <p className="camera-card-error" role="alert">
+          {erro}
+        </p>
+      )}
       {camera.pareamento && ativa && (
         <details className="camera-pairing">
           <summary>QR de {camera.nome} · conectar celular</summary>
@@ -225,83 +241,105 @@ export default function CentralCameras(): JSX.Element {
   }
   const ambientes = [...new Set(cameras.map((c) => c.ambiente))].sort()
   return (
-    <section className="security-panel camera-control" aria-labelledby="central-cameras-titulo">
+    <section
+      id="seguranca-cameras"
+      className="security-panel camera-control"
+      aria-labelledby="central-cameras-titulo"
+      aria-busy={ocupado}
+    >
       <div className="camera-control-heading">
         <div>
-          <p className="security-eyebrow">Visualização ao vivo</p>
-          <h2 id="central-cameras-titulo">Suas câmeras</h2>
-          <p>Veja cada ambiente em um só lugar. {cameras.length}/12 câmeras cadastradas.</p>
+          <div className="camera-title-row">
+            <h2 id="central-cameras-titulo">Suas câmeras</h2>
+            <span
+              className="camera-count"
+              aria-label={`${cameras.length} de 12 câmeras cadastradas`}
+            >
+              {cameras.length}/12
+            </span>
+          </div>
+          <p>Imagens e conexões organizadas por ambiente.</p>
         </div>
         <button
           className="security-button security-button-primary"
+          disabled={ocupado || cameras.length >= 12}
+          title={cameras.length >= 12 ? 'Limite de 12 câmeras atingido' : undefined}
           onClick={() => editar(novaCamera())}
         >
           <Adicionar width={16} height={16} /> Adicionar câmera
         </button>
       </div>
-      <div className="camera-toolbar">
-        <label>
-          Ambiente{' '}
-          <select
-            aria-label="Filtrar ambiente"
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {ambientes.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Visualização{' '}
-          <select
-            aria-label="Colunas do mosaico"
-            value={colunas}
-            onChange={(e) => setColunas(Number(e.target.value))}
-          >
-            <option value={1}>Uma coluna</option>
-            <option value={2}>Duas colunas</option>
-            <option value={3}>Três colunas</option>
-          </select>
-        </label>
-        <button
-          className="security-button"
-          disabled={ocupado || !cameras.length}
-          onClick={() =>
-            void executar(async () => {
-              const ciclo = geracao.current
-              const falhas: string[] = []
-              for (const c of cameras) {
-                if (!vivo.current || ciclo !== geracao.current) break
-                {
-                  try {
-                    await window.api.central.conectar(c.id)
-                  } catch (e) {
-                    falhas.push(`${c.nome}: ${(e as Error).message}`)
+      {cameras.length > 0 && (
+        <div className="camera-toolbar">
+          <label>
+            Ambiente{' '}
+            <select
+              aria-label="Filtrar ambiente"
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {ambientes.map((a) => (
+                <option key={a}>{a}</option>
+              ))}
+            </select>
+          </label>
+          <div className="camera-layout-field">
+            <span>Visualização</span>
+            <div className="camera-layout-options" role="group" aria-label="Colunas do mosaico">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  aria-label={`${n} ${n === 1 ? 'coluna' : 'colunas'}`}
+                  aria-pressed={colunas === n}
+                  title={`${n} ${n === 1 ? 'coluna' : 'colunas'}`}
+                  onClick={() => setColunas(n)}
+                >
+                  <Colunas quantidade={n} />
+                  <span>{n}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            className="security-button camera-batch-connect"
+            disabled={ocupado || !cameras.length}
+            onClick={() =>
+              void executar(async () => {
+                const ciclo = geracao.current
+                const falhas: string[] = []
+                for (const c of cameras) {
+                  if (!vivo.current || ciclo !== geracao.current) break
+                  {
+                    try {
+                      await window.api.central.conectar(c.id)
+                    } catch (e) {
+                      falhas.push(`${c.nome}: ${(e as Error).message}`)
+                    }
                   }
                 }
-              }
-              if (falhas.length) throw new Error(falhas.join(' · '))
-            })
-          }
-        >
-          Conectar todas
-        </button>
-        <button
-          className="security-button"
-          onClick={() => {
-            geracao.current++
+                if (falhas.length) throw new Error(falhas.join(' · '))
+              })
+            }
+          >
+            Conectar todas
+          </button>
+          <button
+            className="security-button"
+            onClick={() => {
+              geracao.current++
 
-            void window.api.central
-              .pararTudo()
-              .then(atualizar)
-              .catch(() => setErro('Não foi possível encerrar as conexões.'))
-          }}
-        >
-          Pausar todas
-        </button>
-      </div>
+              void window.api.central
+                .pararTudo()
+                .then(atualizar)
+                .catch(() => setErro('Não foi possível encerrar as conexões.'))
+            }}
+          >
+            Pausar todas
+          </button>
+        </div>
+      )}
       {erro && (
         <p role="alert" className="security-source-error">
           {erro}
@@ -319,7 +357,10 @@ export default function CentralCameras(): JSX.Element {
             })
           }}
         >
-          <h3>{form.id ? 'Editar câmera' : 'Adicionar câmera'}</h3>
+          <div className="camera-form-heading">
+            <h3>{form.id ? 'Editar câmera' : 'Adicionar câmera'}</h3>
+            <p>Identifique o ambiente e escolha a origem da imagem.</p>
+          </div>
           <label>
             Nome
             <input
@@ -341,7 +382,7 @@ export default function CentralCameras(): JSX.Element {
             />
           </label>
           <label>
-            Tipo
+            Origem da imagem
             <select
               value={form.tipo}
               onChange={(e) =>
@@ -405,7 +446,7 @@ export default function CentralCameras(): JSX.Element {
           {form.tipo === 'celular' && (
             <p>Salve e clique em Conectar celular no cartão. Cada celular recebe seu próprio QR.</p>
           )}
-          <div>
+          <div className="camera-form-actions">
             <button className="security-button security-button-primary" disabled={ocupado}>
               Salvar câmera
             </button>
@@ -440,11 +481,17 @@ export default function CentralCameras(): JSX.Element {
           <button onClick={() => setRemocao(null)}>Cancelar</button>
         </div>
       )}
-      {!cameras.length && (
+      {!cameras.length && !form && (
         <div className="camera-control-empty">
-          <Camera width={24} height={24} />
-          <h3>Nenhuma câmera cadastrada</h3>
-          <p>Adicione uma câmera e informe o ambiente para começar.</p>
+          <div className="camera-empty-emblem">
+            <Camera width={28} height={28} />
+          </div>
+          <h3>Adicione sua primeira câmera</h3>
+          <p>Conecte uma câmera de rede, uma webcam ou o celular para acompanhar cada ambiente.</p>
+          <button className="security-button" onClick={() => editar(novaCamera())}>
+            <Adicionar />
+            Adicionar câmera
+          </button>
         </div>
       )}
       <div className={`camera-mosaic camera-columns-${colunas}`}>
@@ -454,6 +501,7 @@ export default function CentralCameras(): JSX.Element {
               key={`${c.id}:${c.sessao ?? ''}`}
               camera={c}
               editar={() => editar(c)}
+              ocupado={ocupado}
               remover={() => setRemocao(c)}
               alternar={() => {
                 if (ocupado) return
@@ -466,11 +514,17 @@ export default function CentralCameras(): JSX.Element {
           </div>
         ))}
       </div>
-      <p className="camera-control-note">
-        Visualização simultânea, sem gravação de vídeo. Câmeras protegidas continuam monitorando ao
-        sair desta tela ou minimizar a Íris. O reconhecimento facial abaixo analisa somente a fonte
-        selecionada no visor individual.
-      </p>
+      <details className="camera-control-note">
+        <summary>
+          <Escudo />
+          Sobre o monitoramento das câmeras
+        </summary>
+        <p>
+          Visualização simultânea, sem gravação de vídeo. Câmeras protegidas continuam monitorando
+          ao sair desta tela ou minimizar a Íris. O reconhecimento facial analisa somente a fonte
+          selecionada no visor individual.
+        </p>
+      </details>
     </section>
   )
 }

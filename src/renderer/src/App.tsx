@@ -541,7 +541,10 @@ export default function App(): JSX.Element {
           ) : (
             <div className="space-y-7">
               {mensagens.map((m, i) => (
-                <article key={i} className="flex gap-5">
+                <article
+                  key={i}
+                  className={`conversation-entry flex gap-5 ${m.role === 'user' ? 'is-user' : m.gatilho ? 'is-notice' : 'is-assistant'}`}
+                >
                   {/* A calha é onde a interface diz QUEM falou, então é onde a
                     diferença tem que aparecer: um aviso automático não é uma
                     resposta, e ler os dois como "ÍRIS" apagaria a única coisa
@@ -646,6 +649,7 @@ export default function App(): JSX.Element {
               rows={1}
               placeholder="Escreva uma pergunta ou um comando"
               aria-label="Comando para a Íris"
+              aria-describedby="composer-ajuda"
               className="max-h-40 min-w-0 flex-1 resize-none border-none bg-transparent py-1.5 leading-[1.65] text-tinta caret-sinal outline-none select-text placeholder:text-tinta-3 focus-visible:outline-none"
             />
             <button
@@ -658,7 +662,7 @@ export default function App(): JSX.Element {
               <Enviar width={17} height={17} />
             </button>
           </div>
-          <div className="composer-help">
+          <div className="composer-help" id="composer-ajuda">
             <span>Consultas e comandos</span>
             <span>Enter para enviar · Shift + Enter para nova linha</span>
           </div>

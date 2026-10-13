@@ -193,3 +193,44 @@ export function Externo(props: Props): JSX.Element {
     </Base>
   )
 }
+
+export function Pausa(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M5 3v10M11 3v10" strokeWidth="2.5" />
+    </Base>
+  )
+}
+
+export function Iniciar(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="m5 2.5 8 5.5-8 5.5z" />
+    </Base>
+  )
+}
+
+export function Ampliar(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M6 2H2v4m8-4h4v4M2 10v4h4m4 0h4v-4" />
+    </Base>
+  )
+}
+
+export function Colunas({ quantidade, ...props }: Props & { quantidade: number }): JSX.Element {
+  return (
+    <Base {...props}>
+      {Array.from({ length: quantidade }, (_, i) => (
+        <rect
+          key={i}
+          x={2 + i * (12 / quantidade)}
+          y="3"
+          width={12 / quantidade - 1}
+          height="10"
+          rx="0.5"
+        />
+      ))}
+    </Base>
+  )
+}

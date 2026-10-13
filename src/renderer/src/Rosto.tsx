@@ -47,7 +47,9 @@ export default function Rosto({
         <strong className="presence-name">{nome}</strong>
       )}
       <div className="presence-status">
-        <span className="status-dot" />
+        <span
+          className={`status-dot ${disponivel ? (estado === 'alerta' ? 'is-alert' : 'is-on') : ''}`}
+        />
         {disponivel ? 'Leitura local' : 'Sem análise disponível'}
       </div>
     </section>

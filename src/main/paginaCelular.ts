@@ -40,9 +40,23 @@ input { font: inherit; color: #eef0f4; border: 1px solid #39414f; border-radius:
 label { font-size: 14px; }
 [hidden] { display: none !important; }
 @media (max-width: 600px) { body { padding: 24px 18px 32px; } header { align-items: flex-start; } h1 { font-size: 26px; } .panel, article { padding: 16px; } main { grid-template-columns: minmax(0,1fr); } }
+
+.mobile-caption { margin: 0 0 8px; font-size: 12px; color: #969da9; }
+.mobile-protection #resumo { font-size: 13px; line-height: 1.7; }
+.mobile-protection .acoes { margin-bottom: 0; }
+.mobile-help details { border: 0; padding: 0; }
+.mobile-scope { font-size: 12px; line-height: 1.7; }
+nav { position: sticky; top: 12px; z-index: 10; background: #191c22; padding: 4px; border: 1px solid #2b3039; border-radius: 8px; gap: 4px; }
+nav button { flex: 1; text-align: center; border-radius: 5px; }
+nav button[aria-pressed=true] { background: #2b3852; border-color: transparent; }
+main article { padding: 16px 0 0; overflow: hidden; }
+main article h2, main article p { margin-left: 16px; margin-right: 16px; overflow-wrap: anywhere; }
+main article img { display: block; border-radius: 0; margin-top: 14px; }
+#sair { background: transparent; font-size: 12px; margin-top: 8px; }
+.panel, article { overflow-wrap: anywhere; }
 </style></head><body><header><div><small>Íris</small><h1>Segurança</h1></div><span id="conexao">Conectando</span></header>
-<section class="panel"><strong id="status">Verificando o computador…</strong><p id="resumo" class="muted"></p><div class="acoes"><button id="notificar" class="primary">Ativar notificações</button><button id="atualizar">Atualizar</button></div><p id="erro" role="status"></p><details><summary>Instalar a Íris no celular</summary><p>iPhone: Safari → Compartilhar → Adicionar à Tela de Início. Abra a Íris pelo ícone e toque em Ativar notificações. Requer iOS 16.4 ou mais recente.</p><p>Android: no menu do Chrome, use Instalar aplicativo ou Adicionar à tela inicial. Depois autorize as notificações.</p><p>Fora de casa, conecte a VPN privada para ver as câmeras e o histórico. Alertas push precisam de internet no computador e no celular. Não é necessário deixar a tela aberta para receber notificações após instalar e autorizar.</p></details></section>
-<section id="parear" class="panel" hidden><label for="link">Cole o link privado de pareamento mostrado no PC</label><input id="link" type="password" autocomplete="off" style="width:100%;padding:12px;margin:10px 0"><button id="confirmar">Conectar à Íris</button></section><nav><button data-aba="cameras" aria-pressed="true">Câmeras</button><button data-aba="eventos" aria-pressed="false">Eventos</button></nav><main id="cameras"></main><section id="eventos" hidden></section><p class="muted">Somente consulta. Áreas protegidas, horários e configurações são ajustados no computador.</p><button id="sair">Desconectar este navegador</button>
+<section class="panel mobile-protection" aria-labelledby="status"><p class="mobile-caption">Proteção do ambiente</p><strong id="status">Verificando o computador…</strong><p id="resumo" class="muted"></p><div class="acoes"><button id="notificar" class="primary">Ativar notificações</button><button id="atualizar">Atualizar</button></div><p id="erro" role="status"></p></section>
+<section id="parear" class="panel" hidden><label for="link">Cole o link privado de pareamento mostrado no PC</label><input id="link" type="password" autocomplete="off" style="width:100%;padding:12px;margin:10px 0"><button id="confirmar">Conectar à Íris</button></section><nav><button data-aba="cameras" aria-pressed="true">Câmeras</button><button data-aba="eventos" aria-pressed="false">Eventos</button></nav><main id="cameras"></main><section id="eventos" hidden></section><section class="panel mobile-help"><details><summary>Instalar a Íris no celular</summary><p>iPhone: Safari → Compartilhar → Adicionar à Tela de Início. Abra a Íris pelo ícone e toque em Ativar notificações. Requer iOS 16.4 ou mais recente.</p><p>Android: no menu do Chrome, use Instalar aplicativo ou Adicionar à tela inicial. Depois autorize as notificações.</p><p>Fora de casa, conecte a VPN privada para ver as câmeras e o histórico. Alertas push precisam de internet no computador e no celular. Não é necessário deixar a tela aberta para receber notificações após instalar e autorizar.</p></details></section><p class="muted mobile-scope">Somente consulta. Áreas protegidas, horários e configurações são ajustados no computador.</p><button id="sair">Desconectar este navegador</button>
 <script>
 const erro=document.getElementById('erro'),status=document.getElementById('status'),resumo=document.getElementById('resumo');let versao=0,assinaturaEventos='',ativo=true,aba=new URLSearchParams(location.search).has('evento')?'eventos':'cameras',timer=null,ocupado=false;
 function mudar(){document.getElementById('cameras').hidden=aba!=='cameras';document.getElementById('eventos').hidden=aba!=='eventos';document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.aba===aba))}document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{aba=b.dataset.aba;mudar();atualizar()});mudar();

@@ -217,6 +217,10 @@ export function BoasVindas({
       <span className="eyebrow">Consultas e comandos</span>
       <h1>Assistente</h1>
       <p>Consulte o computador, execute comandos e acompanhe suas câmeras.</p>
+      <div className="welcome-shortcuts-title">
+        <h2>Acesso rápido</h2>
+        <span>Selecione uma ação</span>
+      </div>
       <div className="welcome-actions">
         <button onClick={aoSeguranca}>
           <Escudo width={23} height={23} />
