@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import Visor from './Visor'
 import CentralCameras from './CentralCameras'
+import { Adicionar, Externo, Fechar } from './icones'
 import VigilanciaPainel from './VigilanciaPainel'
 import SegurancaExtras from './SegurancaExtras'
 import { diagnosticarImagem } from './diagnostico'
@@ -417,13 +418,11 @@ export default function Seguranca({
       />
       <div className="security-page-heading">
         <div>
-          <p className="security-eyebrow">
-            <span /> SENTINELA / VISÃO COMPUTACIONAL
-          </p>
+          <p className="security-eyebrow">Monitoramento</p>
           <h1>
             Central de <span>segurança</span>
           </h1>
-          <p>Seu ambiente em foco. Cada sinal, uma decisão informada.</p>
+          <p>Acompanhe as câmeras, configure a proteção e consulte os eventos.</p>
         </div>
         <div className="security-heading-actions">
           <button className="security-button security-button-quiet" onClick={aoFechar}>
@@ -442,33 +441,37 @@ export default function Seguranca({
 
       <CentralCameras />
       <VigilanciaPainel />
+      <div className="security-section-heading">
+        <h2>Reconhecimento facial</h2>
+        <p>Cadastro e análise da fonte selecionada no visor.</p>
+      </div>
       <div className="security-metrics" aria-label="Resumo do monitoramento">
         {[
           {
             icon: 'camera' as const,
-            label: 'FONTE DO RECONHECIMENTO',
-            value: sinal ? '01' : '00',
+            label: 'Fonte do reconhecimento',
+            value: sinal ? '1' : '0',
             detail: sinal ? fonteNome : 'Nenhuma imagem disponível',
             color: 'cyan'
           },
           {
             icon: 'people' as const,
-            label: 'ROSTOS DETECTADOS',
-            value: analiseAtual ? String(visao.rostos).padStart(2, '0') : '—',
+            label: 'Rostos detectados',
+            value: analiseAtual ? String(visao.rostos) : '—',
             detail: analiseAtual ? 'Na leitura mais recente' : 'Aguardando análise',
             color: 'purple'
           },
           {
             icon: 'shield' as const,
-            label: 'PESSOAS AUTORIZADAS',
-            value: dados ? String(dados.rostos.length).padStart(2, '0') : '—',
+            label: 'Pessoas autorizadas',
+            value: dados ? String(dados.rostos.length) : '—',
             detail: 'Cadastros salvos neste dispositivo',
             color: 'green'
           },
           {
             icon: 'pulse' as const,
-            label: 'ALARMES RECENTES',
-            value: dados ? String(dados.alarmes.length).padStart(2, '0') : '—',
+            label: 'Alarmes recentes',
+            value: dados ? String(dados.alarmes.length) : '—',
             detail: 'Últimos registros · até 10 eventos',
             color: 'amber'
           }
@@ -568,19 +571,12 @@ export default function Seguranca({
               <Icone nome="pulse" />
               <h2 id="analise-titulo">Análise do ambiente</h2>
             </div>
-            <span className="security-micro-label">LOCAL</span>
-          </div>
-          <div
-            className={`security-analysis-emblem ${alerta ? 'is-alert' : ''}`}
-            aria-hidden="true"
-          >
-            <Icone nome={alerta ? 'people' : 'shield'} />
-            <span />
+            <span className="security-micro-label">Local</span>
           </div>
           <div className="security-analysis-copy" aria-live="polite">
             <span className={`security-status ${alerta ? 'is-alert' : ''}`}>
               <i />
-              {alerta ? 'ATENÇÃO NECESSÁRIA' : estadoNome.toUpperCase()}
+              {alerta ? 'Atenção necessária' : estadoNome}
             </span>
             <h3>{analiseTitulo}</h3>
             <p>{analiseTexto}</p>
@@ -634,7 +630,7 @@ export default function Seguranca({
             aria-label="Dispensar mensagem"
             disabled={!!ocupado}
           >
-            ×
+            <Fechar width={14} height={14} />
           </button>
         </div>
       )}
@@ -803,7 +799,7 @@ export default function Seguranca({
             ) : (
               <div className="security-empty">
                 <Icone nome="people" />
-                <h3>{dados ? 'Sua lista começa aqui' : 'Carregando cadastros…'}</h3>
+                <h3>{dados ? 'Nenhuma pessoa cadastrada' : 'Carregando cadastros…'}</h3>
                 <p>Adicione uma pessoa para comparar os rostos detectados na imagem.</p>
               </div>
             )}
@@ -818,7 +814,7 @@ export default function Seguranca({
                 ultimaFotoCadastro.current = null
               }}
             >
-              <span>+</span> Cadastrar pessoa
+              <Adicionar width={15} height={15} /> Cadastrar pessoa
             </button>
           </div>
           {cadastroAberto && (
@@ -920,7 +916,7 @@ export default function Seguranca({
               target="_blank"
               rel="noreferrer"
             >
-              Guia do Camo ↗
+              Guia do Camo <Externo width={13} height={13} />
             </a>
           </div>
           <div>
@@ -935,7 +931,7 @@ export default function Seguranca({
               target="_blank"
               rel="noreferrer"
             >
-              Requisitos e passo a passo ↗
+              Requisitos e passo a passo <Externo width={13} height={13} />
             </a>
           </div>
           <div>
@@ -1257,9 +1253,7 @@ export default function Seguranca({
         </div>
       </details>
       <footer className="security-page-footer">
-        <span>
-          <span className="security-tiny-dot" /> ÍRIS SENTINELA
-        </span>
+        <span>Íris</span>
         <span>Visibilidade para decidir. Controle para agir.</span>
       </footer>
     </div>

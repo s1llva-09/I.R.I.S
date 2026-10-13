@@ -2,26 +2,20 @@
 @import './shell.css';
 
 @theme {
-  --color-fundo: #070b14;
-  --color-chapa: #0d1422;
-  --color-sulco: #050810;
-
-  --color-tinta: #edf3fc;
-  --color-tinta-2: #a5b2c8;
-  --color-tinta-3: #7e8ea8;
-
-  --color-sinal: #63dcf2;
-
-  --color-hud: #63dcf2;
-  --color-info: #a392ff;
-
-  --color-ok: #73e2ba;
-  --color-perigo: #ff788b;
-
-  --color-fio: rgba(234, 242, 246, 0.1);
-  --color-fio-forte: rgba(234, 242, 246, 0.22);
-
-  --font-hud: 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+  --color-fundo: #101216;
+  --color-chapa: #191c22;
+  --color-sulco: #13161b;
+  --color-tinta: #eef0f4;
+  --color-tinta-2: #bdc2cc;
+  --color-tinta-3: #969da9;
+  --color-sinal: #8eaef6;
+  --color-hud: #8eaef6;
+  --color-info: #a4b9e8;
+  --color-ok: #82c4a0;
+  --color-perigo: #ed939d;
+  --color-fio: #2b3039;
+  --color-fio-forte: #424a58;
+  --font-hud: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
 }
@@ -31,25 +25,24 @@ body,
 #root {
   height: 100%;
 }
-
 body {
   margin: 0;
   background: var(--color-fundo);
   color: var(--color-tinta);
   font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-
   user-select: none;
+  color-scheme: dark;
 }
-
 ::selection {
-  background: color-mix(in srgb, var(--color-sinal) 30%, transparent);
-  color: var(--color-tinta);
+  background: #38507a;
+  color: #fff;
 }
-
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-fio-forte) transparent;
+  scrollbar-color: #424a58 transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -59,91 +52,40 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--color-fio-forte);
+  background: #424a58;
   border: 3px solid var(--color-fundo);
-  border-radius: 999px;
+  border-radius: 8px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--color-tinta-3);
+  background: #626b7a;
 }
-
 :focus-visible:not(textarea) {
-  outline: 1px solid var(--color-sinal);
-  outline-offset: -1px;
+  outline: 2px solid var(--color-sinal);
+  outline-offset: 3px;
 }
-
 .colchetes {
-  --c: var(--color-fio-forte);
-  --e: 11px;
-  background-image:
-    linear-gradient(var(--c), var(--c)), linear-gradient(var(--c), var(--c)),
-    linear-gradient(var(--c), var(--c)), linear-gradient(var(--c), var(--c)),
-    linear-gradient(var(--c), var(--c)), linear-gradient(var(--c), var(--c)),
-    linear-gradient(var(--c), var(--c)), linear-gradient(var(--c), var(--c));
-  background-repeat: no-repeat;
-  background-size:
-    var(--e) 1px,
-    1px var(--e),
-    var(--e) 1px,
-    1px var(--e),
-    var(--e) 1px,
-    1px var(--e),
-    var(--e) 1px,
-    1px var(--e);
-  background-position:
-    left top,
-    left top,
-    right top,
-    right top,
-    left bottom,
-    left bottom,
-    right bottom,
-    right bottom;
+  border: 1px solid var(--color-fio);
+  border-radius: 8px;
 }
-
-.colchetes-vivo {
-  --c: var(--color-sinal);
-}
-
+.colchetes-vivo,
 .colchetes-dado {
-  --c: color-mix(in srgb, var(--color-hud) 55%, transparent);
+  border-color: var(--color-fio-forte);
 }
-
 .colchetes-alerta {
-  --c: var(--color-perigo);
+  border-color: var(--color-perigo);
 }
-
-@keyframes destravar {
-  0% {
-    opacity: 0;
-    transform: rotate(-1.6deg) scaleX(0.92);
-    clip-path: inset(0 50% 0 0);
-  }
-  55% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-    clip-path: inset(0 0 0 0);
-  }
-}
-.destravar {
-  animation: destravar 460ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes varrer {
+@keyframes aparecer {
   from {
-    clip-path: inset(0 100% 0 0);
+    opacity: 0;
   }
   to {
-    clip-path: inset(0 0 0 0);
+    opacity: 1;
   }
 }
+.destravar,
 .anunciador {
-  animation: varrer 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: aparecer 160ms ease-out;
 }
-
 @keyframes girar {
   to {
     transform: rotate(360deg);
@@ -153,7 +95,6 @@ body {
   animation: girar 1.1s linear infinite;
   transform-origin: center;
 }
-
 @keyframes piscar {
   0%,
   49% {
@@ -165,71 +106,14 @@ body {
   }
 }
 .cursor {
-  animation: piscar 1.06s step-end infinite;
+  animation: piscar 1.1s step-end infinite;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .anunciador,
-  .cursor,
-  .arco,
-  .destravar {
-    animation: none;
-  }
-}
-
 .reticula {
   position: relative;
 }
-.reticula::before,
-.reticula::after {
-  content: '';
-  position: absolute;
-  inset: 6px;
-  pointer-events: none;
-  border-color: var(--color-fio-forte);
-  border-style: solid;
-}
-
-.reticula::before {
-  border-width: 1px 0 0 1px;
-  border-right: 0;
-  border-bottom: 0;
-  clip-path: polygon(0 0, 14px 0, 14px 1px, 1px 1px, 1px 14px, 0 14px);
-}
-.reticula::after {
-  border-width: 0 1px 1px 0;
-  clip-path: polygon(
-    100% 100%,
-    calc(100% - 14px) 100%,
-    calc(100% - 14px) calc(100% - 1px),
-    calc(100% - 1px) calc(100% - 1px),
-    calc(100% - 1px) calc(100% - 14px),
-    100% calc(100% - 14px)
-  );
-}
-
-@keyframes alarmar {
-  0%,
-  100% {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-perigo) 55%, transparent);
-  }
-  50% {
-    box-shadow:
-      inset 0 0 0 2px var(--color-perigo),
-      inset 0 0 34px -8px color-mix(in srgb, var(--color-perigo) 45%, transparent);
-  }
-}
 .alarme {
-  animation: alarmar 1.8s ease-in-out infinite;
+  box-shadow: inset 0 0 0 2px var(--color-perigo);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .alarme {
-    animation: none;
-    box-shadow: inset 0 0 0 2px var(--color-perigo);
-  }
-}
-
 .regua {
   display: flex;
   align-items: center;
@@ -240,4 +124,13 @@ body {
   flex: 1;
   height: 1px;
   background: var(--color-fio);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

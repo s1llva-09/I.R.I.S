@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import type { CameraSalva, CameraPainel } from '../../shared/cameras'
 import { listarCameras } from './presenca'
+import { Adicionar, Camera } from './icones'
 import './assets/cameras.css'
 
 const novaCamera = (): CameraSalva => ({
@@ -86,7 +87,7 @@ function CameraCard({
         />
         {!sinal && (
           <div className="camera-tile-empty">
-            <span>◈</span>
+            <Camera width={24} height={24} />
             <strong>
               {!ativa
                 ? 'Pronta para conectar'
@@ -227,7 +228,7 @@ export default function CentralCameras(): JSX.Element {
     <section className="security-panel camera-control" aria-labelledby="central-cameras-titulo">
       <div className="camera-control-heading">
         <div>
-          <p className="security-eyebrow">AMBIENTES / MULTICÂMERAS</p>
+          <p className="security-eyebrow">Visualização ao vivo</p>
           <h2 id="central-cameras-titulo">Suas câmeras</h2>
           <p>Veja cada ambiente em um só lugar. {cameras.length}/12 câmeras cadastradas.</p>
         </div>
@@ -235,7 +236,7 @@ export default function CentralCameras(): JSX.Element {
           className="security-button security-button-primary"
           onClick={() => editar(novaCamera())}
         >
-          + Adicionar câmera
+          <Adicionar width={16} height={16} /> Adicionar câmera
         </button>
       </div>
       <div className="camera-toolbar">
@@ -441,9 +442,9 @@ export default function CentralCameras(): JSX.Element {
       )}
       {!cameras.length && (
         <div className="camera-control-empty">
-          <span>◈</span>
-          <h3>Sala, quarto, entrada. Tudo à vista.</h3>
-          <p>Adicione sua primeira câmera e dê um nome ao ambiente.</p>
+          <Camera width={24} height={24} />
+          <h3>Nenhuma câmera cadastrada</h3>
+          <p>Adicione uma câmera e informe o ambiente para começar.</p>
         </div>
       )}
       <div className={`camera-mosaic camera-columns-${colunas}`}>

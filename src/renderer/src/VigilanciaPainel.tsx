@@ -7,6 +7,7 @@ import {
   type Ponto
 } from '../../shared/vigilancia'
 import './assets/vigilancia.css'
+import { Fechar } from './icones'
 
 const rotulos = {
   desarmado: 'Proteção desarmada',
@@ -142,7 +143,7 @@ export default function VigilanciaPainel(): JSX.Element {
     <section className="security-panel vigia-panel" aria-labelledby="vigia-titulo">
       <div className="vigia-heading">
         <div>
-          <p className="security-eyebrow">PROTEÇÃO / AUTONOMIA LOCAL</p>
+          <p className="security-eyebrow">Proteção por áreas</p>
           <h2 id="vigia-titulo">Fora de casa</h2>
           <p>
             Marque as áreas. A Íris observa as câmeras e avisa quando uma pessoa permanece nelas.
@@ -382,7 +383,7 @@ export default function VigilanciaPainel(): JSX.Element {
                         })
                       }
                     >
-                      ×
+                      <Fechar width={14} height={14} />
                     </button>
                   </span>
                 ))}

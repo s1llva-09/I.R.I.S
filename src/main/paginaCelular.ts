@@ -1,8 +1,46 @@
-export const workerCelular = `self.addEventListener('push',e=>{let d={title:'Íris',body:'Novo evento de segurança'};try{d=e.data.json()}catch{}e.waitUntil(self.registration.showNotification(d.title,{body:d.body,tag:d.id,icon:'/icone.png',data:{url:'/?evento='+encodeURIComponent(d.id||'')}}))});self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(clients.openWindow(e.notification.data.url))});self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>new Response('<meta name="viewport" content="width=device-width"><h1>Íris está offline</h1><p>Confira a internet, a VPN e se o computador está ligado. Reabra quando a conexão voltar.</p>',{headers:{'Content-Type':'text/html; charset=utf-8'}})))})`
+export const workerCelular = `self.addEventListener('push',e=>{let d={title:'Íris',body:'Novo evento de segurança'};try{d=e.data.json()}catch{}e.waitUntil(self.registration.showNotification(d.title,{body:d.body,tag:d.id,icon:'/icone.png',data:{url:'/?evento='+encodeURIComponent(d.id||'')}}))});self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(clients.openWindow(e.notification.data.url))});self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>new Response('<html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Íris · Sem conexão</title><body style="color-scheme:dark;background:#101216;color:#eef0f4;font:15px/1.6 system-ui;margin:0;padding:28px 20px"><main style="max-width:480px;margin:auto"><p style="color:#969da9">Íris</p><h1 style="font-size:26px;font-weight:600">Sem conexão</h1><p style="color:#bdc2cc">Confira a internet, a VPN e se o computador está ligado. Reabra quando a conexão voltar.</p></main></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8'}})))})`
 
-export const paginaCelular = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#08121e"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><title>Íris · Segurança</title><style>
-:root{color-scheme:dark;font:15px/1.5 system-ui}*{box-sizing:border-box}body{background:radial-gradient(at top,#163248,transparent),#08121e;color:#d8eaff;margin:0;padding:22px;max-width:1100px;margin-inline:auto}h1{margin:0;font-size:28px}h2{font-size:18px}small,.muted{color:#9ab4ca}header{display:flex;justify-content:space-between;gap:12px;align-items:center}button{font:inherit;padding:11px 14px;background:#153146;color:#d8eaff;border:1px solid #31566a;border-radius:10px;cursor:pointer}button.primary{background:#63ddeb;color:#06202a}button:disabled{opacity:.5}.panel,article{border:1px solid #294052;border-radius:16px;padding:16px;margin:14px 0;background:#0b1725}nav{display:flex;gap:8px;margin:20px 0}nav button[aria-pressed=true]{border-color:#68ddeb;color:#68ddeb}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}main article{margin:0}img{width:100%;aspect-ratio:4/3;object-fit:contain;background:#03090e;border-radius:10px}#status{font-size:18px}#erro{color:#ffbbbd;white-space:pre-line}.acoes{display:flex;gap:8px;flex-wrap:wrap}details p{font-size:13px}.evento time{font-size:12px;color:#68ddeb}.evento p{margin:6px 0}#conexao{font-size:12px}a{color:#68ddeb}[hidden]{display:none!important}
-</style></head><body><header><div><small>ÍRIS / SEGURANÇA</small><h1>Sua casa, à vista.</h1></div><span id="conexao">Conectando</span></header>
+export const paginaCelular = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101216"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><title>Íris · Segurança</title><style>
+:root { color-scheme: dark; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #101216; color: #eef0f4; }
+* { box-sizing: border-box; }
+body { margin: 0 auto; padding: 28px 24px 40px; max-width: 1100px; }
+h1 { margin: 4px 0 0; font-size: 28px; font-weight: 600; letter-spacing: -.025em; }
+h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+p { margin: 10px 0; }
+small, .muted { color: #969da9; }
+header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 24px; }
+header small { color: #bdc2cc; font-size: 13px; }
+button { font: inherit; font-size: 14px; padding: 11px 14px; background: #242932; color: #eef0f4; border: 1px solid #39414f; border-radius: 8px; cursor: pointer; }
+button:hover:not(:disabled) { background: #2d3440; }
+button.primary { background: #466ed5; color: #fff; border-color: #466ed5; }
+button.primary:hover:not(:disabled) { background: #527cdf; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid #8eaef6; outline-offset: 3px; }
+.panel, article { border: 1px solid #2b3039; border-radius: 10px; padding: 20px; margin: 16px 0; background: #191c22; }
+nav { display: flex; gap: 6px; margin: 24px 0 18px; padding-bottom: 12px; border-bottom: 1px solid #2b3039; }
+nav button { border-color: transparent; background: transparent; }
+nav button[aria-pressed=true] { background: #252e41; border-color: #354563; color: #eef0f4; }
+main { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; }
+main article { margin: 0; min-width: 0; }
+main article p { font-size: 13px; color: #969da9; }
+img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #0d0f13; border-radius: 6px; margin-top: 8px; }
+#status { font-size: 18px; font-weight: 600; }
+#erro { color: #ed939d; white-space: pre-line; }
+#erro:empty { display: none; }
+.acoes { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
+details { border-top: 1px solid #2b3039; padding-top: 14px; }
+summary { cursor: pointer; font-size: 14px; color: #bdc2cc; }
+details p { font-size: 13px; color: #969da9; }
+.evento time { font-size: 12px; color: #969da9; }
+.evento h2 { margin-top: 8px; }
+.evento p { margin: 6px 0; color: #bdc2cc; }
+#conexao { font-size: 12px; color: #bdc2cc; padding: 6px 9px; border: 1px solid #39414f; border-radius: 6px; white-space: nowrap; }
+a { color: #8eaef6; }
+input { font: inherit; color: #eef0f4; border: 1px solid #39414f; border-radius: 8px; background: #13161b; }
+label { font-size: 14px; }
+[hidden] { display: none !important; }
+@media (max-width: 600px) { body { padding: 24px 18px 32px; } header { align-items: flex-start; } h1 { font-size: 26px; } .panel, article { padding: 16px; } main { grid-template-columns: minmax(0,1fr); } }
+</style></head><body><header><div><small>Íris</small><h1>Segurança</h1></div><span id="conexao">Conectando</span></header>
 <section class="panel"><strong id="status">Verificando o computador…</strong><p id="resumo" class="muted"></p><div class="acoes"><button id="notificar" class="primary">Ativar notificações</button><button id="atualizar">Atualizar</button></div><p id="erro" role="status"></p><details><summary>Instalar a Íris no celular</summary><p>iPhone: Safari → Compartilhar → Adicionar à Tela de Início. Abra a Íris pelo ícone e toque em Ativar notificações. Requer iOS 16.4 ou mais recente.</p><p>Android: no menu do Chrome, use Instalar aplicativo ou Adicionar à tela inicial. Depois autorize as notificações.</p><p>Fora de casa, conecte a VPN privada para ver as câmeras e o histórico. Alertas push precisam de internet no computador e no celular. Não é necessário deixar a tela aberta para receber notificações após instalar e autorizar.</p></details></section>
 <section id="parear" class="panel" hidden><label for="link">Cole o link privado de pareamento mostrado no PC</label><input id="link" type="password" autocomplete="off" style="width:100%;padding:12px;margin:10px 0"><button id="confirmar">Conectar à Íris</button></section><nav><button data-aba="cameras" aria-pressed="true">Câmeras</button><button data-aba="eventos" aria-pressed="false">Eventos</button></nav><main id="cameras"></main><section id="eventos" hidden></section><p class="muted">Somente consulta. Áreas protegidas, horários e configurações são ajustados no computador.</p><button id="sair">Desconectar este navegador</button>
 <script>

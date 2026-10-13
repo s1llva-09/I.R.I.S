@@ -49,8 +49,8 @@ export default function Config({
 
   if (!cfg) {
     return (
-      <div className="absolute inset-0 z-40 bg-fundo px-6 py-5 font-hud text-[11px] tracking-[0.2em] text-tinta-3">
-        CARREGANDO…
+      <div className="absolute inset-0 z-40 bg-fundo px-6 py-5 font-sans text-[12px] text-tinta-3">
+        Carregando configurações…
       </div>
     )
   }
@@ -62,16 +62,14 @@ export default function Config({
       <div className="mx-auto max-w-lg space-y-6 pb-10">
         <div className="settings-heading flex items-center justify-between border-b border-fio pb-5">
           <div>
-            <h2 className="font-mono text-[12px] font-semibold tracking-[0.3em] text-sinal">
-              Configurações
-            </h2>
-            <p>Seu assistente, do seu jeito. Ajustes salvos neste dispositivo.</p>
+            <h2 className="font-mono text-[12px] font-semibold text-sinal">Configurações</h2>
+            <p>Ajustes do assistente e preferências deste dispositivo.</p>
           </div>
           <button
             onClick={aoFechar}
-            className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase transition-colors hover:text-tinta"
+            className="font-sans text-[12px] text-tinta-3 transition-colors hover:text-tinta"
           >
-            fechar
+            Fechar
           </button>
         </div>
         {erro && <p role="alert">{erro}</p>}
@@ -91,37 +89,39 @@ export default function Config({
         */}
         {semChave && (
           <p className="border-l border-sinal pl-4 text-[13px] leading-[1.65] text-tinta-2">
-            Sem chave da OpenRouter a Íris não responde. Pegue uma em{' '}
-            <span className="font-mono text-tinta">openrouter.ai/keys</span> e cole abaixo — ela é
-            guardada criptografada nesta máquina, nunca em texto puro.
+            Para usar o assistente, insira sua chave da OpenRouter. Ela pode ser criada em{' '}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
+              openrouter.ai/keys
+            </a>{' '}
+            e será armazenada com criptografia neste computador.
           </p>
         )}
 
         <Campo
           id="llmChave"
-          rotulo="CHAVE OPENROUTER"
+          rotulo="Chave OpenRouter"
           cfg={cfg}
           salvo={salvo}
           alterar={alterar}
-          dica="Fica cifrada pela conta do Windows. Copiar o arquivo pra outro PC não leva a chave junto."
+          dica="Armazenada com a proteção de credenciais do sistema operacional."
         />
-        <Campo id="llmModelo" rotulo="MODELO" cfg={cfg} salvo={salvo} alterar={alterar} />
+        <Campo id="llmModelo" rotulo="Modelo principal" cfg={cfg} salvo={salvo} alterar={alterar} />
         <Campo
           id="llmModeloVisao"
-          rotulo="MODELO COM VISÃO"
+          rotulo="Modelo com visão"
           cfg={cfg}
           salvo={salvo}
           alterar={alterar}
-          dica="Usado só no turno em que ela tira um print. Precisa suportar imagem — um modelo sem visão responde sobre a tela de cabeça, sem avisar que não viu."
+          dica="Usado para analisar capturas de tela. Escolha um modelo que aceite imagens."
         />
 
         <Campo
           id="tavilyChave"
-          rotulo="CHAVE TAVILY"
+          rotulo="Chave Tavily"
           cfg={cfg}
           salvo={salvo}
           alterar={alterar}
-          dica="Opcional — é o que liga a busca na web. Sem ela a Íris responde só do que já sabe. tavily.com"
+          dica="Opcional. Habilita a busca na web pelo serviço Tavily."
         />
 
         {/*
@@ -130,10 +130,10 @@ export default function Config({
         */}
         <Campo
           id="llmReservas"
-          rotulo="MODELOS RESERVA"
+          rotulo="Modelos de reserva"
           cfg={cfg}
           salvo={salvo}
-          dica="Separados por vírgula. Todos precisam suportar ferramentas, senão a Íris vira só um chat quando cair pra reserva."
+          dica="Separe os modelos por vírgula. Todos devem aceitar chamadas de ferramentas."
           converter={(t) =>
             t
               .split(',')
@@ -146,28 +146,30 @@ export default function Config({
 
         <Campo
           id="atalho"
-          rotulo="ATALHO GLOBAL"
+          rotulo="Atalho global"
           cfg={cfg}
           salvo={salvo}
           alterar={alterar}
-          dica="Ex: Control+Space, Alt+Space. Inválido volta pro Control+Space sozinho."
+          dica="Exemplos: Control+Space ou Alt+Space. Atalhos inválidos usam Control+Space."
         />
 
         <Campo
           id="tetoDiario"
-          rotulo="TETO DIÁRIO DE CHAMADAS"
+          rotulo="Limite diário de solicitações"
           cfg={cfg}
           salvo={salvo}
           alterar={alterar}
           converter={Number}
-          dica="Abaixo do teto real do provedor de propósito: as retentativas do SDK gastam cota e não são contadas."
+          dica="Use um valor abaixo da cota do provedor, pois novas tentativas também podem consumir solicitações."
         />
 
         <div>
           <Rotulo id="limiarRisco" salvo={salvo}>
-            LIMIAR DE RISCO — {String(cfg.limiarRisco)}
+            Limiar de risco · {String(cfg.limiarRisco)}
           </Rotulo>
           <input
+            id="limiarRisco"
+            aria-labelledby="rotulo-limiarRisco"
             type="range"
             min={1}
             max={6}
@@ -176,16 +178,13 @@ export default function Config({
             className="w-full accent-sinal"
           />
           <Dica>
-            Menor = confirma mais, executa menos sozinha. Maior = o contrário. Nível 3 nunca desce
-            abaixo do limiar por bom histórico, então subir isto não dispensa a confirmação de ação
-            irreversível.
+            Valores menores exigem mais confirmações. Ações irreversíveis continuam sujeitas à
+            aprovação, independentemente deste ajuste.
           </Dica>
         </div>
 
         <label className="flex items-center justify-between border-t border-fio pt-4">
-          <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            VOZ ATIVA
-          </span>
+          <span className="font-sans text-[12px] text-tinta-3">Respostas por voz</span>
           <input
             type="checkbox"
             checked={Boolean(cfg.vozAtiva)}
@@ -195,9 +194,7 @@ export default function Config({
         </label>
 
         <label className="flex items-center justify-between border-t border-fio pt-4">
-          <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-            ABRIR NA CENTRAL DE SEGURANÇA
-          </span>
+          <span className="font-sans text-[12px] text-tinta-3">Abrir na central de segurança</span>
           <input
             type="checkbox"
             checked={Boolean(cfg.modoSeguranca)}
@@ -212,9 +209,11 @@ export default function Config({
 
         <div>
           <Rotulo id="vozRitmo" salvo={salvo}>
-            RITMO DA VOZ — {String(cfg.vozRitmo)}
+            Velocidade da voz · {String(cfg.vozRitmo)}
           </Rotulo>
           <input
+            id="vozRitmo"
+            aria-labelledby="rotulo-vozRitmo"
             type="range"
             min={-10}
             max={10}
@@ -224,7 +223,9 @@ export default function Config({
           />
           {/* A faixa é a do SAPI, não um multiplicador: 0 é a velocidade
               natural da voz, e ela vale já na frase seguinte. */}
-          <Dica>0 é a velocidade natural. Negativo devagar, positivo rápido.</Dica>
+          <Dica>
+            Zero usa a velocidade natural. Valores negativos reduzem o ritmo; positivos aumentam.
+          </Dica>
         </div>
 
         {/*
@@ -235,11 +236,9 @@ export default function Config({
         {gatilhos.length > 0 && (
           <div className="border-t border-fio pt-4">
             <div className="mb-2 flex items-baseline justify-between">
-              <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
-                GATILHOS
-              </span>
+              <span className="font-sans text-[12px] text-tinta-3">Avisos automáticos</span>
               {salvo === 'gatilhosDesligados' && (
-                <span className="font-mono text-[10px] text-ok">salvo</span>
+                <span className="font-mono text-[11px] text-ok">salvo</span>
               )}
             </div>
 
@@ -264,8 +263,8 @@ export default function Config({
               )
             })}
             <Dica>
-              Desmarcado para de verificar na hora, sem reiniciar. Útil antes de uma apresentação —
-              o pior momento pra um aviso de disco é aquele.
+              Desative um aviso para interromper sua verificação imediatamente, sem reiniciar o
+              aplicativo.
             </Dica>
           </div>
         )}
@@ -285,16 +284,16 @@ function Rotulo({
 }): JSX.Element {
   return (
     <div className="mb-1.5 flex items-baseline justify-between">
-      <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
+      <span id={`rotulo-${id}`} className="font-sans text-[12px] text-tinta-3">
         {children}
       </span>
-      {salvo === id && <span className="font-mono text-[10px] text-ok">salvo</span>}
+      {salvo === id && <span className="font-mono text-[11px] text-ok">salvo</span>}
     </div>
   )
 }
 
 function Dica({ children }: { children: ReactNode }): JSX.Element {
-  return <p className="mt-1.5 text-[11px] leading-[1.5] text-tinta-3">{children}</p>
+  return <p className="mt-1.5 text-[12px] leading-[1.5] text-tinta-3">{children}</p>
 }
 
 function Campo({
@@ -330,6 +329,8 @@ function Campo({
           a chave mascarada nunca aparece depois de você colar uma nova.
         */
         key={atual}
+        id={id}
+        aria-labelledby={`rotulo-${id}`}
         defaultValue={atual}
         onBlur={(e) => {
           if (e.target.value === atual) return

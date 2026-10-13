@@ -3,7 +3,7 @@
   inset: 0;
   overflow-y: auto;
   padding: 28px 30px 20px;
-  background: radial-gradient(ellipse at 72% -20%, #142e454f, transparent 58%);
+  background: var(--color-fundo);
 }
 .security-dashboard svg {
   width: 19px;
@@ -21,30 +21,30 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #63dcf2;
-  font: 8px var(--font-mono);
-  letter-spacing: 0.15em;
+  color: #8eaef6;
+  font: 11px/1.5 var(--font-sans);
+  letter-spacing: 0;
   margin-bottom: 10px;
 }
 .security-eyebrow > span {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #63dcf2;
+  background: #8eaef6;
 }
 .security-page-heading h1 {
   font-size: 29px;
   font-weight: 480;
   line-height: 1.25;
   letter-spacing: -0.035em;
-  color: #edf3fc;
+  color: #eef0f4;
 }
 .security-page-heading h1 > span {
-  color: #b8c8de;
+  color: #bdc2cc;
 }
 .security-page-heading h1 + p {
-  font-size: 11px;
-  color: #8f9fb8;
+  font-size: 13px;
+  color: #a4acb9;
   margin-top: 8px;
 }
 .security-heading-actions {
@@ -61,9 +61,9 @@
   border: 1px solid #ffffff19;
   border-radius: 8px;
   padding: 10px 13px;
-  background: #111c2b;
-  color: #bdcadc;
-  font-size: 10px;
+  background: #242932;
+  color: #c4cbd7;
+  font-size: 12px;
   transition:
     color 0.2s,
     border-color 0.2s,
@@ -74,21 +74,21 @@
   height: 15px;
 }
 .security-button:hover:not(:disabled) {
-  color: #edf3fc;
-  border-color: #63dcf254;
-  background: #172739;
+  color: #eef0f4;
+  border-color: #8eaef654;
+  background: #2d3440;
 }
 .security-button-primary {
-  color: #05121b;
-  background: #63dcf2;
-  border-color: #63dcf2;
+  color: #fff;
+  background: #466ed5;
+  border-color: #466ed5;
   font-weight: 600;
-  box-shadow: 0 0 20px #63dcf210;
+  box-shadow: none;
 }
 .security-button-primary:hover:not(:disabled) {
-  background: #8de8f8;
-  border-color: #8de8f8;
-  color: #05121b;
+  background: #527cdf;
+  border-color: #527cdf;
+  color: #fff;
 }
 .security-button:disabled,
 .security-button.is-disabled {
@@ -98,7 +98,7 @@
 .security-button-quiet {
   background: transparent;
   border-color: #ffffff0d;
-  color: #8f9fb8;
+  color: #a4acb9;
 }
 .security-metrics {
   display: grid;
@@ -107,32 +107,22 @@
   margin-bottom: 20px;
 }
 .security-metric {
-  --accent: #63dcf2;
+  --accent: #8eaef6;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(120deg, #101b2b, #0c1422);
+  background: var(--color-chapa);
   border: 1px solid #ffffff0e;
   border-radius: 12px;
   padding: 16px 18px 14px;
 }
-.security-metric::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 18px;
-  height: 1px;
-  width: 28px;
-  background: var(--accent);
-  opacity: 0.7;
-}
 .security-accent-purple {
-  --accent: #a392ff;
+  --accent: #a4b9e8;
 }
 .security-accent-green {
-  --accent: #73e2ba;
+  --accent: #82c4a0;
 }
 .security-accent-amber {
-  --accent: #ffba75;
+  --accent: #e1c28e;
 }
 .security-metric-top {
   display: flex;
@@ -141,9 +131,9 @@
   gap: 7px;
 }
 .security-metric-top span {
-  font: 8px var(--font-mono);
-  letter-spacing: 0.065em;
-  color: #a5b2c8;
+  font: 11px/1.5 var(--font-sans);
+  letter-spacing: 0;
+  color: #bdc2cc;
 }
 .security-metric-top svg {
   color: var(--accent);
@@ -152,15 +142,15 @@
 }
 .security-metric > strong {
   display: block;
-  font: 32px/1.1 var(--font-hud);
+  font: 600 28px/1.2 var(--font-sans);
   letter-spacing: -0.04em;
-  font-weight: 400;
-  color: #edf3fc;
+  font-weight: 600;
+  color: var(--color-tinta);
   margin-top: 14px;
 }
 .security-metric > p {
-  font-size: 9px;
-  color: #7e8ea8;
+  font-size: 11px;
+  color: #969da9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -175,7 +165,7 @@
   min-width: 0;
   border: 1px solid #ffffff10;
   border-radius: 13px;
-  background: linear-gradient(140deg, #101929ee, #0c1320e6);
+  background: var(--color-chapa);
   overflow: hidden;
 }
 .security-panel-heading {
@@ -187,14 +177,14 @@
   justify-content: space-between;
 }
 .security-panel-heading h2 {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
-  color: #dbe5f3;
+  color: #eef0f4;
 }
 .security-panel-heading p {
-  font-size: 9px;
+  font-size: 11px;
   margin-top: 5px;
-  color: #7e8ea8;
+  color: #969da9;
 }
 .security-heading-with-icon {
   display: flex;
@@ -203,7 +193,7 @@
   min-width: 0;
 }
 .security-heading-with-icon > svg {
-  color: #7d94b1;
+  color: #a4acb9;
   width: 18px;
 }
 .security-badge {
@@ -211,9 +201,9 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  font: 7px var(--font-mono);
-  letter-spacing: 0.06em;
-  color: #8c9bb0;
+  font: 11px/1.5 var(--font-sans);
+  letter-spacing: 0;
+  color: #a4acb9;
   border: 1px solid #ffffff0e;
   border-radius: 5px;
   background: #ffffff03;
@@ -226,17 +216,17 @@
   background: currentColor;
 }
 .security-badge-cyan {
-  color: #63dcf2;
-  border-color: #63dcf226;
-  background: #63dcf209;
+  color: #8eaef6;
+  border-color: #8eaef626;
+  background: #8eaef609;
 }
 .security-camera-panel {
   display: flex;
   flex-direction: column;
 }
 .security-camera-panel.is-dragging {
-  border-color: #63dcf2;
-  box-shadow: inset 0 0 0 1px #63dcf24d;
+  border-color: #8eaef6;
+  box-shadow: inset 0 0 0 1px #8eaef64d;
 }
 .security-source-actions {
   display: flex;
@@ -247,14 +237,14 @@
 }
 .security-source-actions > span {
   color: #91a4bc;
-  font-size: 10px;
+  font-size: 11px;
 }
 .security-source-error {
   margin: 0 15px 12px;
   padding: 11px 12px;
-  border: 1px solid #ff788b40;
+  border: 1px solid #ed939d40;
   border-radius: 8px;
-  background: #ff788b09;
+  background: #ed939d09;
   color: #ffafba;
   font-size: 12px;
   line-height: 1.7;
@@ -267,13 +257,13 @@
 }
 .security-phone-guide > div {
   padding: 18px;
-  border: 1px solid #63dcf221;
+  border: 1px solid #8eaef621;
   border-radius: 10px;
-  background: linear-gradient(135deg, #63dcf206, #a392ff05);
+  background: var(--color-chapa);
 }
 .security-guide-number {
-  color: #63dcf2;
-  font: 11px var(--font-mono);
+  color: #8eaef6;
+  font: 11px/1.5 var(--font-sans);
 }
 .security-phone-guide h3 {
   margin: 10px 0;
@@ -289,7 +279,7 @@
 .security-phone-guide a {
   display: inline-block;
   margin-top: 14px;
-  color: #63dcf2;
+  color: #8eaef6;
   font-size: 11px;
 }
 .security-phone-guide .security-text-button {
@@ -334,23 +324,23 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 8px;
-  color: #8294ae;
+  font-size: 11px;
+  color: #a4acb9;
 }
 .security-camera-footer > span svg {
   width: 12px;
   height: 12px;
-  color: #73e2ba;
+  color: #82c4a0;
 }
 .security-camera-footer button {
   display: flex;
   gap: 6px;
   align-items: center;
-  color: #a0b4cb;
-  font-size: 9px;
+  color: #a4acb9;
+  font-size: 11px;
 }
 .security-camera-footer button:hover {
-  color: #63dcf2;
+  color: #8eaef6;
 }
 .security-camera-footer button svg {
   width: 12px;
@@ -364,50 +354,22 @@
   padding-bottom: 9px;
 }
 .security-micro-label {
-  font: 7px var(--font-mono);
-  color: #7e8ea8;
-  letter-spacing: 0.13em;
-}
-.security-analysis-emblem {
-  position: relative;
-  height: 62px;
-  width: 62px;
-  margin: 13px auto 19px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #63dcf22b;
-  border-radius: 50%;
-  color: #63dcf2;
-  background: radial-gradient(circle, #63dcf20c, transparent);
-  box-shadow: 0 0 0 7px #63dcf204;
-}
-.security-analysis-emblem::after {
-  content: '';
-  position: absolute;
-  inset: -7px;
-  border: 1px dashed #63dcf21e;
-  border-radius: 50%;
-}
-.security-analysis-emblem svg {
-  width: 27px;
-  height: 27px;
-}
-.security-analysis-emblem.is-alert {
-  color: #ff788b;
-  border-color: #ff788b60;
+  font: 11px/1.5 var(--font-sans);
+  color: #969da9;
+  letter-spacing: 0;
 }
 .security-analysis-copy {
-  padding: 0 23px;
-  text-align: center;
+  padding: 18px 23px 0;
+  text-align: left;
 }
 .security-status {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
-  color: #93a5bc;
-  font: 7px var(--font-mono);
-  letter-spacing: 0.08em;
+  color: #a4acb9;
+  font: 11px/1.5 var(--font-sans);
+  letter-spacing: 0;
 }
 .security-status i {
   width: 4px;
@@ -416,18 +378,18 @@
   background: currentColor;
 }
 .security-status.is-alert {
-  color: #ff788b;
+  color: #ed939d;
 }
 .security-analysis-copy h3 {
   font-size: 14px;
   font-weight: 500;
-  color: #dbe5f3;
+  color: #eef0f4;
   margin-top: 11px;
 }
 .security-analysis-copy > p {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.8;
-  color: #8d9eb7;
+  color: #a4acb9;
   margin-top: 8px;
   min-height: 36px;
 }
@@ -441,12 +403,12 @@
   justify-content: space-between;
   gap: 8px;
   padding: 7px 0;
-  font-size: 9px;
-  color: #8f9fb8;
+  font-size: 11px;
+  color: #a4acb9;
 }
 .security-analysis-details strong {
   font-weight: 450;
-  color: #c8d6e8;
+  color: #c4cbd7;
   font-variant-numeric: tabular-nums;
 }
 .security-privacy-note {
@@ -456,19 +418,19 @@
   padding: 13px 16px;
   margin: auto 13px 13px;
   margin-top: 16px;
-  border: 1px solid #73e2ba10;
+  border: 1px solid #82c4a010;
   border-radius: 8px;
-  background: #73e2ba03;
+  background: #82c4a003;
 }
 .security-privacy-note svg {
   width: 12px;
   height: 12px;
   margin-top: 2px;
-  color: #73e2ba99;
+  color: #82c4a099;
 }
 .security-privacy-note p {
-  color: #8b9eb0;
-  font-size: 8px;
+  color: #a4acb9;
+  font-size: 11px;
   line-height: 1.7;
 }
 .security-secondary-grid {
@@ -484,7 +446,7 @@
   place-items: center;
   border: 1px solid #ffffff10;
   border-radius: 6px;
-  color: #8d9fb7;
+  color: #a4acb9;
 }
 .security-icon-button svg {
   width: 13px;
@@ -501,11 +463,11 @@
   display: flex;
   gap: 7px;
   padding: 3px 0 12px;
-  color: #8193ad;
-  font-size: 10px;
+  color: #969da9;
+  font-size: 11px;
 }
 .security-tabs button[aria-pressed='true'] {
-  color: #63dcf2;
+  color: #8eaef6;
 }
 .security-tabs button[aria-pressed='true']::after {
   content: '';
@@ -514,13 +476,13 @@
   left: 0;
   right: 0;
   bottom: -1px;
-  background: #63dcf2;
+  background: #8eaef6;
 }
 .security-tabs button > span {
   min-width: 16px;
   text-align: center;
-  font: 8px/15px var(--font-mono);
-  color: #a5b2c8;
+  font: 11px/1.5 var(--font-sans);
+  color: #bdc2cc;
   border-radius: 4px;
   background: #ffffff07;
 }
@@ -550,8 +512,8 @@
 }
 .security-empty p {
   max-width: 290px;
-  color: #7e8ea8;
-  font-size: 9px;
+  color: #969da9;
+  font-size: 11px;
   line-height: 1.8;
   margin-top: 6px;
 }
@@ -561,8 +523,8 @@
   gap: 6px;
   padding: 11px 19px;
   border-top: 1px solid #ffffff08;
-  font: 7px var(--font-mono);
-  color: #7e8ea8;
+  font: 11px/1.5 var(--font-sans);
+  color: #969da9;
 }
 .security-panel-footnote > span:last-child {
   margin-left: auto;
@@ -572,7 +534,7 @@
   height: 4px;
   display: inline-block;
   border-radius: 50%;
-  background: #63dcf280;
+  background: #8eaef680;
 }
 .security-event {
   display: flex;
@@ -586,7 +548,7 @@
   flex: 1;
 }
 .security-event h3 {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: #c6d4e6;
   text-transform: capitalize;
@@ -594,14 +556,14 @@
 .security-event p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.7;
-  color: #8f9fb8;
+  color: #a4acb9;
   margin-top: 5px;
 }
 .security-event time {
-  font: 7px var(--font-mono);
-  color: #7e8ea8;
+  font: 11px/1.5 var(--font-sans);
+  color: #969da9;
   white-space: nowrap;
   padding-top: 2px;
 }
@@ -610,23 +572,23 @@
   width: 6px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #ffba75;
+  background: #e1c28e;
   margin-top: 4px;
-  box-shadow: 0 0 0 4px #ffba7509;
+  box-shadow: none;
 }
 .security-event-dot-purple {
-  background: #a392ff;
-  box-shadow: 0 0 0 4px #a392ff09;
+  background: #a4b9e8;
+  box-shadow: none;
 }
 .security-decision summary {
   margin-top: 7px;
-  font-size: 9px;
-  color: #b3a5ff;
+  font-size: 11px;
+  color: #a4b9e8;
 }
 .security-decision ul {
   margin-top: 8px;
-  font-size: 9px;
-  color: #8f9fb8;
+  font-size: 11px;
+  color: #a4acb9;
 }
 .security-decision li {
   display: flex;
@@ -635,7 +597,7 @@
   padding: 5px 0;
 }
 .security-count {
-  font: 10px var(--font-mono);
+  font: 11px/1.5 var(--font-sans);
   color: #9eb4cc;
   background: #ffffff05;
   border: 1px solid #ffffff10;
@@ -660,7 +622,7 @@
 .security-roster-actions .security-button > span {
   font-size: 17px;
   line-height: 1;
-  color: #63dcf2;
+  color: #8eaef6;
 }
 .security-person {
   display: flex;
@@ -676,32 +638,32 @@
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: #a392ff0c;
-  color: #b3a5ff;
-  font: 10px var(--font-mono);
+  background: #a4b9e80c;
+  color: #a4b9e8;
+  font: 11px/1.5 var(--font-sans);
 }
 .security-person > div {
   flex: 1;
   min-width: 0;
 }
 .security-person strong {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   display: block;
   overflow-wrap: anywhere;
 }
 .security-person div > span {
-  font-size: 8px;
-  color: #7e8ea8;
+  font-size: 11px;
+  color: #969da9;
   display: block;
   margin-top: 3px;
 }
 .security-person button {
-  font-size: 8px;
-  color: #a5b2c8;
+  font-size: 11px;
+  color: #bdc2cc;
 }
 .security-person button:hover {
-  color: #ff788b;
+  color: #ed939d;
 }
 .security-registration {
   padding: 0 19px 20px;
@@ -711,11 +673,11 @@
   align-items: flex-start;
   gap: 8px;
   margin: 12px 0 !important;
-  font-size: 9px !important;
+  font-size: 11px !important;
   line-height: 1.7;
 }
 .security-consent input {
-  accent-color: #63dcf2;
+  accent-color: #8eaef6;
   margin-top: 3px;
 }
 .security-notice {
@@ -724,8 +686,8 @@
   gap: 10px;
   padding: 13px 16px;
   margin-top: 18px;
-  background: #63dcf209;
-  border: 1px solid #63dcf22a;
+  background: #8eaef609;
+  border: 1px solid #8eaef62a;
   border-radius: 9px;
   font-size: 11px;
   color: #b7d9e3;
@@ -740,8 +702,8 @@
 }
 .security-notice-error {
   color: #ff9baa;
-  border-color: #ff788b30;
-  background: #ff788b08;
+  border-color: #ed939d30;
+  background: #ed939d08;
 }
 .security-management {
   margin-top: 20px;
@@ -765,11 +727,11 @@
 .security-management small {
   display: block;
   margin-top: 5px;
-  font-size: 9px;
-  color: #7e8ea8;
+  font-size: 11px;
+  color: #969da9;
 }
 .security-disclosure {
-  color: #8f9fb8;
+  color: #a4acb9;
   font-size: 20px;
   font-weight: 300;
 }
@@ -797,7 +759,7 @@
 .security-registration > label:not(.security-consent) {
   display: block;
   margin: 16px 0 8px;
-  font-size: 10px;
+  font-size: 11px;
   color: #b4c2d7;
 }
 .security-control-section input:not([type='range']):not([type='file']),
@@ -814,7 +776,7 @@
 }
 .security-control-section input:focus,
 .security-control-section select:focus {
-  border-color: #63dcf254;
+  border-color: #8eaef654;
 }
 .security-control-row {
   display: flex;
@@ -824,9 +786,9 @@
   margin-top: 12px;
 }
 .security-help {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.8;
-  color: #8f9fb8;
+  color: #a4acb9;
   margin: 9px 0;
   overflow-wrap: anywhere;
 }
@@ -843,12 +805,12 @@
   cursor: pointer;
 }
 .security-file-button:focus-within {
-  outline: 1px solid #63dcf2;
+  outline: 1px solid #8eaef6;
   outline-offset: 2px;
 }
 .security-text-button {
-  color: #63dcf2;
-  font-size: 10px;
+  color: #8eaef6;
+  font-size: 11px;
   margin: 13px 0 5px;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -871,7 +833,7 @@
   height: auto;
 }
 .security-qr p {
-  font: 9px var(--font-mono);
+  font: 11px/1.5 var(--font-sans);
   color: #b5c7da;
   margin-top: 12px;
   overflow-wrap: anywhere;
@@ -892,12 +854,12 @@
   border: 1px solid #ffffff15;
   border-radius: 7px;
   text-align: left;
-  font-size: 9px;
+  font-size: 11px;
   overflow-wrap: anywhere;
 }
 .security-found-source[aria-pressed='true'] {
-  border-color: #63dcf259;
-  color: #63dcf2;
+  border-color: #8eaef659;
+  color: #8eaef6;
 }
 .security-control-section .security-range-label {
   display: flex !important;
@@ -905,14 +867,14 @@
 }
 .security-control-section input[type='range'] {
   width: 100%;
-  accent-color: #63dcf2;
+  accent-color: #8eaef6;
   margin-top: 10px;
 }
 .security-range-ends {
   display: flex;
   justify-content: space-between;
-  color: #7e8ea8;
-  font-size: 8px;
+  color: #969da9;
+  font-size: 11px;
   margin: 4px 0 24px;
 }
 .security-table-wrapper {
@@ -923,7 +885,7 @@
 .security-table-wrapper table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 9px;
+  font-size: 11px;
   text-align: left;
 }
 .security-table-wrapper caption {
@@ -937,35 +899,35 @@
   border-bottom: 1px solid #ffffff0b;
 }
 .security-table-wrapper th {
-  color: #8f9fb8;
+  color: #a4acb9;
   font-weight: 400;
 }
 .security-table-wrapper tr.is-selected {
-  background: #63dcf20a;
+  background: #8eaef60a;
 }
 .security-danger {
-  color: #ff788b;
+  color: #ed939d;
 }
 .security-calibration-note {
   display: flex;
   gap: 9px;
-  color: #a392ff;
+  color: #a4b9e8;
   padding-top: 18px;
   margin-top: 16px;
   border-top: 1px solid #ffffff0b;
 }
 .security-calibration-note p {
-  font-size: 10px;
-  color: #8f9fb8;
+  font-size: 11px;
+  color: #a4acb9;
   line-height: 1.8;
 }
 .security-page-footer {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  color: #7e8ea8;
-  font: 7px var(--font-mono);
-  letter-spacing: 0.08em;
+  color: #969da9;
+  font: 11px/1.5 var(--font-sans);
+  letter-spacing: 0;
   padding-top: 21px;
 }
 .security-page-footer > span:first-child {
@@ -974,10 +936,10 @@
   align-items: center;
 }
 .security-has-alert .security-analysis {
-  border-color: #ff788b50;
+  border-color: #ed939d50;
 }
 .security-has-alert .security-camera-panel {
-  border-color: #ff788b50;
+  border-color: #ed939d50;
 }
 @media (min-width: 1600px) {
   .security-dashboard {
@@ -999,9 +961,6 @@
   .security-analysis-copy {
     padding-inline: 28px;
   }
-  .security-analysis-emblem {
-    margin-top: 24px;
-  }
 }
 @media (max-width: 1180px) {
   .security-dashboard {
@@ -1020,7 +979,7 @@
     padding: 14px;
   }
   .security-metric-top span {
-    font-size: 7px;
+    font-size: 11px;
   }
   .security-monitor-grid,
   .security-secondary-grid {
@@ -1070,9 +1029,6 @@
   .security-analysis > .security-panel-heading {
     grid-column: 1 / -1;
   }
-  .security-analysis-emblem {
-    display: none;
-  }
   .security-analysis-copy {
     padding: 15px 19px 5px;
     text-align: left;
@@ -1111,12 +1067,12 @@
     font-size: 22px;
   }
   .security-eyebrow {
-    font-size: 6px;
-    letter-spacing: 0.1em;
+    font-size: 11px;
+    letter-spacing: 0;
   }
   .security-page-heading h1 + p {
     max-width: 260px;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.6;
   }
   .security-heading-actions {
@@ -1124,7 +1080,7 @@
   }
   .security-heading-actions .security-button {
     padding: 9px;
-    font-size: 9px;
+    font-size: 11px;
   }
   .security-heading-actions .security-button svg {
     display: none;
@@ -1137,10 +1093,10 @@
     border-top: 1px solid #ffffff09;
   }
   .security-panel-heading h2 {
-    font-size: 11px;
+    font-size: 13px;
   }
   .security-event time {
-    font-size: 6px;
+    font-size: 11px;
   }
   .security-page-footer > span:last-child {
     display: none;
@@ -1155,7 +1111,7 @@
   margin: 0 0 12px;
 }
 .security-extras p {
-  color: #9db4ce;
+  color: #a4acb9;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -1168,11 +1124,11 @@
 .security-diagnostics span {
   display: grid;
   gap: 6px;
-  color: #9db4ce;
+  color: #a4acb9;
   font-size: 12px;
 }
 .security-diagnostics strong {
-  color: #68ddeb;
+  color: #8eaef6;
 }
 .security-visual-history {
   display: grid;
@@ -1196,8 +1152,8 @@
   border-radius: 6px;
 }
 .security-visual-history time {
-  font-size: 10px;
-  color: #68ddeb;
+  font-size: 11px;
+  color: #8eaef6;
 }
 .security-tls-guide {
   min-width: 0;
@@ -1206,5 +1162,27 @@
 .security-tls-guide code {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 10px;
+  font-size: 11px;
+}
+.security-section-heading {
+  margin: 30px 0 16px;
+}
+.security-section-heading h2 {
+  color: var(--color-tinta);
+  font-size: 20px;
+  font-weight: 600;
+}
+.security-section-heading p {
+  margin-top: 6px;
+  color: var(--color-tinta-3);
+  font-size: 12px;
+}
+.security-phone-guide a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.security-phone-guide a svg {
+  width: 13px;
+  height: 13px;
 }

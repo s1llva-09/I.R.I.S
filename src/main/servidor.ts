@@ -127,34 +127,30 @@ export function criarServidorCelular(PORTA = 8790, PORTA_SEGURA = 8791) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Íris — conectar celular</title>
 <style>
-  :root { color-scheme:dark; font:15px/1.6 -apple-system,system-ui,sans-serif }
-  * { box-sizing:border-box }
-  body { margin:0; min-height:100svh; padding:28px 20px; color:#e9f7ff;
-    background:radial-gradient(ellipse at top,#102d45 0,transparent 65%),#07101b }
-  main { max-width:480px; margin:0 auto }
-  .brand { color:#62e2ef; font-size:12px; letter-spacing:.26em; text-transform:uppercase }
-  h1 { margin:20px 0 8px; font-size:30px; line-height:1.2; letter-spacing:-.04em }
-  p { color:#a7bfd2; margin:0 0 18px }
-  .panel { margin:22px 0; padding:20px; border:1px solid #243a4d; border-radius:20px;
-    background:#0b1827; box-shadow:0 18px 60px #0003 }
-  .mode { display:inline-block; color:#79e3ed; padding:5px 10px; border:1px solid #2c6570;
-    border-radius:30px; font-size:11px; text-transform:uppercase; letter-spacing:.1em }
-  video,img { width:100%; max-height:360px; object-fit:contain; background:#040a12;
-    border:1px solid #243a4d; border-radius:12px; margin:16px 0 }
-  button { width:100%; min-height:48px; margin-top:12px; border:1px solid #315066;
-    border-radius:12px; padding:12px 16px; background:#14283b; color:#e9f7ff;
-    font:inherit; font-size:14px; font-weight:600; cursor:pointer }
-  button.primary { color:#041824; background:#71e2ec; border-color:#71e2ec }
-  button:disabled { opacity:.45; cursor:wait }
-  button:focus-visible { outline:3px solid #fff; outline-offset:3px }
-  #s { min-height:48px; margin:18px 0 0; color:#bad0df; font-size:13px }
-  #s.on { color:#89e9c0 } #s.error { color:#ffb4b4 }
-  .note { font-size:12px; color:#8fa8bc }
-  [hidden] { display:none !important }
+  :root { color-scheme: dark; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #101216; color: #eef0f4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100svh; padding: 28px 20px; }
+  main { max-width: 480px; margin: 0 auto; }
+  .brand { color: #bdc2cc; font-size: 13px; }
+  h1 { margin: 16px 0 10px; font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -.025em; }
+  p { color: #969da9; margin: 0 0 18px; }
+  .panel { margin: 24px 0; padding: 20px; border: 1px solid #2b3039; border-radius: 10px; background: #191c22; }
+  .mode { display: inline-block; color: #bdc2cc; padding: 5px 9px; border: 1px solid #39414f; border-radius: 6px; font-size: 12px; }
+  video, img { width: 100%; max-height: 360px; object-fit: contain; background: #0d0f13; border: 1px solid #2b3039; border-radius: 6px; margin: 16px 0; }
+  button { width: 100%; min-height: 46px; margin-top: 12px; border: 1px solid #39414f; border-radius: 8px; padding: 11px 16px; background: #242932; color: #eef0f4; font: inherit; font-size: 14px; cursor: pointer; }
+  button:hover:not(:disabled) { background: #2d3440; }
+  button.primary { color: #fff; background: #466ed5; border-color: #466ed5; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #527cdf; }
+  button:disabled { opacity: .45; cursor: wait; }
+  button:focus-visible { outline: 2px solid #8eaef6; outline-offset: 3px; }
+  #s { min-height: 48px; margin: 18px 0 0; color: #bdc2cc; font-size: 13px; }
+  #s.on { color: #82c4a0; } #s.error { color: #ed939d; }
+  .note { font-size: 12px; color: #969da9; }
+  [hidden] { display: none !important; }
 </style></head><body>
 <main>
 <div class="brand">Íris / conexão local</div>
-<h1>Seu celular.<br>Os olhos da Íris.</h1>
+<h1>Conectar câmera do celular</h1>
 <p>Envie uma foto para visualizar no computador e cadastrar uma pessoa autorizada.</p>
 <section class="panel" aria-label="Enviar imagem">
 <span class="mode" id="modo">Foto pelo celular</span>

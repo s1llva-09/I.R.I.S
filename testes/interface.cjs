@@ -106,7 +106,7 @@ if (!process.versions.electron) {
       useContentSize: true,
       frame: false,
       show: false,
-      backgroundColor: '#070b14',
+      backgroundColor: '#101216',
       webPreferences: {
         offscreen: true,
         backgroundThrottling: false,
@@ -149,7 +149,7 @@ if (!process.versions.electron) {
         'assistente',
         width,
         height,
-        (s) => s.selected.includes('Assistente') && s.headings.some((h) => /Vamos além/.test(h))
+        (s) => s.selected.includes('Assistente') && s.headings.some((h) => /^Assistente$/.test(h))
       )
       await click('.sidebar button[title="Configurações"]')
       await check(

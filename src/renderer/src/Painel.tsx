@@ -25,37 +25,28 @@ import {
  * em monoespaçado tabular. O dado é a tinta; a moldura é quase invisível.
  */
 
-// Espelham os tokens do main.css. O recharts pinta em SVG por prop, não por
-// classe, então não dá pra usar as variáveis do tema aqui — se mexer lá,
-// mexa aqui. É a única duplicação de cor do projeto.
-const SINAL = '#63dcf2'
-const HUD = '#a392ff'
-const FIO = 'rgba(234,242,246,0.10)'
-const TINTA = '#edf3fc'
-const TINTA_3 = '#7e8ea8'
+// Os gráficos usam as mesmas variáveis de cor do restante da interface.
+const SINAL = 'var(--color-sinal)'
+const FIO = 'var(--color-fio)'
+const TINTA = 'var(--color-tinta)'
+const TINTA_3 = 'var(--color-tinta-3)'
 
-/**
- * Série categórica na ordem do Mark III: o BRANCO vem primeiro.
- *
- * A série principal é o traço branco do capacete; âmbar e cyan entram como
- * acento nas seguintes. Começar pelo âmbar faria a cor de "crítico" pintar
- * a primeira barra de todo gráfico — e aí ela não significa mais nada.
- */
-const CORES = [SINAL, HUD, TINTA, '#73e2ba', '#ff788b', '#ffba75']
+/** Cores distintas para as séries dos gráficos. */
+const CORES = [SINAL, '#b4a3dc', TINTA, 'var(--color-ok)', 'var(--color-perigo)', '#e1c28e']
 
 // Eixo e grade recuam. O dado é que tem que aparecer, não a moldura.
-const eixo = { fill: TINTA_3, fontSize: 10, fontFamily: 'Cascadia Mono, Consolas, monospace' }
+const eixo = { fill: TINTA_3, fontSize: 11, fontFamily: 'Segoe UI, system-ui, sans-serif' }
 const dica = {
   cursor: { fill: 'rgba(234,242,246,0.04)' },
   contentStyle: {
-    background: '#0b1219',
-    border: `1px solid rgba(234,242,246,0.22)`,
-    borderRadius: 0,
+    background: 'var(--color-chapa)',
+    border: '1px solid var(--color-fio-forte)',
+    borderRadius: 8,
     fontSize: 12,
-    fontFamily: 'Cascadia Mono, Consolas, monospace',
+    fontFamily: 'Segoe UI, system-ui, sans-serif',
     boxShadow: '0 8px 24px -8px rgba(0,0,0,0.85)'
   },
-  labelStyle: { color: TINTA_3, fontSize: 10, letterSpacing: '0.12em' },
+  labelStyle: { color: TINTA_3, fontSize: 11 },
   itemStyle: { color: TINTA }
 }
 
@@ -148,7 +139,7 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
             outerRadius={92}
             innerRadius={52}
             paddingAngle={1}
-            stroke="#0b1219"
+            stroke="var(--color-chapa)"
             strokeWidth={1}
           >
             {v.dados.map((_, i) => (
@@ -175,7 +166,7 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
           key={rotulo}
           className="flex items-baseline justify-between gap-6 border-b border-fio py-2.5 last:border-b-0"
         >
-          <dt className="font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">{rotulo}</dt>
+          <dt className="font-sans text-[11px] text-tinta-3">{rotulo}</dt>
           <dd className="font-mono text-[15px] tabular-nums text-tinta">{String(valor)}</dd>
         </div>
       ))}
@@ -194,7 +185,7 @@ const DESENHOS: Record<Visual['tipo'], (v: Visual) => JSX.Element> = {
               {colunas.map((c) => (
                 <th
                   key={c}
-                  className="border-b border-fio px-4 py-2 font-hud text-[11px] font-normal tracking-[0.2em] text-tinta-3 uppercase"
+                  className="border-b border-fio px-4 py-2 font-sans text-[11px] font-normal text-tinta-3"
                 >
                   {c}
                 </th>
@@ -233,11 +224,8 @@ export default function Painel({ visual }: { visual: Visual }): JSX.Element {
   const desenhar = DESENHOS[visual.tipo]
 
   return (
-    // colchetes + destravar: o painel de dado NASCE na tela, então é ele que
-    // recebe a mecânica de "exploded keyhole" do filme. A moldura é de canto
-    // e não caixa fechada — mira, não card.
     <figure className="destravar mt-1 mb-4 max-w-[72ch] rounded-xl border border-fio bg-chapa/70 p-px">
-      <figcaption className="border-b border-fio px-4 py-2 font-hud text-[11px] tracking-[0.2em] text-tinta-3 uppercase">
+      <figcaption className="border-b border-fio px-4 py-2 font-sans text-[11px] text-tinta-3">
         {visual.titulo}
       </figcaption>
       {desenhar ? (

@@ -105,7 +105,7 @@ function criarJanela(): void {
     minHeight: 560,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#070b14', // evita o flash branco antes do React montar
+    backgroundColor: '#101216', // evita o flash branco antes do React montar
 
     /**
      * A barra de título nativa do Windows é clara e não pertence ao mundo
@@ -119,7 +119,7 @@ function criarJanela(): void {
      * mexer na outra.
      */
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#090e19', symbolColor: '#a5b2c8', height: 40 },
+    titleBarOverlay: { color: '#14171d', symbolColor: '#bdc2cc', height: 40 },
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

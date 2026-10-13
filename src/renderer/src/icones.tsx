@@ -20,8 +20,8 @@ function Base({ children, ...resto }: Props & { children: React.ReactNode }): JS
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
-      strokeLinecap="square"
-      strokeLinejoin="miter"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
       {...resto}
     >
@@ -158,6 +158,38 @@ export function Enviar(props: Props): JSX.Element {
   return (
     <Base {...props}>
       <path d="m2 2 12 6-12 6 2-6zM4 8h10" />
+    </Base>
+  )
+}
+
+export function Casa(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="m1.5 7 6.5-5.5L14.5 7M3 6v8h10V6M6 14V9h4v5" />
+    </Base>
+  )
+}
+
+export function Adicionar(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M8 3v10M3 8h10" />
+    </Base>
+  )
+}
+
+export function Fechar(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="m4 4 8 8M12 4l-8 8" />
+    </Base>
+  )
+}
+
+export function Externo(props: Props): JSX.Element {
+  return (
+    <Base {...props}>
+      <path d="M9 2h5v5M14 2 7 9M6 3H2v11h11v-4" />
     </Base>
   )
 }

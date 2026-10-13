@@ -548,11 +548,11 @@ export default function App(): JSX.Element {
                     que o usuário precisa saber — que ninguém perguntou nada. */}
                   <Calha>
                     {m.role === 'user' ? (
-                      'VOCÊ'
+                      'Você'
                     ) : m.gatilho ? (
-                      <span className="text-hud">GATILHO</span>
+                      <span className="text-hud">Aviso</span>
                     ) : (
-                      'ÍRIS'
+                      'Íris'
                     )}
                   </Calha>
 
@@ -644,7 +644,7 @@ export default function App(): JSX.Element {
               onChange={(e) => setRascunho(e.target.value)}
               onKeyDown={aoTeclar}
               rows={1}
-              placeholder="Pergunte ou dê um comando à Íris…"
+              placeholder="Escreva uma pergunta ou um comando"
               aria-label="Comando para a Íris"
               className="max-h-40 min-w-0 flex-1 resize-none border-none bg-transparent py-1.5 leading-[1.65] text-tinta caret-sinal outline-none select-text placeholder:text-tinta-3 focus-visible:outline-none"
             />
@@ -653,13 +653,13 @@ export default function App(): JSX.Element {
               aria-label="Enviar comando"
               title="Enviar comando (Enter)"
               disabled={pensando || !rascunho.trim()}
-              className="shrink-0 self-end border border-fio-forte px-3 py-1.5 font-hud text-[11px] tracking-[0.16em] text-tinta-2 transition-colors not-disabled:hover:border-sinal not-disabled:hover:text-sinal disabled:opacity-35"
+              className="shrink-0 self-end border border-fio-forte px-3 py-1.5 font-sans text-[11px] text-tinta-2 transition-colors not-disabled:hover:border-sinal not-disabled:hover:text-sinal disabled:opacity-35"
             >
               <Enviar width={17} height={17} />
             </button>
           </div>
           <div className="composer-help">
-            <span>Converse com a sua inteligência</span>
+            <span>Consultas e comandos</span>
             <span>Enter para enviar · Shift + Enter para nova linha</span>
           </div>
         </footer>
@@ -745,37 +745,37 @@ function Transmissao({
     : null
 
   const botao =
-    'border border-fio-forte px-2.5 py-1 font-hud text-[11px] tracking-[0.16em] text-tinta-3 transition-colors'
+    'border border-fio-forte px-2.5 py-1 font-sans text-[11px] text-tinta-3 transition-colors'
 
   return (
     <div className="colchetes colchetes-dado destravar min-w-0 flex-1 px-4 py-3.5">
       <div className="mb-2.5 flex items-center gap-2 font-mono text-[11px] leading-5">
         <Pulso width={12} height={12} className="shrink-0 text-hud" />
         <span className="text-hud">{m.gatilho}</span>
-        <span className="text-tinta-3">disparou sozinho</span>
+        <span className="text-tinta-3">Aviso automático</span>
         {hora && <span className="ml-auto text-tinta-3 tabular-nums">{hora}</span>}
       </div>
 
       <div className="max-w-[72ch] leading-[1.65] whitespace-pre-wrap select-text">{m.content}</div>
 
       {m.util !== undefined ? (
-        <p className="mt-3 font-hud text-[11px] tracking-[0.2em] text-tinta-3">
-          {m.util ? 'MARCADO ÚTIL' : 'MARCADO RUÍDO'}
+        <p className="mt-3 font-sans text-[11px] text-tinta-3">
+          {m.util ? 'Marcado como útil' : 'Marcado como irrelevante'}
         </p>
       ) : (
         <div className="mt-3.5 flex items-center gap-2">
-          <span className="font-hud text-[11px] tracking-[0.2em] text-tinta-3">VALEU?</span>
+          <span className="font-sans text-[11px] text-tinta-3">Este aviso foi útil?</span>
           <button
             onClick={() => onRotular(true)}
             className={`${botao} hover:border-hud hover:text-hud`}
           >
-            ÚTIL
+            Útil
           </button>
           <button
             onClick={() => onRotular(false)}
             className={`${botao} hover:border-perigo hover:text-perigo`}
           >
-            RUÍDO
+            Irrelevante
           </button>
         </div>
       )}
@@ -792,10 +792,10 @@ function Falha({ erro }: { erro: string }): JSX.Element {
   const chave = /401|403|api key|unauthorized|credential/i.test(erro)
 
   const saida = semRede
-    ? 'Sem resposta do OpenRouter. Confira a conexão e mande de novo.'
+    ? 'Sem resposta do OpenRouter. Confira a conexão e tente novamente.'
     : chave
-      ? 'A chave do OpenRouter foi recusada. Verifique MAIN_VITE_LLM_KEY no .env.'
-      : 'Tente de novo; se repetir, o modelo em MAIN_VITE_LLM_MODELO pode ter saído do ar.'
+      ? 'A chave do OpenRouter foi recusada. Verifique a chave em Configurações.'
+      : 'Tente novamente. Se o problema continuar, confira o modelo em Configurações.'
 
   return (
     <div className="max-w-[72ch] border-l border-perigo pl-4">
@@ -846,11 +846,9 @@ function Aprovacao({
       <div className="approval-surface destravar w-full max-w-2xl p-px">
         <div className="flex items-center gap-2.5 border-b border-fio px-5 py-3 text-perigo">
           <Atencao />
-          <span className="font-hud text-[11px] tracking-[0.24em]">APROVAÇÃO NECESSÁRIA</span>
+          <span className="font-sans text-[11px]">Aprovação necessária</span>
           {naFila > 0 && (
-            <span className="ml-auto font-hud text-[11px] tracking-[0.2em] text-tinta-3">
-              +{naFila} NA FILA
-            </span>
+            <span className="ml-auto font-sans text-[11px] text-tinta-3">+{naFila} na fila</span>
           )}
         </div>
 
@@ -862,7 +860,7 @@ function Aprovacao({
               barreira. Também é o que torna a decisão auditável. */}
           {pedido.risco.motivos.length > 0 && (
             <section className="flex gap-5">
-              <Calha>POR QUE PAREI</Calha>
+              <Calha>Motivo</Calha>
               <ul className="flex max-w-[64ch] flex-1 flex-wrap gap-x-4 gap-y-1 leading-[1.65]">
                 {pedido.risco.motivos.map((m) => (
                   <li key={m} className="text-tinta-2 select-text">
@@ -874,12 +872,12 @@ function Aprovacao({
           )}
 
           <section className="flex gap-5">
-            <Calha>O QUE FAZ</Calha>
+            <Calha>Ação</Calha>
             <p className="max-w-[64ch] flex-1 leading-[1.65] select-text">{pedido.explicacao}</p>
           </section>
 
           <section className="flex gap-5">
-            <Calha>COMANDO</Calha>
+            <Calha>Comando</Calha>
             <pre className="max-h-56 min-w-0 flex-1 overflow-auto bg-sulco px-3.5 py-3 font-mono text-[12px] leading-[1.6] whitespace-pre-wrap text-tinta select-text">
               {pedido.comando}
             </pre>
@@ -890,15 +888,15 @@ function Aprovacao({
           <button
             ref={recusar}
             onClick={() => onResponder(false)}
-            className="border border-fio-forte px-4 py-2 font-hud text-[11px] tracking-[0.16em] text-tinta-2 transition-colors hover:border-tinta-3 hover:text-tinta"
+            className="border border-fio-forte px-4 py-2 font-sans text-[11px] text-tinta-2 transition-colors hover:border-tinta-3 hover:text-tinta"
           >
-            RECUSAR
+            Recusar
           </button>
           <button
             onClick={() => onResponder(true)}
-            className="border border-perigo px-4 py-2 font-hud text-[11px] tracking-[0.16em] text-perigo transition-colors hover:bg-perigo hover:text-fundo"
+            className="border border-perigo px-4 py-2 font-sans text-[11px] text-perigo transition-colors hover:bg-perigo hover:text-fundo"
           >
-            EXECUTAR
+            Executar
           </button>
         </div>
       </div>

@@ -1,5 +1,17 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react'
-import { Ajustes, Arco, Camera, Escudo, Grade, Mudo, Prompt, Pulso, Seta, Som } from './icones'
+import {
+  Ajustes,
+  Arco,
+  Camera,
+  Casa,
+  Escudo,
+  Grade,
+  Mudo,
+  Prompt,
+  Pulso,
+  Seta,
+  Som
+} from './icones'
 
 export type Destino = 'assistente' | 'seguranca' | 'porta' | 'ajustes'
 
@@ -41,7 +53,7 @@ export default function Shell({
     {
       id: 'assistente' as const,
       nome: 'Assistente',
-      detalhe: 'Sua central de comandos',
+      detalhe: 'Consultas e comandos',
       icone: Prompt
     },
     { id: 'porta' as const, nome: 'Modo porta', detalhe: 'Monitor dedicado', icone: Camera }
@@ -54,7 +66,7 @@ export default function Shell({
     <div className="app-shell">
       <header className="window-bar">
         <span className="window-brand">
-          <span className="brand-spark" /> ÍRIS <span>/</span> CENTRAL DE INTELIGÊNCIA
+          <Casa width={14} height={14} /> Íris <span>/</span> Controle do ambiente
         </span>
         <span className="window-time">
           {agora.toLocaleDateString('pt-BR')} <span>·</span> {agora.toLocaleTimeString('pt-BR')}
@@ -64,16 +76,14 @@ export default function Shell({
         <aside className="sidebar">
           <div className="brand-lockup">
             <div className="brand-emblem">
-              <Pulso width={26} height={26} />
+              <Casa width={22} height={22} />
             </div>
             <div>
-              <strong>
-                íris<span>.</span>
-              </strong>
-              <small>INTELIGÊNCIA PRESENTE</small>
+              <strong>Íris</strong>
+              <small>Controle do ambiente</small>
             </div>
           </div>
-          <span className="nav-caption">ESPAÇO DE TRABALHO</span>
+          <span className="nav-caption">Navegação</span>
           <nav aria-label="Navegação principal">
             {destinos.map(({ id, nome, detalhe, icone: Icone }) => (
               <button
@@ -96,12 +106,12 @@ export default function Shell({
             <div className="local-status">
               <span className={`status-dot ${rostos >= 0 ? 'is-on' : ''}`} />
               <span>{rostos >= 0 ? 'Sensor conectado' : 'Sensor desconectado'}</span>
-              <small>PROCESSAMENTO LOCAL</small>
+              <small>Processamento local</small>
             </div>
             {uso && (
               <div className="quota-card">
                 <div>
-                  <span>Chamadas de IA</span>
+                  <span>Solicitações hoje</span>
                   <strong>
                     {uso.usadas}
                     <small> / {uso.teto}</small>
@@ -143,7 +153,7 @@ export default function Shell({
           <div className="workspace-bar">
             <div className="workspace-breadcrumb">
               <Grade width={15} height={15} />
-              <span>Workspace</span>
+              <span>Íris</span>
               <Seta width={12} height={12} />
               <strong>
                 {destino === 'ajustes'
@@ -204,36 +214,26 @@ export function BoasVindas({
 }): JSX.Element {
   return (
     <div className="welcome">
-      <div className="welcome-orbit" aria-hidden>
-        <div>
-          <Pulso width={45} height={45} />
-        </div>
-      </div>
-      <span className="eyebrow">SEU AMBIENTE. SUA INTELIGÊNCIA.</span>
-      <h1>
-        Vamos além do <span>comando.</span>
-      </h1>
-      <p>
-        Converse, explore sua máquina e acompanhe o que acontece ao seu redor. A Íris conecta tudo
-        em um só lugar.
-      </p>
+      <span className="eyebrow">Consultas e comandos</span>
+      <h1>Assistente</h1>
+      <p>Consulte o computador, execute comandos e acompanhe suas câmeras.</p>
       <div className="welcome-actions">
         <button onClick={aoSeguranca}>
           <Escudo width={23} height={23} />
-          <strong>Olhar ao redor</strong>
-          <span>Abrir a central de segurança</span>
+          <strong>Monitorar câmeras</strong>
+          <span>Ver imagens e eventos</span>
           <Seta />
         </button>
         <button onClick={() => aoComando('Como está o meu computador agora?')}>
           <Pulso width={23} height={23} />
-          <strong>Entender meu PC</strong>
-          <span>Consultar o estado da máquina</span>
+          <strong>Estado do computador</strong>
+          <span>Consultar uso e desempenho</span>
           <Seta />
         </button>
         <button onClick={() => aoComando('O que você pode fazer por mim?')}>
           <Prompt width={23} height={23} />
-          <strong>Explorar possibilidades</strong>
-          <span>Conhecer os recursos da Íris</span>
+          <strong>Recursos disponíveis</strong>
+          <span>Consultar funções e comandos</span>
           <Seta />
         </button>
       </div>

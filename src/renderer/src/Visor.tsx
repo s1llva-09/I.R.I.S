@@ -63,7 +63,7 @@ export default function Visor({
           y = dy + c.y * escala
         const cw = c.w * escala,
           ch = c.h * escala
-        const cor = c.nome ? '#73e2ba' : alerta ? '#ff788b' : '#63dcf2'
+        const cor = c.nome ? '#82c4a0' : alerta ? '#ed939d' : '#8eaef6'
         ctx.strokeStyle = cor
         ctx.strokeRect(x, y, cw, ch)
         const braco = Math.min(14 * unidade, cw / 3, ch / 3)
@@ -103,11 +103,11 @@ export default function Visor({
   const teste = sensor.fonte === 'teste'
   const carregando = ativo && sensor.modelos === 'carregando'
   const titulo = !ativo
-    ? 'Seu olhar sobre o ambiente'
+    ? 'Nenhuma câmera ativa'
     : sensor.erro
       ? 'Câmera indisponível'
       : carregando
-        ? 'Preparando a visão local'
+        ? 'Carregando reconhecimento'
         : 'Aguardando sinal da câmera'
   return (
     <div
@@ -121,8 +121,7 @@ export default function Visor({
           {sinal ? (teste ? 'IMAGEM DE TESTE' : 'AO VIVO') : 'SEM TRANSMISSÃO'}
         </span>
         <span className="camera-channel">
-          {teste ? 'FONTE DE TESTE' : sensor.fonte === 'rede' ? 'CÂMERA DE REDE' : 'CÂMERA LOCAL'} /
-          01
+          {teste ? 'Fonte de teste' : sensor.fonte === 'rede' ? 'Câmera de rede' : 'Câmera local'}
         </span>
       </div>
       {!sinal && (
@@ -145,19 +144,15 @@ export default function Visor({
                   : 'Confira a conexão e selecione a fonte nos controles da câmera.'}
           </p>
           <span>
-            USB <i /> REDE LOCAL <i /> CELULAR
+            USB <i /> Rede local <i /> Celular
           </span>
         </div>
       )}
-      <div className="camera-corner corner-tl" />
-      <div className="camera-corner corner-tr" />
-      <div className="camera-corner corner-bl" />
-      <div className="camera-corner corner-br" />
       <div className="camera-bottomline">
         <span>
           {sinal
-            ? `${sensor.largura} × ${sensor.altura} · ${teste ? 'SIMULAÇÃO' : 'VISUALIZAÇÃO LOCAL'}`
-            : 'NENHUMA IMAGEM SENDO EXIBIDA'}
+            ? `${sensor.largura} × ${sensor.altura} · ${teste ? 'Simulação' : 'Visualização local'}`
+            : 'Nenhuma imagem disponível'}
         </span>
         <button
           onClick={() => {

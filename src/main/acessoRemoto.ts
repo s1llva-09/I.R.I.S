@@ -129,8 +129,8 @@ export class AcessoRemoto {
               start_url: '/',
               scope: '/',
               display: 'standalone',
-              background_color: '#08121e',
-              theme_color: '#08121e',
+              background_color: '#101216',
+              theme_color: '#101216',
               icons: [{ src: '/icone.png', sizes: '512x512', type: 'image/png' }]
             })
           )

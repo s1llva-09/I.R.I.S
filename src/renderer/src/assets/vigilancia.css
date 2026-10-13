@@ -1,7 +1,7 @@
 .vigia-panel {
   padding: 24px;
   margin-block: 18px;
-  background: linear-gradient(135deg, rgba(22, 56, 72, 0.32), rgba(10, 17, 31, 0.9));
+  background: var(--color-chapa);
 }
 .vigia-heading {
   display: flex;
@@ -14,27 +14,27 @@
   margin: 6px 0;
 }
 .vigia-heading p {
-  color: var(--text-muted, #93a8bc);
+  color: var(--text-muted, #a4acb9);
 }
 .vigia-mode {
   border: 1px solid #405369;
   padding: 9px 14px;
-  border-radius: 100px;
+  border-radius: 7px;
   white-space: nowrap;
   font-size: 12px;
 }
 .vigia-mode-armado {
-  color: #70e4d0;
-  border-color: #3b897d;
-  background: #123931;
+  color: #82c4a0;
+  border-color: #426854;
+  background: #21342a;
 }
 .vigia-mode-preparando {
-  color: #e5d38b;
-  border-color: #756e41;
+  color: #e1c28e;
+  border-color: #766646;
 }
 .vigia-mode-erro {
-  color: #ffb0b8;
-  border-color: #9c495b;
+  color: #ed939d;
+  border-color: #774651;
 }
 .vigia-metrics {
   display: grid;
@@ -46,19 +46,19 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border: 1px solid #263f51;
+  border: 1px solid #333b48;
   border-radius: 12px;
   padding: 15px;
-  background: rgba(9, 19, 31, 0.65);
+  background: #1d232b;
 }
 .vigia-metrics strong {
   font-size: 25px;
-  color: #8ce7e0;
-  font-weight: 500;
+  color: #eef0f4;
+  font-weight: 600;
 }
 .vigia-metrics span,
 .vigia-hint {
-  color: #9badc1;
+  color: #a4acb9;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -80,25 +80,25 @@
   display: flex;
   flex-direction: column;
   padding: 12px;
-  border-left: 2px solid #58c5b1;
-  background: #111f2c;
+  border-left: 2px solid #82c4a0;
+  background: #1d232b;
   border-radius: 4px;
   gap: 6px;
 }
 .vigia-health span {
   font-size: 12px;
-  color: #9cbbcd;
+  color: #a4acb9;
 }
 .vigia-health .vigia-health-bad {
-  border-color: #e88889;
+  border-color: #ed939d;
 }
 .vigia-details {
-  border-top: 1px solid #294052;
+  border-top: 1px solid #333b48;
   padding-block: 16px;
 }
 .vigia-details summary {
   cursor: pointer;
-  color: #bdd5e9;
+  color: #c4cbd7;
   font-weight: 500;
 }
 .vigia-details > p {
@@ -119,7 +119,7 @@
   flex-direction: column;
   gap: 8px;
   font-size: 12px;
-  color: #b6cbde;
+  color: #bdc2cc;
 }
 .vigia-form-row label {
   flex: 1;
@@ -130,9 +130,9 @@
 }
 .vigia-panel select,
 .vigia-panel input:not([type='checkbox']) {
-  background: #0e1c2b;
-  color: #d5e8f7;
-  border: 1px solid #36536b;
+  background: #13161b;
+  color: #eef0f4;
+  border: 1px solid #3d4655;
   border-radius: 8px;
   padding: 10px 12px;
   font: inherit;
@@ -160,7 +160,7 @@
   max-width: 780px;
   margin: 12px auto;
   cursor: crosshair;
-  background: #060c14;
+  background: #0d0f13;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -178,16 +178,16 @@
 }
 .vigia-zone-editor polygon {
   fill: #54e2ca29;
-  stroke: #67dfc5;
+  stroke: #82c4a0;
   stroke-width: 3;
 }
 .vigia-zone-editor polyline {
   fill: none;
-  stroke: #f6db7b;
+  stroke: #e1c28e;
   stroke-width: 4;
 }
 .vigia-zone-editor circle {
-  fill: #f6db7b;
+  fill: #e1c28e;
 }
 .vigia-zone-empty {
   display: grid;
@@ -206,8 +206,8 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  background: #193342;
-  border: 1px solid #375b69;
+  background: #252e3d;
+  border: 1px solid #3b4351;
   border-radius: 7px;
   padding: 5px 10px;
   font-size: 12px;
@@ -226,8 +226,8 @@
 }
 .vigia-pairing > div {
   padding: 18px;
-  background: #101e2b;
-  border: 1px solid #29495c;
+  background: #1d232b;
+  border: 1px solid #333b48;
   border-radius: 12px;
 }
 .vigia-pairing svg {
@@ -241,7 +241,7 @@
   display: block;
   overflow-wrap: anywhere;
   font-size: 11px;
-  color: #c2dce3;
+  color: #c4cbd7;
 }
 .vigia-pairing p {
   font-size: 12px;
@@ -263,7 +263,7 @@
   display: flex;
   gap: 18px;
   padding: 16px 0;
-  border-top: 1px solid #294052;
+  border-top: 1px solid #333b48;
 }
 .vigia-events article > div {
   flex: 1;
@@ -277,10 +277,10 @@
 }
 .vigia-events time {
   font-size: 11px;
-  color: #69d2cc;
+  color: #a4b9e8;
 }
 .vigia-events small {
-  color: #a8b9ce;
+  color: #a4acb9;
   font-size: 11px;
   display: block;
 }
@@ -289,7 +289,7 @@
   height: 110px;
   object-fit: contain;
   border-radius: 8px;
-  background: #08121c;
+  background: #13161b;
 }
 @media (max-width: 850px) {
   .vigia-heading {
