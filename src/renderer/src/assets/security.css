@@ -5,7 +5,9 @@
   padding: 28px 30px 20px;
   background: var(--color-fundo);
 }
-.security-dashboard svg {
+/* :where() zera o peso do svg: este arquivo carrega depois de cameras.css e
+   vigilancia.css, e com o mesmo peso encolhia QR codes e o editor de zonas. */
+.security-dashboard :where(svg) {
   width: 19px;
   height: 19px;
   flex-shrink: 0;

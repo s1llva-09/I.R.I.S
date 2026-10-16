@@ -521,6 +521,11 @@ if (!process.versions.electron) {
     await check('iris-celular-pareamento', 700, 650, (s) =>
       s.text.includes('Adicionar à Tela de Início')
     )
+    // A regra de ícone 19px de security.css já encolheu estes QR sem quebrar nada visível no teste.
+    const larguraQr = await evaluate(
+      `Math.min(...[...document.querySelectorAll('.vigia-pairing svg')].map(s => s.getBoundingClientRect().width))`
+    )
+    assert(larguraQr >= 150, `pairing QR shrunk to ${larguraQr}px`)
     await evaluate(
       `[...document.querySelectorAll('.vigia-panel button')].find(b=>b.textContent==='Desarmar proteção').click()`
     )
