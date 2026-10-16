@@ -35,129 +35,156 @@ const RECONEXAO = 4000
 
 type Ouvinte = (jpegBase64: string) => void
 
+/**
+ * UMA conexão HTTP por URL, dividida entre quem pediu.
+ *
+ * O visor (reconhecimento facial) e o mosaico (celular, Fora de casa) abrem a
+ * mesma câmera por caminhos diferentes. ESP32-CAM e câmera IP barata atendem
+ * um cliente por vez: com duas conexões, a segunda ficava sem imagem e
+ * parecia câmera offline. Aqui a segunda só passa a ouvir o fluxo que já
+ * existe, e a conexão fecha quando o último ouvinte sai.
+ *
+ * A chave é a URL literal: `.../stream` e `.../stream/` abrem duas conexões.
+ */
+type Fluxo = {
+  url: string
+  ouvintes: Set<Ouvinte>
+  req: ReturnType<typeof get> | null
+  timer: NodeJS.Timeout | null
+  geracao: number
+  /** Último erro legível, pra UI dizer o que houve em vez de "não pegou". */
+  erro: string
+}
+const fluxos = new Map<string, Fluxo>()
+
+function fechar(f: Fluxo): void {
+  f.req?.destroy()
+  f.req = null
+  if (f.timer) clearTimeout(f.timer)
+  f.timer = null
+}
+
+/**
+ * Corta o multipart. O separador vem do header `Content-Type`, e quando não
+ * vem a gente cai no delimitador do JPEG (FFD8…FFD9) — vários firmwares
+ * anunciam `boundary` errado ou não anunciam, e recusar por causa do header
+ * deixaria de fora justamente as câmeras baratas que este caminho existe
+ * pra atender.
+ */
+function consumir(f: Fluxo, res: IncomingMessage, ciclo: number): void {
+  let buf = Buffer.alloc(0)
+
+  res.on('data', (pedaco: Buffer) => {
+    if (ciclo !== f.geracao) return
+    buf = Buffer.concat([buf, pedaco])
+
+    if (buf.length > TETO_FRAME) {
+      f.erro = 'fluxo grande demais — não parece MJPEG'
+      buf = Buffer.alloc(0)
+      return
+    }
+
+    for (;;) {
+      const inicio = buf.indexOf('\xff\xd8', 0, 'binary')
+      if (inicio < 0) return
+      const fim = buf.indexOf('\xff\xd9', inicio + 2, 'binary')
+      if (fim < 0) {
+        // Quadro incompleto: guarda só a partir do início dele e espera o
+        // resto. Sem cortar aqui, o buffer cresceria com o cabeçalho de
+        // todos os quadros já entregues.
+        if (inicio > 0) buf = buf.subarray(inicio)
+        return
+      }
+
+      const jpeg = buf.subarray(inicio, fim + 2).toString('base64')
+      buf = buf.subarray(fim + 2)
+      f.erro = ''
+      for (const ouvinte of f.ouvintes) ouvinte(jpeg)
+    }
+  })
+
+  res.on('end', () => {
+    if (ciclo === f.geracao) agendarReconexao(f, 'a câmera encerrou a transmissão')
+  })
+  res.on('error', (e) => {
+    if (ciclo === f.geracao) agendarReconexao(f, e.message)
+  })
+}
+
+function agendarReconexao(f: Fluxo, motivo: string): void {
+  f.erro = `Reconectando… ${motivo}`
+  fechar(f)
+  f.timer = setTimeout(() => abrir(f), RECONEXAO)
+}
+
+/** Abre (ou reabre) a conexão real do fluxo. */
+function abrir(f: Fluxo): void {
+  const ciclo = ++f.geracao
+  fechar(f)
+  try {
+    f.req = get(f.url, { timeout: 8000 }, (res) => {
+      if (ciclo !== f.geracao) {
+        res.destroy()
+        return
+      }
+      if (!res.statusCode || res.statusCode >= 400) {
+        res.resume()
+        return agendarReconexao(f, `a câmera respondeu ${res.statusCode}`)
+      }
+      consumir(f, res, ciclo)
+    })
+
+    f.req.on('timeout', () => {
+      if (ciclo === f.geracao) agendarReconexao(f, 'a câmera não respondeu em 8s')
+    })
+    f.req.on('error', (e) => {
+      if (ciclo === f.geracao) agendarReconexao(f, e.message)
+    })
+  } catch (e) {
+    agendarReconexao(f, (e as Error).message)
+  }
+}
+
+/** Um ouvinte. Cada tela tem o seu; a conexão real é do fluxo. */
 export function criarConexaoCamera(): {
   conectar: (url: string, aoFrame: Ouvinte) => void
   desconectarCamera: () => void
   erroCamera: () => string
 } {
-  let req: ReturnType<typeof get> | null = null
-  let timer: NodeJS.Timeout | null = null
-  let urlAtual = ''
-  let ouvinte: Ouvinte | null = null
-  let geracao = 0
-
-  /** Último erro legível, pra UI dizer o que houve em vez de "não pegou". */
-  let ultimoErro = ''
-
-  function erroCamera(): string {
-    return ultimoErro
-  }
-
-  function fechar(): void {
-    req?.destroy()
-    req = null
-    if (timer) clearTimeout(timer)
-    timer = null
-  }
-
-  /**
-   * Corta o multipart. O separador vem do header `Content-Type`, e quando não
-   * vem a gente cai no delimitador do JPEG (FFD8…FFD9) — vários firmwares
-   * anunciam `boundary` errado ou não anunciam, e recusar por causa do header
-   * deixaria de fora justamente as câmeras baratas que este caminho existe
-   * pra atender.
-   */
-  function consumir(res: IncomingMessage, ciclo: number): void {
-    let buf = Buffer.alloc(0)
-
-    res.on('data', (pedaco: Buffer) => {
-      if (ciclo !== geracao) return
-      buf = Buffer.concat([buf, pedaco])
-
-      if (buf.length > TETO_FRAME) {
-        ultimoErro = 'fluxo grande demais — não parece MJPEG'
-        buf = Buffer.alloc(0)
-        return
-      }
-
-      for (;;) {
-        const inicio = buf.indexOf('\xff\xd8', 0, 'binary')
-        if (inicio < 0) return
-        const fim = buf.indexOf('\xff\xd9', inicio + 2, 'binary')
-        if (fim < 0) {
-          // Quadro incompleto: guarda só a partir do início dele e espera o
-          // resto. Sem cortar aqui, o buffer cresceria com o cabeçalho de
-          // todos os quadros já entregues.
-          if (inicio > 0) buf = buf.subarray(inicio)
-          return
-        }
-
-        const jpeg = buf.subarray(inicio, fim + 2)
-        buf = buf.subarray(fim + 2)
-        ultimoErro = ''
-        ouvinte?.(jpeg.toString('base64'))
-      }
-    })
-
-    res.on('end', () => {
-      if (ciclo === geracao) agendarReconexao('a câmera encerrou a transmissão')
-    })
-    res.on('error', (e) => {
-      if (ciclo === geracao) agendarReconexao(e.message)
-    })
-  }
-
-  function agendarReconexao(motivo: string): void {
-    ultimoErro = `Reconectando… ${motivo}`
-    fechar()
-    if (!urlAtual) return
-    timer = setTimeout(() => urlAtual && conectar(urlAtual, ouvinte!), RECONEXAO)
-  }
-
-  /** Abre (ou reabre) o stream. URL vazia desliga. */
-  function conectar(url: string, aoFrame: Ouvinte): void {
-    const ciclo = ++geracao
-    fechar()
-    urlAtual = url.trim()
-    ouvinte = aoFrame
-    if (!urlAtual) {
-      ultimoErro = ''
-      return
-    }
-
-    try {
-      req = get(urlAtual, { timeout: 8000 }, (res) => {
-        if (ciclo !== geracao) {
-          res.destroy()
-          return
-        }
-        if (!res.statusCode || res.statusCode >= 400) {
-          res.resume()
-          return agendarReconexao(`a câmera respondeu ${res.statusCode}`)
-        }
-        consumir(res, ciclo)
-      })
-
-      req.on('timeout', () => {
-        if (ciclo === geracao) agendarReconexao('a câmera não respondeu em 8s')
-      })
-      req.on('error', (e) => {
-        if (ciclo === geracao) agendarReconexao(e.message)
-      })
-    } catch (e) {
-      agendarReconexao((e as Error).message)
-    }
-  }
+  let atual: { fluxo: Fluxo; ouvinte: Ouvinte } | null = null
 
   function desconectarCamera(): void {
-    geracao++
-    urlAtual = ''
-    ouvinte = null
-    ultimoErro = ''
-    fechar()
+    if (!atual) return
+    const { fluxo, ouvinte } = atual
+    atual = null
+    fluxo.ouvintes.delete(ouvinte)
+    if (fluxo.ouvintes.size) return
+    fluxo.geracao++
+    fechar(fluxo)
+    fluxos.delete(fluxo.url)
   }
 
-  return { conectar, desconectarCamera, erroCamera }
+  /** Abre (ou troca) o stream. URL vazia desliga. */
+  function conectar(url: string, aoFrame: Ouvinte): void {
+    desconectarCamera()
+    const alvo = url.trim()
+    if (!alvo) return
+
+    let fluxo = fluxos.get(alvo)
+    const novo = !fluxo
+    if (!fluxo) {
+      fluxo = { url: alvo, ouvintes: new Set(), req: null, timer: null, geracao: 0, erro: '' }
+      fluxos.set(alvo, fluxo)
+    }
+    // Embrulhado: o mesmo aoFrame em duas conexões viraria um só item no Set.
+    const ouvinte: Ouvinte = (jpeg) => aoFrame(jpeg)
+    fluxo.ouvintes.add(ouvinte)
+    atual = { fluxo, ouvinte }
+    // Quem clica em Conectar com o fluxo esperando reconexão quer tentar agora.
+    if (novo || fluxo.timer) abrir(fluxo)
+  }
+
+  return { conectar, desconectarCamera, erroCamera: () => atual?.fluxo.erro ?? '' }
 }
 export const { conectar, desconectarCamera, erroCamera } = criarConexaoCamera()
 

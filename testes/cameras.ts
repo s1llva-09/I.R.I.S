@@ -5,6 +5,7 @@ import { request } from 'https'
 import { mkdirSync, mkdtempSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { criarCentralCameras } from '../src/main/centralCameras'
+import { criarConexaoCamera } from '../src/main/camera'
 import { criarServidorCelular } from '../src/main/servidor'
 import type { CameraSalva, QuadroCamera } from '../src/shared/cameras'
 
@@ -26,12 +27,18 @@ void app.whenReady().then(async () => {
     },
     (q) => quadros.push(q)
   )
+  const abertas = new Map<string, number>()
   const servidor = createServer((req, res) => {
+    const rota = req.url ?? ''
+    abertas.set(rota, (abertas.get(rota) ?? 0) + 1)
     res.writeHead(200, { 'content-type': 'multipart/x-mixed-replace; boundary=frame' })
-    const quadro = Buffer.from([255, 216, req.url === '/sala' ? 1 : 2, 255, 217])
+    const quadro = Buffer.from([255, 216, rota === '/sala' ? 1 : 2, 255, 217])
     res.write(quadro)
     const timer = setInterval(() => res.write(quadro), 100)
-    req.on('close', () => clearInterval(timer))
+    req.on('close', () => {
+      clearInterval(timer)
+      abertas.set(rota, (abertas.get(rota) ?? 1) - 1)
+    })
   })
   const a = criarServidorCelular(8900, 8901),
     b = criarServidorCelular(8902, 8903)
@@ -96,6 +103,30 @@ void app.whenReady().then(async () => {
     assert.ok(central.listar().every((c) => !c.ligada && c.ultimoQuadro === null))
     console.log(
       'PASS mosaico: duas fontes simultâneas, edição, persistência, pausa e remoção isoladas'
+    )
+
+    // ESP32-CAM atende um cliente: visor e mosaico precisam dividir a conexão.
+    const visor = criarConexaoCamera()
+    let noVisor = 0
+    const entrada = central.salvar({
+      id: '',
+      nome: 'Porta',
+      ambiente: 'Entrada',
+      tipo: 'rede',
+      endereco: base + '/porta'
+    })
+    await central.conectar(entrada.id)
+    visor.conectar(base + '/porta', () => noVisor++)
+    await esperar(() => noVisor > 2 && quadros.some((q) => q.id === entrada.id))
+    assert.equal(abertas.get('/porta'), 1, 'visor e mosaico usam uma conexão só')
+    central.parar(entrada.id)
+    const vistos = noVisor
+    await esperar(() => noVisor > vistos + 2)
+    assert.equal(abertas.get('/porta'), 1, 'pausar o mosaico não derruba o visor')
+    visor.desconectarCamera()
+    await esperar(() => abertas.get('/porta') === 0)
+    console.log(
+      'PASS câmera de um cliente: visor e mosaico dividem a conexão e saem sem derrubar o outro'
     )
 
     let recebidosA = 0,
