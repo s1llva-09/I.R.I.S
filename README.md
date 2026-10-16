@@ -58,6 +58,31 @@ individual. Não confunda a contagem desse sensor com a do mosaico.
   `http://IP_DO_CELULAR:4747/video` quando a transmissão está ativa. URLs de
   páginas, RTSP e HLS não são aceitas nesse campo.
 
+### Câmera da porta com ESP32-CAM
+
+O firmware não fica neste repositório: a Íris usa o exemplo oficial
+**CameraWebServer**, que já entrega MJPEG em `http://IP:81/stream`.
+
+1. **Hardware:** ESP32-CAM AI-Thinker (OV2640) e um gravador USB-serial 3,3 V
+   (FTDI/CH340) ou a base ESP32-CAM-MB. Alimente com 5 V e pelo menos 1 A; fonte
+   fraca causa reinício com `Brownout detector was triggered`.
+2. **Arduino IDE:** instale o pacote de placas **esp32** (Espressif) e abra
+   **Arquivo → Exemplos → ESP32 → Camera → CameraWebServer**.
+3. Deixe só `#define CAMERA_MODEL_AI_THINKER` ativo (em `board_config.h` nas
+   versões 3.x do pacote, no próprio `.ino` nas antigas) e preencha `ssid` e
+   `password` da mesma rede do computador.
+4. Placa **AI Thinker ESP32-CAM**. Com gravador avulso, ligue **IO0 ao GND**,
+   pressione reset, grave, depois solte IO0 e pressione reset de novo.
+5. No Monitor Serial (115200), anote o IP de `Camera Ready! Use 'http://IP'`.
+   Prefira reservar esse IP no roteador para o endereço não mudar.
+6. Na Íris, use **Buscar na rede** (procura a porta 81 e o caminho `/stream`
+   na sub-rede local) ou cole `http://IP:81/stream` e clique em **Testar
+   endereço**. Na Central de câmeras, cadastre como fonte **Rede**.
+
+O CameraWebServer atende **um cliente de vídeo por vez**: feche a página do
+ESP32-CAM no navegador antes de conectar pela Íris. Resolução e qualidade se
+ajustam nessa página (`http://IP`); VGA ou SVGA bastam para o reconhecimento.
+
 O QR local da Íris usa HTTP e envia **fotos individuais**. Vídeo ao vivo pelo
 navegador também está disponível em **Celular ao vivo · HTTPS**, conforme abaixo.
 Se o celular não abrir a página do QR, confira a

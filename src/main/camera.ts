@@ -209,6 +209,7 @@ const PORTAS = [
 /** Caminhos que esses firmwares servem. A ordem é a da probabilidade. */
 const CAMINHOS = [
   '/stream', // ESP32-CAM
+  '/stream.mjpg', // Raspberry Pi (exemplo mjpeg_server do picamera2)
   '/video', // IP Camera Lite, DroidCam
   '/live',
   '/mjpeg',
