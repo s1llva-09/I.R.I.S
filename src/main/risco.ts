@@ -66,6 +66,7 @@ function limiar(): number {
 const SEM_EFEITO = new Set([
   'hora_atual',
   'buscar_web',
+  'estoque_consultar',
   'listar_pasta',
   'analisar_pasta',
   'minhas_estatisticas',

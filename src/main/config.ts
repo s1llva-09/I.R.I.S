@@ -22,6 +22,9 @@ type Config = {
   llmModeloVisao: string
   llmReservas: string[]
   tavilyChave: string
+  /** Site de estoque (estoque-iris) que a Íris consulta. Vazio = ferramentas avisam e não chamam. */
+  estoqueUrl: string
+  estoqueToken: string
   atalho: string
   tetoDiario: number
   limiarRisco: number
@@ -62,6 +65,8 @@ const PADRAO: Config = {
   // Lê do .env igual à chave do LLM: sem isto, colar a chave no .env não
   // fazia nada e a única entrada era o campo em Ajustes.
   tavilyChave: import.meta.env.MAIN_VITE_TAVILY_KEY ?? '',
+  estoqueUrl: import.meta.env.MAIN_VITE_ESTOQUE_URL ?? '',
+  estoqueToken: import.meta.env.MAIN_VITE_ESTOQUE_TOKEN ?? '',
   atalho: 'Control+Space',
   tetoDiario: Number(import.meta.env.MAIN_VITE_TETO_DIARIO ?? 45),
   limiarRisco: 3,
@@ -135,7 +140,7 @@ const PADRAO: Config = {
  * devolve vazio, que faz a tela de primeira execução abrir sozinha. É o
  * comportamento certo, mas é surpresa se ninguém avisou.
  */
-const SECRETAS = new Set<keyof Config>(['llmChave', 'tavilyChave'])
+const SECRETAS = new Set<keyof Config>(['llmChave', 'tavilyChave', 'estoqueToken'])
 
 function cifrar(valor: string): string {
   if (!valor || !disponivel()) return valor

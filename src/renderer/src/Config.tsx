@@ -157,6 +157,22 @@ export default function Config({
                   alterar={alterar}
                   dica="Opcional. Habilita a busca na web pelo serviço Tavily."
                 />
+                <Campo
+                  id="estoqueUrl"
+                  rotulo="Site do estoque"
+                  cfg={cfg}
+                  salvo={salvo}
+                  alterar={alterar}
+                  dica="Opcional. Endereço do estoque-iris, como http://127.0.0.1:5000."
+                />
+                <Campo
+                  id="estoqueToken"
+                  rotulo="Token do estoque"
+                  cfg={cfg}
+                  salvo={salvo}
+                  alterar={alterar}
+                  dica="O mesmo valor de IRIS_API_TOKEN no site do estoque."
+                />
                 {/*
           Lista virando texto separado por vírgula, e não um editor de itens:
           são duas ou três strings que mudam uma vez por semestre.

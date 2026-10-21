@@ -346,7 +346,8 @@ function verificarCatalogo(): void {
     'analisar_pasta',
     'rodar_powershell',
     'ver_tela',
-    'buscar_web'
+    'buscar_web',
+    'estoque_consultar'
   ]) {
     assert.ok(FONTES_EXTERNAS.has(nome), `${nome} saiu de FONTES_EXTERNAS — entra sem envelope`)
   }

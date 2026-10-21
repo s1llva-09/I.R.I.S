@@ -217,9 +217,27 @@ histórico até serem apagados ou vencerem a retenção. Avisos já enviados nã
 podem ser recolhidos. A remoção dos registros é lógica, sem garantia de
 apagamento forense do SQLite ou de backups.
 
+### Site do estoque (estoque-iris)
+
+O estoque da loja é um **site separado** (Flask, projeto `estoque-iris`), com login,
+usuários e histórico próprios. A Íris não guarda nada dele: ela se conecta à API JSON
+do site e responde perguntas como "quantas ESP32-CAM temos?" ou "o que está acabando?".
+
+1. No site, defina `IRIS_API_TOKEN` antes de iniciar (`$env:IRIS_API_TOKEN = "..."`,
+   depois `python run.py`).
+2. Na Íris, em **Ajustes**, preencha **Site do estoque** (`http://127.0.0.1:5000`) e
+   **Token do estoque** com o mesmo valor. O token fica cifrado como as outras chaves.
+
+`estoque_consultar` só lê e roda direto. O retorno entra como conteúdo externo, porque
+nomes de produto são digitados por outras pessoas no site. `estoque_movimentar` registra
+compra ou venda e **sempre pede aprovação** (nível 3): o efeito acontece num sistema de
+terceiros e só o administrador desfaz, pela tela. As vendas feitas pela Íris aparecem no
+histórico do site com o usuário `iris`.
+
 ### Verificação
 
 ```bash
+npm run teste:estoque
 npm run teste:presenca
 npm run teste:interface
 npm run teste:servidor

@@ -38,6 +38,7 @@ import {
 import { MODOS, buscarModo } from './modos'
 import { capturar } from './tela'
 import { buscar } from './web'
+import { chamarEstoque, type Produto } from './estoque'
 
 const executar = promisify(exec)
 
@@ -342,6 +343,24 @@ export const NIVEIS: Record<string, 1 | 2 | 3> = {
    * O atrito cai onde o dano mora, não na leitura.
    */
   buscar_web: 1,
+
+  /**
+   * 1: só lê. Está em FONTES_EXTERNAS (nome de produto é texto de outras
+   * pessoas) e em SEM_EFEITO, pelo mesmo raciocínio do `buscar_web`.
+   */
+  estoque_consultar: 1,
+
+  /**
+   * 3, e não 2 como as outras escritas (`anotar`, `cadastrar_rosto`).
+   *
+   * Aquelas escrevem NESTE PC, e quem as desfaz é você. Esta escreve num
+   * sistema de OUTRAS pessoas — a loja, o caixa, o relatório do dia — e o
+   * desfazer não existe pela API: venda errada só sai com o ajuste de
+   * inventário do administrador, na tela. Somado ao reconhecimento de voz,
+   * que troca "duas" por "doze", o efeito fora da máquina é o que justifica
+   * parar sempre.
+   */
+  estoque_movimentar: 3,
 
   /**
    * 3 porque é IRREVERSÍVEL: não existe lixeira de memória, e o que ela
@@ -787,6 +806,56 @@ export const DECLARACOES: ChatCompletionTool[] = [
           }
         },
         required: ['consulta']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'estoque_consultar',
+      description:
+        'Consulta o site de estoque da loja de equipamentos de segurança (câmeras, sensores e fechaduras). Use para perguntas como "quantas câmeras temos", "o que está acabando", "quanto vendemos", "qual o código da ESP32-CAM". Só lê, não muda nada.',
+      parameters: {
+        type: 'object',
+        properties: {
+          o_que: {
+            type: 'string',
+            enum: ['resumo', 'produtos', 'movimentacoes'],
+            description:
+              'resumo = totais e vendas por tipo; produtos = catálogo com saldo; movimentacoes = últimas compras e vendas.'
+          },
+          tipo: {
+            type: 'string',
+            enum: ['camera', 'sensor', 'fechadura'],
+            description: 'Só em produtos: filtra por tipo.'
+          },
+          busca: {
+            type: 'string',
+            description: 'Só em produtos: trecho do nome ou do código, como "esp32" ou "CAM-002".'
+          }
+        },
+        required: ['o_que']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'estoque_movimentar',
+      description:
+        'Registra uma compra (entrada de mercadoria) ou uma venda (saída) no site de estoque. A venda usa o preço de cadastro do produto; a compra precisa do custo unitário. Exige o código do produto (ex.: CAM-001) — se não souber, consulte com estoque_consultar antes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          operacao: { type: 'string', enum: ['compra', 'venda'] },
+          codigo: { type: 'string', description: 'Código do produto, como CAM-001.' },
+          quantidade: { type: 'integer', description: 'Unidades, de 1 a 10000.' },
+          custo_unitario: {
+            type: 'number',
+            description: 'Só na compra: quanto custou cada unidade, em reais.'
+          }
+        },
+        required: ['operacao', 'codigo', 'quantidade']
       }
     }
   },
@@ -1622,6 +1691,126 @@ const EXECUTORES: Record<string, (args: any) => Promise<Saida>> = {
         }))
       }
     }
+  },
+
+  async estoque_consultar({
+    o_que,
+    tipo,
+    busca
+  }: {
+    o_que: 'resumo' | 'produtos' | 'movimentacoes'
+    tipo?: string
+    busca?: string
+  }) {
+    const reais = (v: number): string =>
+      v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+    if (o_que === 'resumo') {
+      const { resumo, por_tipo } = await chamarEstoque<{
+        resumo: {
+          produtos: number
+          unidades: number
+          valor: number
+          vendas: number
+          zerados: number
+        }
+        por_tipo: { tipo: string; unidades: number; vendido: number }[]
+      }>('/api/resumo')
+      const linhas = por_tipo.map(
+        (t) => `${t.tipo}: ${t.unidades} un., vendido ${reais(t.vendido)}`
+      )
+      return {
+        texto:
+          `${resumo.produtos} produtos, ${resumo.unidades} unidades em estoque (${reais(resumo.valor)}), ` +
+          `${resumo.zerados} zerados, total vendido ${reais(resumo.vendas)}.\n` +
+          linhas.join('\n'),
+        visual: {
+          tipo: 'barra' as const,
+          titulo: 'Estoque por tipo',
+          dados: por_tipo.map((t) => ({ tipo: t.tipo, unidades: t.unidades })),
+          eixoX: 'tipo',
+          eixoY: 'unidades'
+        }
+      }
+    }
+
+    if (o_que === 'movimentacoes') {
+      const { movimentacoes } = await chamarEstoque<{
+        movimentacoes: {
+          tipo: string
+          produto_codigo: string
+          produto_nome: string
+          quantidade: number
+          estoque_apos: number
+          usuario_id: string
+          criado_em: string
+        }[]
+      }>('/api/movimentacoes?limite=15')
+      if (!movimentacoes.length) return 'Nenhuma movimentação registrada no estoque.'
+      return {
+        texto: movimentacoes
+          .map(
+            (m) =>
+              `${m.criado_em} · ${m.tipo} ${m.quantidade} × ${m.produto_codigo} (${m.produto_nome}) · ` +
+              `saldo ${m.estoque_apos} · por ${m.usuario_id}`
+          )
+          .join('\n'),
+        visual: {
+          tipo: 'tabela' as const,
+          titulo: 'Últimas movimentações',
+          dados: movimentacoes.map((m) => ({
+            quando: m.criado_em,
+            operação: m.tipo,
+            produto: m.produto_codigo,
+            qtd: m.quantidade,
+            saldo: m.estoque_apos
+          }))
+        }
+      }
+    }
+
+    const filtro = new URLSearchParams()
+    if (tipo) filtro.set('tipo', tipo)
+    if (busca?.trim()) filtro.set('busca', busca.trim())
+    const { produtos } = await chamarEstoque<{ produtos: Produto[] }>(`/api/produtos?${filtro}`)
+    if (!produtos.length) return 'Nenhum produto encontrado no estoque com esse filtro.'
+    return {
+      texto: produtos
+        .map((p) => `${p.codigo} · ${p.nome} · ${p.tipo} · ${reais(p.preco)} · ${p.estoque} un.`)
+        .join('\n'),
+      visual: {
+        tipo: 'tabela' as const,
+        titulo: 'Produtos no estoque',
+        dados: produtos.map((p) => ({
+          código: p.codigo,
+          produto: p.nome,
+          preço: reais(p.preco),
+          estoque: p.estoque
+        }))
+      }
+    }
+  },
+
+  async estoque_movimentar({
+    operacao,
+    codigo,
+    quantidade,
+    custo_unitario
+  }: {
+    operacao: 'compra' | 'venda'
+    codigo: string
+    quantidade: number
+    custo_unitario?: number
+  }) {
+    if (operacao === 'compra' && custo_unitario === undefined)
+      return 'Erro: a compra precisa do custo unitário. Pergunte ao usuário quanto custou cada unidade.'
+    const r = await chamarEstoque<{ codigo: string; estoque: number }>('/api/movimentacoes', {
+      operacao,
+      codigo,
+      quantidade,
+      custo_unitario
+    })
+    return `${operacao === 'venda' ? 'Venda' : 'Compra'} registrada no estoque: ${quantidade} × ${r.codigo}. Saldo agora: ${r.estoque}.`
   },
 
   async ver_tela() {

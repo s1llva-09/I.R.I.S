@@ -8,6 +8,9 @@ interface ImportMetaEnv {
   readonly MAIN_VITE_LLM_MODELO?: string
   /** Teto de chamadas de API por dia. Padrão 45 (free tier do OpenRouter). */
   readonly MAIN_VITE_TAVILY_KEY?: string
+  /** Site de estoque (estoque-iris) e o token de IRIS_API_TOKEN de lá. */
+  readonly MAIN_VITE_ESTOQUE_URL?: string
+  readonly MAIN_VITE_ESTOQUE_TOKEN?: string
   readonly MAIN_VITE_TETO_DIARIO?: string
   /**
    * Chamadas do dia que ficam reservadas pro uso interativo — os gatilhos
