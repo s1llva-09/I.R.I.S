@@ -92,6 +92,10 @@ rede Wi-Fi e a permissão do aplicativo no Firewall do Windows para redes privad
 
 - **Diagnóstico e privacidade:** conexão, idade do quadro, luminosidade média e
   avisos de enquadramento. A luminosidade é uma estimativa da imagem inteira.
+- **Presença nas confirmações:** só a webcam do PC (ou a foto de teste) pesa na
+  camada de risco, como "ninguém na frente da máquina" ou "pessoa não cadastrada".
+  Câmera de rede (ESP32-CAM da porta, celular) dispara o alarme e a vigilância,
+  mas não muda o que pede aprovação no PC: a porta vazia não é a cadeira vazia.
 - **Reconexão:** webcam tenta recuperar sinal a cada cinco segundos; MJPEG usa
   quatro segundos. O celular tenta novamente após falhas transitórias e encerra
   após três falhas consecutivas. Permissão negada exige ação do usuário.

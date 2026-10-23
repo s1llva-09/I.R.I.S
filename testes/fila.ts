@@ -10,6 +10,12 @@ import {
 } from '../src/main/banco'
 import { rodarFerramenta } from '../src/main/ferramentas'
 import { avaliar } from '../src/main/risco'
+import {
+  esquecerPresenca,
+  leituraAtual,
+  presencaAtual,
+  reportarPresenca
+} from '../src/main/presenca'
 import { classificar, esperadoDe, estadoDoRosto } from '../src/reconhecimento'
 import { SO_COM_CONTEXTO_LIMPO } from '../src/main/confianca'
 import { FERRAMENTAS_DA_TAREFA } from '../src/main/fila'
@@ -280,6 +286,20 @@ function presenca(): void {
     presenca: 'presente'
   })
   ok(tres.confirma, 'nível 3 confirma mesmo com você sentado na frente')
+
+  // A câmera da porta (rede) alarma, mas não fala por quem está no PC.
+  const vazio = { rostos: 0, desconhecidos: 0, conhecidos: [] }
+  const entregador = { rostos: 1, desconhecidos: 1, conhecidos: [] }
+  reportarPresenca(vazio, false)
+  ok(presencaAtual() === 'desconhecida', 'porta vazia não vira cadeira vazia')
+  reportarPresenca(entregador, false)
+  ok(presencaAtual() === 'desconhecida', 'desconhecido na porta não trava os comandos do PC')
+  ok(leituraAtual().desconhecidos === 1, 'mas a leitura crua segue pro alarme e pra vigilância')
+  reportarPresenca(vazio)
+  ok(presencaAtual() === 'ausente', 'a webcam do PC continua valendo')
+  reportarPresenca(entregador)
+  ok(presencaAtual() === 'nao_autorizado', 'e um desconhecido na frente do PC continua escalando')
+  esquecerPresenca()
 }
 
 /** O detector de "enfileirei" sem ter enfileirado. Não gasta cota. */

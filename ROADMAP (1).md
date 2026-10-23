@@ -238,6 +238,19 @@ autorização de agentes autônomos*.
 | Rosto desconhecido | congela nível 3, bloqueia a máquina |
 | Remoto + ninguém no PC | escalada máxima |
 
+**Como está implementado (`risco.ts`):** ninguém presente +2, rosto não
+cadastrado +3 (põe qualquer nível 2 acima do limiar), mais de um rosto +1,
+comando remoto +1. Remoto com a cadeira vazia soma +3. O bloqueio automático
+da máquina com rosto desconhecido **não** foi implementado: um falso positivo
+de iluminação trancaria o próprio usuário.
+
+**Qual câmera vale:** só a que olha para o PC (webcam local ou a foto de teste
+da bancada) alimenta a camada de risco. Câmera de rede, como a ESP32-CAM da
+porta ou um celular, dispara o alarme e a vigilância, mas chega ao `risco.ts`
+como `desconhecida`. Sem essa regra, a porta vazia virava "ninguém no PC" (+2
+em todo comando, com você sentado) e um entregador virava "não cadastrado"
+(+3, travando o PC). O caso está coberto no `testes/fila.ts`.
+
 ```ts
 avaliar({ ferramenta, args, contaminado, origem, presenca })
 ```

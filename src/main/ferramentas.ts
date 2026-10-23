@@ -32,6 +32,7 @@ import {
   avisarCameraMudou,
   avisarGaleriaMudou,
   leituraAtual,
+  leituraDoPc,
   pedirDescritor,
   presencaAtual
 } from './presenca'
@@ -1897,12 +1898,17 @@ const EXECUTORES: Record<string, (args: any) => Promise<Saida>> = {
           ? 'ninguém em frente à câmera'
           : `${l.conhecidos.join(', ') || 'ninguém conhecido'}` +
             (l.desconhecidos ? ` · ${l.desconhecidos} NÃO CADASTRADA(S)` : '')
+    // Sem isto, "estado: desconhecida" com gente na imagem pareceria defeito.
+    const origem =
+      l.rostos >= 0 && !leituraDoPc()
+        ? ' (câmera de rede: dispara o alarme, mas não pesa nas confirmações do PC)'
+        : ''
 
     return {
       texto:
         (modoSeguranca === true ? 'Modo segurança ligado. ' : '') +
         (modoSeguranca === false ? 'Voltei ao modo normal. ' : '') +
-        `Câmera: ${estadoCamera}. ${cadastrados.length} pessoa(s) autorizada(s), ` +
+        `Câmera: ${estadoCamera}${origem}. ${cadastrados.length} pessoa(s) autorizada(s), ` +
         `${alarmes.length} alarme(s) recente(s).` +
         (abriu ? '' : ' (janela fechada — não deu pra abrir o painel)'),
       visual: {

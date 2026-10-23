@@ -554,8 +554,9 @@ function registrarIPC(): void {
   ipcMain.on('voz:mudo', (_e, mudo: boolean) => (vozMuda = mudo))
   let ultimoEstadoVisual = ''
   let ultimoEventoVisual = 0
-  ipcMain.on('presenca:leitura', (_e, l: Leitura, miniatura?: string) => {
-    reportarPresenca(l)
+  ipcMain.on('presenca:leitura', (_e, l: Leitura, miniatura?: string, fonte?: string) => {
+    // O alarme vale pra qualquer câmera; a camada de risco, só pra que olha o PC.
+    reportarPresenca(l, fonte !== 'rede')
     vigiar(l)
     if (!ler('cameraAtiva')) return
     const texto =

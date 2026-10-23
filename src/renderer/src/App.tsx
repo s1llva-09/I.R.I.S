@@ -5,6 +5,7 @@ import {
   capturarDescritor,
   definirGaleria,
   definirLimiar,
+  estadoSensor,
   iniciarPresenca,
   pararPresenca,
   pararQuadros,
@@ -255,7 +256,8 @@ export default function App(): JSX.Element {
           setVisao(l)
           window.api.presenca(
             l,
-            c.miniaturasSeguranca && l.rostos >= 0 ? miniaturaAtual() : undefined
+            c.miniaturasSeguranca && l.rostos >= 0 ? miniaturaAtual() : undefined,
+            estadoSensor().fonte
           )
         },
         String(c.cameraId ?? '')

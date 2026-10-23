@@ -28,9 +28,26 @@ const VALIDADE = 8000
 let atual: Leitura = { rostos: -1, desconhecidos: 0, conhecidos: [] }
 let quando = 0
 
-export function reportarPresenca(l: Leitura): void {
+/**
+ * A leitura veio de uma câmera que olha pra quem está NO PC?
+ *
+ * O visor também lê câmera de rede — a ESP32-CAM da porta, um celular. Essa
+ * leitura vale pro alarme e pra vigilância, mas não diz nada sobre a cadeira:
+ * porta vazia virava 'ausente' (+2 em todo comando, com você sentado) e um
+ * entregador virava 'nao_autorizado' (+3, travando o PC). A camada de risco
+ * só aceita a webcam local e a foto de teste da bancada.
+ */
+let deFrente = true
+
+export function reportarPresenca(l: Leitura, frente = true): void {
   atual = l
+  deFrente = frente
   quando = Date.now()
+}
+
+/** Se a leitura atual pode falar por quem está no PC. Câmera de rede não pode. */
+export function leituraDoPc(): boolean {
+  return deFrente
 }
 
 /** A leitura crua, pra vigilância. A camada de risco usa `presencaAtual`. */
@@ -40,7 +57,8 @@ export function leituraAtual(): Leitura {
 
 export function presencaAtual(): Presenca {
   const l = leituraAtual()
-  if (l.rostos < 0) return 'desconhecida'
+  // Câmera da porta: o mesmo 'desconhecida' de quem não tem câmera — não escala nada.
+  if (l.rostos < 0 || !deFrente) return 'desconhecida'
   if (l.rostos === 0) return 'ausente'
 
   /**

@@ -19,7 +19,8 @@ declare global {
       mudo: (mudo: boolean) => void
       presenca: (
         leitura: { rostos: number; desconhecidos: number; conhecidos: string[] },
-        miniatura?: string
+        miniatura?: string,
+        fonte?: string
       ) => void
       camera: {
         conectar: (url: string) => Promise<boolean>

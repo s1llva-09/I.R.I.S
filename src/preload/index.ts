@@ -65,8 +65,10 @@ const api = {
    */
   presenca: (
     leitura: { rostos: number; desconhecidos: number; conhecidos: string[] },
-    miniatura?: string
-  ): void => ipcRenderer.send('presenca:leitura', leitura, miniatura),
+    miniatura?: string,
+    /** De onde veio: 'rede' (porta, celular) não entra na camada de risco. */
+    fonte?: string
+  ): void => ipcRenderer.send('presenca:leitura', leitura, miniatura, fonte),
 
   /**
    * Cadastro de rosto autorizado (2.6).
