@@ -78,6 +78,7 @@ const api = {
   presenca: noop,
   vigilancia: {
     estado: async () => structuredClone(monitor),
+    exportar: async () => ({ caminho: 'C:/teste/iris-eventos.csv', linhas: monitor.eventos.length }),
     salvar: async (ajustes) => {
       monitor.ajustes = structuredClone(ajustes)
     },

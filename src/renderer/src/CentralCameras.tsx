@@ -72,7 +72,9 @@ function CameraCard({
           <h3>{camera.nome}</h3>
         </div>
         <span
-          className={`camera-connection ${sinal ? 'camera-online' : ativa ? 'camera-waiting' : ''}`}
+          className={`camera-connection ${sinal ? 'camera-online' : ativa ? 'camera-waiting' : ''} ${
+            sinal && !(foto && camera.tipo !== 'webcam') ? 'is-live' : ''
+          }`}
         >
           <i aria-hidden="true" />
           {!ativa

@@ -66,7 +66,7 @@ export const RESERVA = Number(import.meta.env.MAIN_VITE_RESERVA_GATILHO ?? 15)
 const SILENCIO_PADRAO = 3600000
 
 /**
- * BRAÇO DE CONTROLE do experimento. `ÍRIS_GATILHO_CRU=1 npm run dev` entrega
+ * BRAÇO DE CONTROLE do experimento. `IRIS_GATILHO_CRU=1 npm run dev` entrega
  * o texto do `verificar` direto, sem passar pelo modelo.
  *
  * Mesma chave do DEFESA_LIGADA, e pelo mesmo motivo: a pergunta desta seção
@@ -80,7 +80,13 @@ const SILENCIO_PADRAO = 3600000
  * As linhas do braço cru vão pro banco com sufixo ':cru', então o GROUP BY do
  * relatório separa os dois sozinho, sem coluna nova.
  */
-const CRU = process.env.ÍRIS_GATILHO_CRU === '1'
+// Antes o código lia ÍRIS_GATILHO_CRU (com acento) e o relatório mandava usar
+// IZZE_GATILHO_CRU: nenhum dos dois caminhos ligava o braço de controle. Os
+// três nomes valem, o novo primeiro.
+const CRU =
+  (process.env.IRIS_GATILHO_CRU ??
+    process.env.IZZE_GATILHO_CRU ??
+    process.env['ÍRIS_GATILHO_CRU']) === '1'
 
 /**
  * O teto de voltas do gatilho. Bem abaixo do MAX_VOLTAS=8 do chat: aqui cada

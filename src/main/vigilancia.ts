@@ -169,7 +169,7 @@ export class Vigilancia {
     e.entrega = estadoPush().configurado ? 'pendente' : 'desativado'
     salvarEventoPerimetro(e)
     if (Notification.isSupported())
-      new Notification({ title: `Íris · ${e.camera}`, body: e.texto }).show()
+      new Notification({ title: `I.R.I.S · ${e.camera}`, body: e.texto }).show()
   }
   iniciar(): void {
     if (this.timer) return

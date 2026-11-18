@@ -5,10 +5,10 @@
   min-height: 230px;
   overflow: hidden;
   border-radius: 10px;
-  background: #0d0f13;
+  background: #040b12;
 }
 .camera-viewport.has-signal {
-  background: #0d0f13;
+  background: #040b12;
 }
 .camera-viewport canvas {
   display: block;
@@ -34,7 +34,7 @@
   z-index: 1;
   font: 11px/1.5 var(--font-sans);
   letter-spacing: 0;
-  color: #a4acb9;
+  color: #9db1c1;
 }
 .camera-topline {
   top: 15px;
@@ -44,7 +44,7 @@
 }
 .has-signal .camera-topline,
 .has-signal .camera-bottomline {
-  color: #eef0f4;
+  color: #eaf2f7;
   text-shadow: 0 1px 4px #000;
 }
 .camera-badge {
@@ -54,21 +54,21 @@
   padding: 5px 7px;
   border: 1px solid #ffffff13;
   border-radius: 5px;
-  background: #14171dcc;
+  background: #0a1823cc;
   font-size: 11px;
 }
 .camera-badge i {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #969da9;
+  background: #8ea4b5;
 }
 .camera-badge.is-live {
-  color: #82c4a0;
-  border-color: #82c4a030;
+  color: #5ad19c;
+  border-color: #5ad19c30;
 }
 .camera-badge.is-live i {
-  background: #82c4a0;
+  background: #5ad19c;
 }
 .camera-bottomline button {
   height: 24px;
@@ -76,12 +76,12 @@
   display: grid;
   place-items: center;
   border: 1px solid #ffffff16;
-  background: #14171da6;
+  background: #0a1823a6;
   border-radius: 4px;
 }
 .camera-bottomline button:hover {
-  color: #8eaef6;
-  border-color: #8eaef660;
+  color: #35e0f2;
+  border-color: #35e0f260;
 }
 .camera-empty {
   position: absolute;
@@ -98,21 +98,21 @@
   display: grid;
   place-items: center;
   margin-bottom: 19px;
-  color: #a4acb9;
-  border: 1px solid #8eaef624;
+  color: #9db1c1;
+  border: 1px solid #35e0f224;
   border-radius: 10px;
-  background: #222831;
+  background: #152d3e;
   box-shadow: none;
 }
 .camera-empty strong {
   font-size: 16px;
   font-weight: 500;
-  color: #c4cbd7;
+  color: #c3d3df;
   letter-spacing: -0.015em;
 }
 .camera-empty p {
   max-width: 290px;
-  color: #a4acb9;
+  color: #9db1c1;
   font-size: 11px;
   line-height: 1.8;
   margin-top: 9px;
@@ -121,7 +121,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #a4acb9;
+  color: #9db1c1;
   font: 11px/1.5 var(--font-sans);
   letter-spacing: 0;
   margin-top: 21px;
@@ -129,11 +129,11 @@
 .camera-empty > span i {
   width: 2px;
   height: 2px;
-  background: #636c7a;
+  background: #4b6a82;
   border-radius: 50%;
 }
 .has-alert {
-  box-shadow: inset 0 0 0 1px #ed939d77;
+  box-shadow: inset 0 0 0 1px #ff8b9877;
 }
 @media (max-width: 1000px) {
   .camera-empty-icon {

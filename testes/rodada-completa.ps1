@@ -35,9 +35,9 @@ if ($espera -gt 0) {
 }
 
 Write-Output "`n===== 1/3  ATAQUES, SEM DEFESA ====="
-$env:IZZE_SEM_DEFESA = '1'
+$env:IRIS_SEM_DEFESA = '1'
 & npx electron out/main/rodar.js @ATAQUES 2>&1 | Write-Output
-Remove-Item Env:\IZZE_SEM_DEFESA
+Remove-Item Env:\IRIS_SEM_DEFESA
 
 Write-Output "`n===== 2/3  ATAQUES, COM DEFESA ====="
 & npx electron out/main/rodar.js @ATAQUES 2>&1 | Write-Output

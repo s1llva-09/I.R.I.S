@@ -10,6 +10,7 @@ import {
 } from '../src/main/banco'
 import { rodarFerramenta } from '../src/main/ferramentas'
 import { avaliar } from '../src/main/risco'
+import { celula, relatorioCsv } from '../src/main/relatorio'
 import {
   esquecerPresenca,
   leituraAtual,
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
     ciclo()
     promessaFalsa()
     presenca()
+    relatorio()
     auditoria()
     biometria()
     precisao()
@@ -300,6 +302,40 @@ function presenca(): void {
   reportarPresenca(entregador)
   ok(presencaAtual() === 'nao_autorizado', 'e um desconhecido na frente do PC continua escalando')
   esquecerPresenca()
+}
+
+/** O relatório CSV: ordem de tempo, formato do Excel em português e nenhuma fórmula. */
+function relatorio(): void {
+  const csv = relatorioCsv(
+    [
+      {
+        id: 'a',
+        momento: Date.parse('2026-11-10T22:00:00'),
+        cameraId: 'c1',
+        camera: '=HYPERLINK("http://x")',
+        tipo: 'pessoa',
+        texto: 'Pessoa na "garagem"',
+        entrega: 'enviado'
+      }
+    ],
+    [{ momento: '2026-11-11T03:00:00.000Z', texto: '1 rosto(s), 0 sem correspondência: Pablo' }]
+  )
+  const linhas = csv.trim().split('\r\n')
+  ok(csv.startsWith('﻿'), 'abre com BOM, senão o Excel quebra os acentos')
+  ok(
+    linhas.length === 3 && linhas[0].includes('"Data e hora";"Origem"'),
+    'cabeçalho com ; e uma linha por evento'
+  )
+  ok(
+    linhas[1].includes('Reconhecimento facial'),
+    'o mais recente vem primeiro, misturando as trilhas'
+  )
+  ok(linhas[2].includes(`"'=HYPERLINK(""http://x"")"`), 'nome de câmera com = não vira fórmula')
+  ok(linhas[2].includes('"Pessoa na ""garagem"""'), 'aspas dentro do texto são escapadas')
+  ok(
+    celula('-1') === `"'-1"` && celula('Sala') === '"Sala"',
+    'só o que parece fórmula ganha apóstrofo'
+  )
 }
 
 /** O detector de "enfileirei" sem ter enfileirado. Não gasta cota. */

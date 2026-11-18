@@ -165,7 +165,7 @@ if (!process.versions.electron) {
         'porta',
         width,
         height,
-        (s) => s.selected.includes('Modo porta') && /Íris · porta/i.test(s.text)
+        (s) => s.selected.includes('Modo porta') && /I\.R\.I\.S · porta/i.test(s.text)
       )
       await evaluate(
         `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`

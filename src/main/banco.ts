@@ -2,13 +2,14 @@ import Database from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
 import { app } from 'electron'
 import { join } from 'path'
+import { cpSync, existsSync, renameSync } from 'fs'
 
 /**
  * ANTES do getPath, e é o que faz app e bancada lerem o MESMO arquivo.
  *
  * `userData` deriva de `app.getName()`, e o nome mudava conforme quem subia o
- * Electron: o app roda `electron .`, acha o package.json e se chama "izze"
- * (%APPDATA%\izze); a bancada roda `electron out/main/rodar.js` — um ARQUIVO,
+ * Electron: o app roda `electron .`, acha o package.json e se chama "iris"
+ * (%APPDATA%\iris); a bancada roda `electron out/main/rodar.js` — um ARQUIVO,
  * não um diretório — e sem package.json pra ler o Electron cai no nome padrão
  * "Electron" (%APPDATA%\Electron).
  *
@@ -21,15 +22,37 @@ import { join } from 'path'
  * Descoberto porque um gatilho gravou no app e o relatório da bancada disse
  * que não havia nada.
  */
-app.setName('izze')
+app.setName('iris')
 
-// userData = %APPDATA%\izze no Windows. Fora do projeto, então
+/**
+ * O app se chamava "izze" (%APPDATA%\izze\izze.sqlite). Na primeira abertura
+ * com o nome novo, a pasta antiga é COPIADA para a nova e o banco ganha o nome
+ * novo: rostos, eventos, configurações e o certificado que o celular confia
+ * continuam valendo. A antiga fica intacta, como cópia de segurança.
+ *
+ * O critério é o banco e não a pasta: o Chromium pode criar a pasta nova
+ * vazia antes deste ponto, e aí uma checagem pela pasta pularia a cópia e o
+ * app abriria sem nenhum dado.
+ */
+function migrarDoNomeAntigo(): void {
+  const nova = app.getPath('userData')
+  const antiga = join(app.getPath('appData'), 'izze')
+  if (existsSync(join(nova, 'iris.sqlite')) || !existsSync(join(antiga, 'izze.sqlite'))) return
+  cpSync(antiga, nova, { recursive: true })
+  for (const fim of ['', '-wal', '-shm']) {
+    const velho = join(nova, `izze.sqlite${fim}`)
+    if (existsSync(velho)) renameSync(velho, join(nova, `iris.sqlite${fim}`))
+  }
+}
+
+// userData = %APPDATA%\iris no Windows. Fora do projeto, então
 // não some quando você limpa build nem vai parar no git.
 //
-// O IZZE_BANCO existe pra apontar pra um arquivo antigo sem mover nada —
-// é como se lê o %APPDATA%\Electron\izze.sqlite que ficou órfão da correção
-// acima.
-export const CAMINHO_BANCO = process.env.IZZE_BANCO ?? join(app.getPath('userData'), 'izze.sqlite')
+// O IRIS_BANCO (ou o antigo IZZE_BANCO) aponta pra outro arquivo sem mover
+// nada — é o que os testes usam pra rodar num banco isolado.
+const bancoDeTeste = process.env.IRIS_BANCO ?? process.env.IZZE_BANCO
+if (!bancoDeTeste) migrarDoNomeAntigo()
+export const CAMINHO_BANCO = bancoDeTeste ?? join(app.getPath('userData'), 'iris.sqlite')
 
 const db = new Database(CAMINHO_BANCO)
 
@@ -433,7 +456,7 @@ export function temMemoria(): boolean {
 
 /**
  * Zera a memória. Existe porque trocar o modelo de embedding invalida todo
- * vetor gravado — e sem isto a única saída seria apagar o izze.sqlite
+ * vetor gravado — e sem isto a única saída seria apagar o iris.sqlite
  * inteiro, levando junto o log de execuções que é dado do TCC.
  */
 export const limparMemoria = db.transaction((): void => {
@@ -633,7 +656,7 @@ export function estatisticas(dias = 7): {
  * AQUI e não num arquivo com a sua própria conexão.
  *
  * Foi a primeira versão: `new Database(...'jarvis.db')` num preferencias.ts.
- * Dois erros no mesmo `new`. O banco deste projeto se chama izze.sqlite, não
+ * Dois erros no mesmo `new`. O banco deste projeto se chama iris.sqlite, não
  * jarvis.db — a tabela teria nascido num arquivo órfão que nenhum outro
  * módulo abre. E mesmo com o nome certo, uma segunda conexão não enxerga a
  * `sqliteVec.load` nem as migrações que este arquivo faz no boot: é
@@ -664,7 +687,9 @@ db.exec(`
  * o upgrade é o mesmo caminho do memoria.ts: vetorizar e casar por
  * distância, com o limiar de DUPLICATA.
  */
-const MINIMO_EVIDENCIAS = Number(process.env.IZZE_MINIMO_EVIDENCIAS ?? 2)
+const MINIMO_EVIDENCIAS = Number(
+  process.env.IRIS_MINIMO_EVIDENCIAS ?? process.env.IZZE_MINIMO_EVIDENCIAS ?? 2
+)
 
 /**
  * Tira acento, caixa e pontuação. "Não usar emoji." e "nao usar emoji" caem
@@ -761,7 +786,7 @@ export function esquecerPreferencia(padrao: string): boolean {
  * Mora AQUI e não num `fila.ts` com a sua própria conexão, pelo mesmo motivo
  * das preferências: uma segunda `new Database(...)` não enxerga o WAL nem as
  * migrações deste arquivo, e ainda erraria o nome — o banco é
- * `izze.sqlite`, não `jarvis.db`.
+ * `iris.sqlite`, não `jarvis.db`.
  */
 db.exec(`
   CREATE TABLE IF NOT EXISTS tarefas (
@@ -951,15 +976,15 @@ export function registrarEventoVisual(texto: string, miniatura?: string): void {
     ).run()
   })()
 }
-export function eventosVisuais(): {
+export function eventosVisuais(limite = 50): {
   id: number
   momento: string
   texto: string
   miniatura: string | null
 }[] {
-  return db.prepare('SELECT * FROM eventos_visuais ORDER BY id DESC LIMIT 50').all() as ReturnType<
-    typeof eventosVisuais
-  >
+  return db
+    .prepare('SELECT * FROM eventos_visuais ORDER BY id DESC LIMIT ?')
+    .all(limite) as ReturnType<typeof eventosVisuais>
 }
 export function limparSeguranca(tipo: 'imagens' | 'historico'): void {
   if (tipo === 'imagens') db.prepare('UPDATE eventos_visuais SET miniatura = NULL').run()

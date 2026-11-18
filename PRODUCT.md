@@ -51,7 +51,7 @@ frequentes, não uma janela que fica aberta o dia inteiro.
 
 ## Compromissos de marca
 
-- O nome na tela é **IZZE**.
+- O nome na tela é **I.R.I.S**, com o slogan "Sua casa, sempre sob os seus olhos." (ver DESIGN.md, seção Marca).
 - Referência declarada pelo usuário: **Jarvis** (Homem de Ferro).
 - Pedido literal: "profissional e legal para me divertir e ficar bonito".
 

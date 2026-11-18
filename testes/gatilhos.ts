@@ -329,7 +329,7 @@ if (process.argv.includes('--relatorio')) {
   // O braço cru sai com sufixo ':cru'. Sem os dois na tabela, a precisão
   // medida não tem contra o que ser comparada.
   const temCru = linhas.some((l) => l.nome.endsWith(':cru'))
-  if (!temCru) console.log('\n  (sem braço de controle — rode com IZZE_GATILHO_CRU=1)')
+  if (!temCru) console.log('\n  (sem braço de controle — rode com IRIS_GATILHO_CRU=1)')
 
   // "Nenhum aviso" tem duas causas opostas — nada a avisar, ou tudo quebrando.
   const falhou = falhasGatilhos(30)

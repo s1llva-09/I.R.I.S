@@ -132,7 +132,7 @@ export class FilaAlertas {
         try {
           await this.enviar(
             d.subscription,
-            JSON.stringify({ title: `Íris · ${e.camera}`, body: e.texto, id: e.id }),
+            JSON.stringify({ title: `I.R.I.S · ${e.camera}`, body: e.texto, id: e.id }),
             {
               TTL: 3600,
               timeout: 15000,

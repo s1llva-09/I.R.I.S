@@ -2,28 +2,48 @@
 @import './shell.css';
 
 @theme {
-  --color-fundo: #101216;
-  --color-chapa: #191c22;
-  --color-sulco: #13161b;
-  --color-tinta: #eef0f4;
-  --color-tinta-2: #bdc2cc;
-  --color-tinta-3: #969da9;
-  --color-sinal: #8eaef6;
-  --color-hud: #8eaef6;
-  --color-info: #a4b9e8;
-  --color-ok: #82c4a0;
-  --color-perigo: #ed939d;
-  --color-fio: #2b3039;
-  --color-fio-forte: #424a58;
+  --color-fundo: #061019;
+  --color-chapa: #0c1a26;
+  --color-sulco: #081521;
+  --color-tinta: #eaf2f7;
+  --color-tinta-2: #b6c7d4;
+  --color-tinta-3: #8ea4b5;
+  --color-sinal: #35e0f2;
+  --color-hud: #35e0f2;
+  --color-info: #7fd6e6;
+  --color-ok: #5ad19c;
+  --color-perigo: #ff8b98;
+  --color-fio: #1a3042;
+  --color-fio-forte: #2d4c64;
+  /* Texto em cima do acento: branco no ciano não tem contraste, o marinho tem. */
+  --color-sobre-sinal: #04121a;
+  --color-atencao: #f2c46d;
+  --font-display: Bahnschrift, 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
   --font-hud: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
 }
 
+:root {
+  /* Traço do olho da marca (Marca.tsx): o claro do logotipo. */
+  --marca-traco: #eaf2f7;
+}
 html,
 body,
 #root {
   height: 100%;
+}
+/* O nome I.R.I.S como no logotipo: letras claras, pontos no acento. */
+.marca-nome {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--color-tinta);
+  white-space: nowrap;
+}
+.marca-nome i {
+  font-style: normal;
+  color: var(--color-sinal);
 }
 body {
   margin: 0;
@@ -37,12 +57,12 @@ body {
   color-scheme: dark;
 }
 ::selection {
-  background: #38507a;
+  background: #0e4d5f;
   color: #fff;
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: #424a58 transparent;
+  scrollbar-color: #2d4c64 transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -52,12 +72,12 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #424a58;
+  background: #2d4c64;
   border: 3px solid var(--color-fundo);
   border-radius: 8px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #626b7a;
+  background: #4b6a82;
 }
 :focus-visible:not(textarea) {
   outline: 2px solid var(--color-sinal);
@@ -124,6 +144,39 @@ body {
   flex: 1;
   height: 1px;
   background: var(--color-fio);
+}
+/*
+ * Movimento: curto, só quando algo entra ou muda de estado de verdade. Em
+ * repouso nada se mexe, exceto o selo "ao vivo" enquanto chegam quadros.
+ * A regra de prefers-reduced-motion logo abaixo desliga tudo isto.
+ */
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes surgir {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pulso-vivo {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,

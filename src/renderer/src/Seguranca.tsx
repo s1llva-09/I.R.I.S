@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import Visor from './Visor'
 import CentralCameras from './CentralCameras'
+import ResumoSeguranca from './ResumoSeguranca'
 import { Adicionar, Externo, Fechar } from './icones'
 import VigilanciaPainel from './VigilanciaPainel'
 import SegurancaExtras from './SegurancaExtras'
@@ -24,7 +25,15 @@ import {
 import './assets/security.css'
 
 type Painel = Awaited<ReturnType<typeof window.api.seguranca.painel>>
-type IconeNome = 'camera' | 'shield' | 'people' | 'pulse' | 'arrow' | 'refresh' | 'settings'
+type IconeNome =
+  | 'camera'
+  | 'shield'
+  | 'people'
+  | 'pulse'
+  | 'arrow'
+  | 'refresh'
+  | 'settings'
+  | 'download'
 
 function Icone({ nome }: { nome: IconeNome }): JSX.Element {
   const caminhos: Record<IconeNome, string> = {
@@ -35,6 +44,7 @@ function Icone({ nome }: { nome: IconeNome }): JSX.Element {
     pulse: 'M2 12h4l3-7 5 14 3-7h5',
     arrow: 'M5 12h14 M13 6l6 6-6 6',
     refresh: 'M20 8a8 8 0 0 0-14-3L3 8 M3 3v5h5 M4 16a8 8 0 0 0 14 3l3-3 M16 16h5v5',
+    download: 'M12 4v11 M7 10l5 5 5-5 M4 19h16',
     settings: 'M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6'
   }
   return (
@@ -447,6 +457,7 @@ export default function Seguranca({
         ))}
         <button onClick={abrirFontes}>Conexões</button>
       </nav>
+      <ResumoSeguranca />
       <CentralCameras />
       <VigilanciaPainel />
       <div id="seguranca-reconhecimento" className="security-section-heading">
@@ -669,13 +680,32 @@ export default function Seguranca({
               <h2 id="atividade-titulo">Atividade de segurança</h2>
               <p>O histórico real das decisões e dos alertas.</p>
             </div>
-            <button
-              className="security-icon-button"
-              onClick={() => void recarregar()}
-              aria-label="Atualizar histórico"
-            >
-              <Icone nome="refresh" />
-            </button>
+            <div className="security-panel-actions">
+              <button
+                className="security-button"
+                onClick={() =>
+                  void window.api.vigilancia
+                    .exportar()
+                    .then((r) =>
+                      setEstado(
+                        'cancelado' in r
+                          ? ''
+                          : `Relatório salvo com ${r.linhas} evento(s) em ${r.caminho}.`
+                      )
+                    )
+                    .catch(() => setEstado('Não foi possível salvar o relatório.'))
+                }
+              >
+                <Icone nome="download" /> Exportar CSV
+              </button>
+              <button
+                className="security-icon-button"
+                onClick={() => void recarregar()}
+                aria-label="Atualizar histórico"
+              >
+                <Icone nome="refresh" />
+              </button>
+            </div>
           </div>
           <div className="security-tabs" aria-label="Tipo de atividade">
             <button
@@ -1274,7 +1304,7 @@ export default function Seguranca({
         </div>
       </details>
       <footer className="security-page-footer">
-        <span>Íris</span>
+        <span>I.R.I.S</span>
         <span>Visibilidade para decidir. Controle para agir.</span>
       </footer>
     </div>

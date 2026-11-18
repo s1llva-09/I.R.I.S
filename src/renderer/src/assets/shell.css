@@ -35,7 +35,7 @@ textarea {
   justify-content: space-between;
   padding: 0 150px 0 20px;
   border-bottom: 1px solid var(--color-fio);
-  background: #14171d;
+  background: #0a1823;
   -webkit-app-region: drag;
 }
 .window-brand {
@@ -49,8 +49,8 @@ textarea {
 .window-brand > svg {
   color: var(--color-tinta-3);
 }
-.window-brand > span {
-  color: #636c7a;
+.window-brand > span:not(.marca-nome) {
+  color: #4b6a82;
 }
 .window-time {
   font: 11px var(--font-mono);
@@ -59,7 +59,7 @@ textarea {
 }
 .window-time span {
   margin: 0 7px;
-  color: #636c7a;
+  color: #4b6a82;
 }
 .app-body {
   min-height: 0;
@@ -72,36 +72,33 @@ textarea {
   padding: 24px 12px 0;
   display: flex;
   flex-direction: column;
-  background: #14171d;
+  background: #0a1823;
   border-right: 1px solid var(--color-fio);
 }
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 0 10px;
+  gap: 10px;
+  padding: 0 8px;
   margin-bottom: 30px;
 }
+/* O olho fica solto, como no logotipo: a caixa em volta era do ícone antigo. */
 .brand-emblem {
-  width: 38px;
-  height: 38px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
-  border: 1px solid #343c4b;
-  color: #bdc9e3;
-  background: #222936;
-  border-radius: 9px;
+  filter: drop-shadow(0 0 10px rgb(53 224 242 / 0.18));
 }
 .brand-lockup strong {
-  font-size: 24px;
-  font-weight: 650;
-  letter-spacing: -0.035em;
+  display: block;
+  font-size: 19px;
   line-height: 1.1;
 }
 .brand-lockup small {
   display: block;
-  font-size: 11px;
-  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  margin-top: 5px;
   color: var(--color-tinta-3);
 }
 .nav-caption {
@@ -145,16 +142,16 @@ textarea {
   white-space: nowrap;
 }
 .nav-item:hover {
-  background: #20242c;
+  background: #132939;
   color: var(--color-tinta);
 }
 .nav-item.is-active {
-  color: #d6e3ff;
-  background: #252e41;
-  border-color: #354563;
+  color: #d3f6fb;
+  background: #19374d;
+  border-color: #265272;
 }
 .nav-item.is-active small {
-  color: #acbad4;
+  color: #adc3d3;
 }
 .nav-item i {
   height: 4px;
@@ -188,7 +185,7 @@ textarea {
   width: 6px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: #7a8493;
+  background: #628dab;
 }
 .status-dot.is-on {
   background: var(--color-ok);
@@ -200,7 +197,7 @@ textarea {
   margin: 10px 9px 16px;
   padding: 12px;
   border-radius: 8px;
-  background: #191d25;
+  background: #0d1c29;
   border: 1px solid var(--color-fio);
 }
 .quota-card > div:first-child {
@@ -223,7 +220,7 @@ textarea {
 .quota-track {
   height: 3px;
   border-radius: 2px;
-  background: #2b3039;
+  background: #1a3042;
   margin: 10px 0 6px;
   overflow: hidden;
 }
@@ -233,7 +230,7 @@ textarea {
   background: #7399e8;
 }
 .quota-track.is-warning i {
-  background: #d4b274;
+  background: #e5b45a;
 }
 .nav-settings {
   padding-block: 10px;
@@ -257,9 +254,9 @@ textarea {
 .profile-mark {
   height: 30px;
   width: 30px;
-  border: 1px solid #39404c;
-  background: #262b35;
-  color: #c6cdd9;
+  border: 1px solid #214864;
+  background: #173144;
+  color: #c5d4e0;
   border-radius: 7px;
   display: grid;
   place-items: center;
@@ -315,11 +312,11 @@ textarea {
   height: 32px;
   border: 1px solid var(--color-fio);
   border-radius: 7px;
-  background: #191d25;
+  background: #0d1c29;
   color: var(--color-tinta-2);
 }
 .icon-button:hover {
-  background: #252b35;
+  background: #152a3b;
   color: var(--color-tinta);
 }
 .capture-label {
@@ -388,9 +385,9 @@ textarea {
 .composer {
   margin: 0 30px 18px;
   padding: 13px 16px 0;
-  border: 1px solid #39414f;
+  border: 1px solid #224a66;
   border-radius: 10px;
-  background: #191d25;
+  background: #0d1c29;
 }
 .composer:focus-within {
   border-color: #7a9bdf;
@@ -407,17 +404,17 @@ textarea {
   font-size: 14px;
 }
 .composer button {
-  border: 1px solid #466ed5;
+  border: 1px solid #35e0f2;
   border-radius: 7px;
-  background: #466ed5;
-  color: #fff;
+  background: #35e0f2;
+  color: var(--color-sobre-sinal);
   padding: 10px;
   align-self: center;
 }
 .composer button:hover:not(:disabled) {
-  background: #527cdf;
-  border-color: #527cdf;
-  color: #fff;
+  background: #6ae8f6;
+  border-color: #6ae8f6;
+  color: var(--color-sobre-sinal);
 }
 .composer-help {
   display: flex;
@@ -434,6 +431,20 @@ textarea {
   flex-shrink: 0;
   padding: 20px 8px 30px;
   text-align: left;
+}
+.welcome-mark {
+  width: 76px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border: 1px solid var(--color-fio);
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 45%, rgb(53 224 242 / 0.12), transparent 70%),
+    var(--color-chapa);
+}
+.eyebrow .marca-nome {
+  letter-spacing: 0.1em;
 }
 .eyebrow {
   font-size: 12px;
@@ -497,7 +508,7 @@ textarea {
   border-bottom: 0;
 }
 .welcome-actions button:hover {
-  background: #252b35;
+  background: #152a3b;
 }
 .welcome-actions button > svg:first-child {
   position: absolute;
@@ -606,7 +617,7 @@ textarea {
   font-size: 12px;
 }
 .settings-index nav button:hover {
-  background: #252b35;
+  background: #152a3b;
   color: var(--color-tinta);
 }
 .settings-index > p {
@@ -667,7 +678,7 @@ textarea {
   appearance: none;
   position: relative;
   border-radius: 11px;
-  background: #424a58;
+  background: #2d4c64;
   cursor: pointer;
   transition: background 140ms;
 }
@@ -679,17 +690,17 @@ textarea {
   border-radius: 50%;
   top: 3px;
   left: 3px;
-  background: #eef0f4;
+  background: #eaf2f7;
   transition: transform 140ms;
 }
 .settings-page .settings-group input[type='checkbox']:checked {
-  background: #466ed5;
+  background: #35e0f2;
 }
 .settings-page .settings-group input[type='checkbox']:checked::before {
   transform: translateX(15px);
 }
 .settings-page .settings-group input[type='range'] {
-  accent-color: #8eaef6;
+  accent-color: #35e0f2;
 }
 .settings-alerts > div:first-child > h3 {
   font-size: 16px;
@@ -723,7 +734,7 @@ textarea {
   flex-shrink: 0;
 }
 .settings-index .settings-security-link:hover {
-  background: #252b35;
+  background: #152a3b;
 }
 @media (max-width: 1000px) {
   .settings-layout {
@@ -767,16 +778,16 @@ textarea {
 }
 .settings-page input:not([type='range']):not([type='checkbox']) {
   border-radius: 7px;
-  background: #13161b;
-  border-color: #39414e;
+  background: #081521;
+  border-color: #224965;
   padding: 11px 12px;
 }
 .settings-page input:focus {
-  border-color: #8eaef6;
+  border-color: #35e0f2;
 }
 .settings-page label:has(input[type='checkbox']) {
   padding: 16px;
-  background: #191d25;
+  background: #0d1c29;
   border: 1px solid var(--color-fio);
   border-radius: 8px;
   gap: 15px;
@@ -793,27 +804,27 @@ textarea {
   padding: 18px;
   border: 1px solid var(--color-fio);
   border-radius: 10px;
-  background: #191c22;
+  background: #0c1a26;
 }
 .settings-page [role='alert'] {
   border: 1px solid #72414c;
   padding: 12px;
   border-radius: 8px;
   background: #281c22;
-  color: #ed939d;
+  color: #ff8b98;
   font-size: 12px;
 }
 .settings-security-link {
   width: 100%;
   padding: 18px;
-  border: 1px solid #344768;
+  border: 1px solid #275475;
   border-radius: 10px;
-  background: #1c2534;
+  background: #142b3c;
   text-align: left;
   display: flex;
   align-items: center;
   gap: 14px;
-  color: #bed0f4;
+  color: #bfd7e2;
 }
 .settings-security-link span {
   flex: 1;
@@ -832,7 +843,7 @@ textarea {
 .approval-surface {
   border: 1px solid #746447;
   border-radius: 12px;
-  background: #191c22;
+  background: #0c1a26;
   box-shadow: 0 16px 48px #0008;
 }
 .door-monitor {
@@ -949,7 +960,7 @@ textarea {
 }
 .presence-card {
   align-self: center;
-  background: #191c22;
+  background: #0c1a26;
   border: 1px solid var(--color-fio);
   border-radius: 10px;
   padding: 26px;
@@ -961,7 +972,7 @@ textarea {
   height: 44px;
   margin-bottom: 20px;
   color: var(--color-tinta-2);
-  background: #262c36;
+  background: #162b3c;
   border-radius: 9px;
 }
 .presence-caption {
@@ -1107,10 +1118,6 @@ textarea {
     justify-content: center;
     padding: 13px 0;
   }
-  .brand-emblem {
-    width: 36px;
-    height: 36px;
-  }
   .sidebar-bottom {
     padding-bottom: 17px;
   }
@@ -1218,4 +1225,85 @@ textarea {
     aspect-ratio: auto;
     height: 220px;
   }
+}
+
+/* ---- Acabamento I.R.I.S: navegação, troca de tela e ações rápidas ---- */
+/* Só opacidade no contêiner: transform aqui viraria referência dos modais
+   position: fixed lá dentro (aprovação de comando). */
+.workspace-content > * {
+  animation: surgir 220ms ease-out both;
+}
+.nav-item {
+  position: relative;
+}
+.nav-item > i {
+  display: none;
+}
+/* O ponto do item ativo virou a barra de acento, que cresce ao selecionar. */
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 11px;
+  bottom: 11px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-sinal);
+  transform: scaleY(0);
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.nav-item:hover {
+  background: rgb(234 242 247 / 0.04);
+}
+.nav-item.is-active {
+  color: var(--color-tinta);
+  background: rgb(53 224 242 / 0.08);
+  border-color: rgb(53 224 242 / 0.2);
+}
+.nav-item.is-active::before {
+  transform: scaleY(1);
+}
+.nav-item.is-active > svg {
+  color: var(--color-sinal);
+}
+.welcome-mark,
+.welcome-actions {
+  animation: entrar 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.welcome-actions {
+  animation-delay: 60ms;
+}
+.welcome-actions button > svg:first-child,
+.welcome-actions button > svg:last-child {
+  transition:
+    color 160ms,
+    transform 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.welcome-actions button:hover > svg:first-child {
+  color: var(--color-sinal);
+}
+.welcome-actions button:hover > svg:last-child {
+  color: var(--color-tinta-2);
+  transform: translateX(3px);
+}
+.composer button {
+  transition:
+    background 140ms,
+    border-color 140ms,
+    transform 120ms;
+}
+.composer button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+/* Mesma superfície dos painéis da segurança em configurações e no Modo porta. */
+.settings-group,
+.door-feed {
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgb(234 242 247 / 0.02), transparent 120px),
+    var(--color-chapa);
+}
+.settings-group,
+.door-feed,
+.door-presence {
+  animation: entrar 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }

@@ -63,7 +63,7 @@ export default function Visor({
           y = dy + c.y * escala
         const cw = c.w * escala,
           ch = c.h * escala
-        const cor = c.nome ? '#82c4a0' : alerta ? '#ed939d' : '#8eaef6'
+        const cor = c.nome ? '#5ad19c' : alerta ? '#ff8b98' : '#35e0f2'
         ctx.strokeStyle = cor
         ctx.strokeRect(x, y, cw, ch)
         const braco = Math.min(14 * unidade, cw / 3, ch / 3)
@@ -87,7 +87,7 @@ export default function Visor({
         const labelY = Math.max(0, y - 22 * unidade)
         ctx.fillStyle = cor
         ctx.fillRect(labelX, labelY, labelW, 20 * unidade)
-        ctx.fillStyle = '#070b14'
+        ctx.fillStyle = '#061019'
         ctx.fillText(texto, labelX + 7 * unidade, labelY + 14 * unidade, labelW - 14 * unidade)
       }
     }

@@ -124,13 +124,13 @@ export class AcessoRemoto {
           res.writeHead(200, { 'content-type': 'application/manifest+json' }).end(
             JSON.stringify({
               id: '/',
-              name: 'Íris Segurança',
-              short_name: 'Íris',
+              name: 'I.R.I.S Segurança',
+              short_name: 'I.R.I.S',
               start_url: '/',
               scope: '/',
               display: 'standalone',
-              background_color: '#101216',
-              theme_color: '#101216',
+              background_color: '#061019',
+              theme_color: '#061019',
               icons: [{ src: '/icone.png', sizes: '512x512', type: 'image/png' }]
             })
           )

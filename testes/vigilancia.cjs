@@ -5,7 +5,7 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 fs.mkdirSync('out/testes', { recursive: true })
 const dir = fs.mkdtempSync(path.resolve('out/testes/vigilancia-'))
-const env = { ...process.env, IZZE_BANCO: path.join(dir, 'teste.sqlite'), IRIS_TESTE_DIR: dir }
+const env = { ...process.env, IRIS_BANCO: path.join(dir, 'teste.sqlite'), IRIS_TESTE_DIR: dir }
 delete env.ELECTRON_RUN_AS_NODE
 const r = spawnSync(require('electron'), ['out/main/teste-vigilancia.js'], {
   env,

@@ -6,7 +6,7 @@ import { createServer } from 'http'
 
 mkdirSync('out/testes', { recursive: true })
 const dir = mkdtempSync(join(process.cwd(), 'out/testes/seguranca-'))
-process.env.IZZE_BANCO = join(dir, 'teste.sqlite')
+process.env.IRIS_BANCO = join(dir, 'teste.sqlite')
 app.setPath('userData', dir)
 void app.whenReady().then(async () => {
   const b = await import('../src/main/banco')

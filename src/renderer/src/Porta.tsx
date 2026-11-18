@@ -4,6 +4,7 @@ import { estadoDoRosto } from '../../reconhecimento'
 import Visor from './Visor'
 import { estadoSensor, type Leitura } from './presenca'
 import { Escudo } from './icones'
+import { NomeMarca } from './Marca'
 
 /** Estado do reconhecimento e imagem da câmera para consulta no modo porta. */
 export default function Porta({
@@ -27,7 +28,9 @@ export default function Porta({
     <div className={`door-monitor ${alerta ? 'alarme' : ''}`}>
       <div className="door-header">
         <div>
-          <h1>Íris · porta</h1>
+          <h1>
+            <NomeMarca /> · porta
+          </h1>
           <span>Monitor de presença</span>
         </div>
         <div className="door-clock">

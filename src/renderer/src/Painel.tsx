@@ -32,7 +32,7 @@ const TINTA = 'var(--color-tinta)'
 const TINTA_3 = 'var(--color-tinta-3)'
 
 /** Cores distintas para as séries dos gráficos. */
-const CORES = [SINAL, '#b4a3dc', TINTA, 'var(--color-ok)', 'var(--color-perigo)', '#e1c28e']
+const CORES = [SINAL, '#b4a3dc', TINTA, 'var(--color-ok)', 'var(--color-perigo)', '#f2c46d']
 
 // Eixo e grade recuam. O dado é que tem que aparecer, não a moldura.
 const eixo = { fill: TINTA_3, fontSize: 11, fontFamily: 'Segoe UI, system-ui, sans-serif' }

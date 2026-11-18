@@ -1,4 +1,4 @@
-# IZZE
+# I.R.I.S
 
 An Electron application with React and TypeScript
 

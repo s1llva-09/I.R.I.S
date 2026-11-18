@@ -3,7 +3,6 @@ import {
   Ajustes,
   Arco,
   Camera,
-  Casa,
   Escudo,
   Grade,
   Mudo,
@@ -12,6 +11,7 @@ import {
   Seta,
   Som
 } from './icones'
+import { NomeMarca, SLOGAN, Simbolo } from './Marca'
 
 export type Destino = 'assistente' | 'seguranca' | 'porta' | 'ajustes'
 
@@ -66,7 +66,7 @@ export default function Shell({
     <div className="app-shell">
       <header className="window-bar">
         <span className="window-brand">
-          <Casa width={14} height={14} /> Íris <span>/</span> Controle do ambiente
+          <Simbolo width={20} height={15} /> <NomeMarca /> <span>/</span> Controle do ambiente
         </span>
         <span className="window-time">
           {agora.toLocaleDateString('pt-BR')} <span>·</span> {agora.toLocaleTimeString('pt-BR')}
@@ -76,11 +76,13 @@ export default function Shell({
         <aside className="sidebar">
           <div className="brand-lockup">
             <div className="brand-emblem">
-              <Casa width={22} height={22} />
+              <Simbolo width={34} height={26} />
             </div>
             <div>
-              <strong>Íris</strong>
-              <small>Controle do ambiente</small>
+              <strong>
+                <NomeMarca />
+              </strong>
+              <small>{SLOGAN}</small>
             </div>
           </div>
           <span className="nav-caption">Navegação</span>
@@ -153,7 +155,7 @@ export default function Shell({
           <div className="workspace-bar">
             <div className="workspace-breadcrumb">
               <Grade width={15} height={15} />
-              <span>Íris</span>
+              <span>I.R.I.S</span>
               <Seta width={12} height={12} />
               <strong>
                 {destino === 'ajustes'
@@ -214,7 +216,12 @@ export function BoasVindas({
 }): JSX.Element {
   return (
     <div className="welcome">
-      <span className="eyebrow">Consultas e comandos</span>
+      <div className="welcome-mark">
+        <Simbolo width={56} height={42} />
+      </div>
+      <span className="eyebrow">
+        <NomeMarca /> · Consultas e comandos
+      </span>
       <h1>Assistente</h1>
       <p>Consulte o computador, execute comandos e acompanhe suas câmeras.</p>
       <div className="welcome-shortcuts-title">

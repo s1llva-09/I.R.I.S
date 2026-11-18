@@ -117,6 +117,8 @@ const api = {
     armar: () => ipcRenderer.invoke('vigilancia:armar'),
     desarmar: () => ipcRenderer.invoke('vigilancia:desarmar'),
     limpar: () => ipcRenderer.invoke('vigilancia:limpar'),
+    exportar: (): Promise<{ cancelado: true } | { caminho: string; linhas: number }> =>
+      ipcRenderer.invoke('vigilancia:exportar'),
     repetir: (id: string) => ipcRenderer.invoke('vigilancia:repetir', id),
     testar: () => ipcRenderer.invoke('vigilancia:testar'),
     removerCelular: (id: string) => ipcRenderer.invoke('vigilancia:removerCelular', id),

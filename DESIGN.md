@@ -8,10 +8,19 @@ Os tokens de implementação vivem em
 [main.css](src/renderer/src/assets/main.css). Este documento registra a
 direção visual e as regras para estender a interface.
 
+## Marca
+
+**I.R.I.S** — "Sua casa, sempre sob os seus olhos." O símbolo é um olho de
+traço claro com a íris em ciano. Os originais (símbolo claro e escuro, ícone
+do app, logotipos horizontais e a arte de apresentação) ficam em
+[docs/marca](docs/marca). No app, o símbolo e o nome vêm de
+[Marca.tsx](src/renderer/src/Marca.tsx): o traço segue `--marca-traco` e a
+íris segue o acento, então mudar o tema muda a marca junto. O nome é escrito
+com os pontos no acento (`I.R.I.S`); na prosa, a assistente continua "a Íris".
+
 ## Direção visual
 
-Fundo azul quase preto, superfícies em camadas, acento cyan e detalhes
-lavanda. Bordas delicadas, cantos arredondados e gradientes discretos dão
+Fundo marinho quase preto, superfícies em camadas, acento ciano da marca. Bordas delicadas, cantos arredondados e gradientes discretos dão
 profundidade sem competir com texto, vídeo e estados do sistema.
 
 O caráter futurista vem da composição, tipografia e organização das
@@ -23,15 +32,16 @@ ou animações que simulem uma análise inexistente.
 
 | Papel | Referência | Uso |
 |---|---|---|
-| Fundo principal | `#070b14` | Base da aplicação |
-| Superfícies | Azuis escuros próximos ao fundo | Cards, navegação e campos |
-| Acento principal | `#63dcf2` | Seleção, ação principal e foco |
-| Acento secundário | `#a392ff` | Detalhes de marca e informações secundárias |
-| Texto principal | Branco frio | Títulos e conteúdo |
-| Texto secundário | Cinza azulado claro | Legendas, contexto e horários |
-| Sucesso | Verde | Estado confirmado pelos dados |
-| Atenção | Âmbar | Condição que precisa de revisão |
-| Falha ou risco | Vermelho | Erros, captura indisponível e alertas |
+| Fundo principal | `#061019` | Base da aplicação (o fundo do ícone) |
+| Superfícies | `#0c1a26` (cards), `#081521` (campos), `#0a1823` (barras) | Cards, navegação e campos |
+| Bordas | `#1a3042` e `#2d4c64` (forte) | Separação entre camadas |
+| Acento principal | `#35e0f2` | Seleção, ação principal, foco e a íris da marca |
+| Texto sobre o acento | `#04121a` | Botão principal (branco no ciano não tem contraste) |
+| Texto principal | `#eaf2f7` | Títulos e conteúdo (o claro do logotipo) |
+| Texto secundário | `#b6c7d4` e `#8ea4b5` | Legendas, contexto e horários |
+| Sucesso | `#5ad19c` | Estado confirmado pelos dados |
+| Atenção | `#f2c46d` | Condição que precisa de revisão |
+| Falha ou risco | `#ff8b98` | Erros, captura indisponível e alertas |
 
 Estados usam texto e, quando útil, ícone além da cor. Cyan não significa
 automaticamente que um ambiente está seguro. Gradientes ficam nas
@@ -41,7 +51,8 @@ legível. Validar contraste sempre que os tokens mudarem.
 ## Tipografia e geometria
 
 - Interface e prosa: `Segoe UI Variable Text`, `Segoe UI`, sans-serif.
-- Títulos e rótulos: `Bahnschrift`, `Segoe UI Variable Display`, sans-serif.
+- Nome da marca, títulos de destaque e números do resumo: `Bahnschrift`
+  (`--font-display`), `Segoe UI Variable Display`, sans-serif.
 - Horários, números e dados técnicos: `Cascadia Mono`, `Consolas`, monospace.
 - Cards com raio de 12–16px; campos e botões acompanham essa família visual.
 - Espaçamento consistente, títulos claros e texto auxiliar legível, sem

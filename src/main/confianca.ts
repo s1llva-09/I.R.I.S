@@ -90,11 +90,12 @@ export function pontuarRisco(texto: string): { escore: number; achados: string[]
 }
 
 /**
- * Chave do experimento A/B do TCC: `IZZE_SEM_DEFESA=1 npm run teste` roda a
+ * Chave do experimento A/B do TCC: `IRIS_SEM_DEFESA=1 npm run teste` roda a
  * bancada com a defesa desligada. Sem isto a medição "antes" exige comentar
  * código na mão, e ninguém reproduz um número que depende disso.
  */
-export const DEFESA_LIGADA = process.env.IZZE_SEM_DEFESA !== '1'
+// IZZE_SEM_DEFESA é o nome antigo, aceito para os roteiros já escritos.
+export const DEFESA_LIGADA = (process.env.IRIS_SEM_DEFESA ?? process.env.IZZE_SEM_DEFESA) !== '1'
 
 /**
  * Ferramentas que gravam algo que volta CONFIÁVEL no futuro: o `anotar` vira

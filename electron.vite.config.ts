@@ -25,6 +25,7 @@ export default defineConfig({
           'teste-vigilancia': resolve('testes/vigilancia.ts'),
           'teste-detector': resolve('testes/detectorElectron.ts'),
           'teste-estoque': resolve('testes/estoque.ts'),
+          'teste-migracao': resolve('testes/migracao.ts'),
           // 'teste-gatilhos' e não 'gatilhos': a entrada vira out/main/<nome>.js,
           // e src/main/gatilhos.ts já disputa esse nome como chunk compartilhado.
           'teste-gatilhos': resolve('testes/gatilhos.ts')

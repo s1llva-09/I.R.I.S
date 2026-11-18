@@ -7,7 +7,8 @@ import {
   globalShortcut,
   nativeImage,
   ipcMain,
-  Notification
+  Notification,
+  dialog
 } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
@@ -34,8 +35,10 @@ import {
   esquecerRosto,
   eventosVigilancia,
   registrar,
-  rostosCadastrados
+  rostosCadastrados,
+  listarEventosPerimetro
 } from './banco'
+import { relatorioCsv } from './relatorio'
 import { iniciarFila, pararFila } from './fila'
 import { conectar, desconectarCamera, erroCamera, procurarCameras, testarEndereco } from './camera'
 import { abrirServidor, abrirServidorSeguro, fecharServidor } from './servidor'
@@ -215,7 +218,7 @@ function registrarAtalho(acelerador: string): boolean {
 function criarTray(): void {
   const img = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
   tray = new Tray(img)
-  tray.setToolTip('Íris')
+  tray.setToolTip('I.R.I.S')
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: `Abrir  (${ler('atalho')})`, click: mostrarJanela },
@@ -275,7 +278,7 @@ function entregarAviso(aviso: Aviso): void {
    * sem avisar de qualquer jeito.
    */
   if (Notification.isSupported()) {
-    const n = new Notification({ title: 'Íris', body: aviso.texto.slice(0, 200) })
+    const n = new Notification({ title: 'I.R.I.S', body: aviso.texto.slice(0, 200) })
     n.on('click', mostrarJanela)
     n.show()
   }
@@ -428,6 +431,25 @@ function registrarIPC(): void {
   ipcMain.handle('vigilancia:armar', () => vigilancia.armar())
   ipcMain.handle('vigilancia:desarmar', () => vigilancia.desarmar())
   ipcMain.handle('vigilancia:limpar', () => vigilancia.limpar())
+  /**
+   * Relatório de eventos em CSV: os alertas do Fora de casa (dentro da
+   * retenção configurada) e o histórico do reconhecimento, numa tabela só.
+   * Quem escolhe onde salvar é o usuário; nada sai do PC sem ele pedir.
+   */
+  ipcMain.handle('vigilancia:exportar', async () => {
+    const hoje = new Date().toISOString().slice(0, 10)
+    const opcoes = {
+      title: 'Exportar relatório de eventos',
+      defaultPath: `iris-eventos-${hoje}.csv`,
+      filters: [{ name: 'Planilha CSV', extensions: ['csv'] }]
+    }
+    const escolha = janela ? await dialog.showSaveDialog(janela, opcoes) : await dialog.showSaveDialog(opcoes)
+    if (escolha.canceled || !escolha.filePath) return { cancelado: true as const }
+    const perimetro = listarEventosPerimetro(vigilancia.ajustes().retencaoDias)
+    const visuais = eventosVisuais(200)
+    await writeFile(escolha.filePath, relatorioCsv(perimetro, visuais), 'utf8')
+    return { caminho: escolha.filePath, linhas: perimetro.length + visuais.length }
+  })
   ipcMain.handle('vigilancia:repetir', (_e, id: string) => vigilancia.repetir(id))
   ipcMain.handle('vigilancia:testar', () => vigilancia.testar())
   ipcMain.handle('vigilancia:removerCelular', (_e, id: string) => removerPush(id))
@@ -681,7 +703,10 @@ function registrarIPC(): void {
 
 // ---------- ciclo de vida ----------
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.izze.app')
+  // Em desenvolvimento não existe atalho registrado, e o Windows mostra o id
+  // cru no cabeçalho das notificações: o nome da marca no lugar do appId.
+  // Empacotado, o atalho do instalador usa o appId e o nome vem do productName.
+  electronApp.setAppUserModelId(is.dev ? 'I.R.I.S' : 'com.iris.app')
   app.on('browser-window-created', (_, w) => optimizer.watchWindowShortcuts(w))
 
   registrarIPC()

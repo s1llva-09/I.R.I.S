@@ -1,5 +1,5 @@
 {
-  "name": "izze",
+  "name": "iris",
   "version": "1.0.0",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
@@ -28,6 +28,7 @@
     "teste:melhorias": "electron-vite build && electron out/main/teste-melhorias.js",
     "teste:cameras": "electron-vite build && electron out/main/teste-cameras.js",
     "teste:estoque": "electron-vite build && electron out/main/teste-estoque.js",
+    "teste:migracao": "electron-vite build && electron out/main/teste-migracao.js",
     "teste:interface": "npm run build && node testes/interface.cjs",
     "teste:vigilancia": "electron-vite build && node testes/vigilancia.cjs",
     "teste:detector": "electron-vite build && node testes/detector.cjs"

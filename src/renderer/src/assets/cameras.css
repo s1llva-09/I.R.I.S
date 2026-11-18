@@ -29,7 +29,7 @@
   font-variant-numeric: tabular-nums;
 }
 .camera-control p {
-  color: #a4acb9;
+  color: #9db1c1;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -66,11 +66,11 @@
 }
 .camera-layout-options button:hover {
   color: var(--color-tinta);
-  background: #242932;
+  background: #142838;
 }
 .camera-layout-options button[aria-pressed='true'] {
-  color: #d6e3ff;
-  background: #2b3852;
+  color: #d3f6fb;
+  background: #1f445e;
 }
 .camera-control .camera-layout-options svg {
   width: 16px;
@@ -82,14 +82,14 @@
 .camera-control label {
   display: grid;
   gap: 7px;
-  color: #bdc2cc;
+  color: #b6c7d4;
   font-size: 12px;
 }
 .camera-control input,
 .camera-control select {
-  background: #13161b;
-  color: #eef0f4;
-  border: 1px solid #333b48;
+  background: #081521;
+  color: #eaf2f7;
+  border: 1px solid #213a4e;
   border-radius: 8px;
   padding: 10px;
   min-width: 0;
@@ -100,7 +100,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   padding: 20px;
-  border: 1px solid #3b4351;
+  border: 1px solid #27445b;
   border-radius: 12px;
   margin: 20px 0;
   background: var(--color-sulco);
@@ -122,7 +122,7 @@
   grid-column: 1 / -1;
 }
 .camera-edit-form small {
-  color: #a4acb9;
+  color: #9db1c1;
 }
 .camera-edit-form button {
   margin-right: 0;
@@ -147,7 +147,7 @@
   border: 1px solid var(--color-fio-forte);
   border-radius: 10px;
   overflow: hidden;
-  background: #191c22;
+  background: #0c1a26;
 }
 .camera-card header {
   display: flex;
@@ -167,7 +167,7 @@
   overflow-wrap: anywhere;
 }
 .camera-card header > span {
-  color: #a4acb9;
+  color: #9db1c1;
   font-size: 11px;
   white-space: nowrap;
   display: inline-flex;
@@ -184,15 +184,15 @@
   border-radius: 50%;
 }
 .camera-card header > .camera-waiting {
-  color: #e1c28e;
+  color: #f2c46d;
 }
 .camera-card header > .camera-online {
-  color: #82c4a0;
+  color: #5ad19c;
 }
 .camera-tile-viewport {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: #0d0f13;
+  background: #040b12;
   overflow: hidden;
 }
 .camera-tile-viewport video,
@@ -231,7 +231,7 @@
   bottom: 8px;
   left: 8px;
   font: 11px/1.5 var(--font-sans);
-  background: #101216d9;
+  background: #061019d9;
   padding: 6px 8px;
   border-radius: 5px;
 }
@@ -245,7 +245,7 @@
 .camera-card button,
 .camera-pairing summary {
   font-size: 12px;
-  color: #c4cbd7;
+  color: #c3d3df;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -262,16 +262,16 @@
   height: 14px;
 }
 .camera-card button:hover:not(:disabled) {
-  background: #262c36;
+  background: #162b3c;
   border-color: var(--color-fio-forte);
 }
 .camera-card footer .camera-connect {
   border-color: var(--color-fio-forte);
-  background: #242932;
+  background: #142838;
   margin-right: auto;
 }
 .camera-card footer .camera-remove {
-  color: #aeb4be;
+  color: #a0bacc;
 }
 .camera-card footer .camera-remove:hover:not(:disabled) {
   color: var(--color-perigo);
@@ -287,7 +287,7 @@
   color: var(--color-perigo) !important;
 }
 .camera-card button:focus-visible {
-  outline: 2px solid #8eaef6;
+  outline: 2px solid #35e0f2;
   outline-offset: 2px;
 }
 .camera-pairing {
@@ -311,7 +311,7 @@
 .camera-card:fullscreen {
   display: flex;
   flex-direction: column;
-  background: #0d0f13;
+  background: #040b12;
   border: 0;
   border-radius: 0;
 }
@@ -341,7 +341,7 @@
   place-items: center;
   width: 48px;
   height: 48px;
-  background: #242a34;
+  background: #163042;
   border-radius: 10px;
   margin-bottom: 5px;
   color: var(--color-tinta-2);
@@ -399,4 +399,39 @@
   .camera-batch-connect {
     margin-left: 0;
   }
+}
+
+/* ---- Acabamento I.R.I.S: cartões e selo ao vivo ---- */
+.camera-card {
+  border-radius: 14px;
+  transition: border-color 160ms;
+  animation: entrar 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.camera-card:hover {
+  border-color: #3a6280;
+}
+.camera-card button {
+  transition:
+    color 140ms,
+    background 140ms,
+    transform 120ms;
+}
+.camera-card button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+/* Pulsa só com quadros chegando (is-live); foto e "sem sinal" ficam paradas. */
+.camera-connection i {
+  position: relative;
+}
+.camera-connection.is-live i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulso-vivo 1.8s ease-out infinite;
+}
+.camera-control-empty .camera-empty-emblem,
+.camera-control-empty > svg {
+  filter: drop-shadow(0 0 14px rgb(53 224 242 / 0.18));
 }

@@ -188,7 +188,7 @@ export function vigiarFoco(): void {
       if (!linha.trim()) continue
       try {
         const foco = JSON.parse(linha) as Foco
-        // process.execPath é electron.exe em dev e izze.exe empacotado — os
+        // process.execPath é electron.exe em dev e iris.exe empacotado — os
         // dois casos cobertos sem hardcode, e pega junto os processos filhos
         // do Electron, que rodam do mesmo binário. Minúsculas porque o
         // Windows não liga pra caixa e o Get-Process devolve a do disco.

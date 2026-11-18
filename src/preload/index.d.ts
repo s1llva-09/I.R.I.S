@@ -41,6 +41,7 @@ declare global {
         armar: () => Promise<void>
         desarmar: () => Promise<void>
         limpar: () => Promise<void>
+        exportar: () => Promise<{ cancelado: true } | { caminho: string; linhas: number }>
         repetir: (id: string) => Promise<void>
         testar: () => Promise<void>
         removerCelular: (id: string) => Promise<void>

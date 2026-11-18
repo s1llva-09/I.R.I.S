@@ -67,7 +67,7 @@ function obterCliente(): OpenAI {
     defaultHeaders: {
       // Opcionais — só colocam teu app no ranking do OpenRouter.
       'HTTP-Referer': 'http://localhost',
-      'X-Title': 'Íris'
+      'X-Title': 'I.R.I.S'
     }
   })
 }
@@ -81,18 +81,18 @@ function obterCliente(): OpenAI {
  * O super é ~4x o gemma-31b que inventava resultado de ferramenta, e uma
  * fração do peso do ultra. Pra fixar o ultra de novo, é uma linha no .env.
  *
- * O IZZE_MODELO vem primeiro e existe pra bancada: o MAIN_VITE_ é resolvido
+ * O IRIS_MODELO (ou o antigo IZZE_MODELO) vem primeiro e existe pra bancada: o MAIN_VITE_ é resolvido
  * em tempo de BUILD, então comparar três modelos custava editar o .env e
  * rebuildar entre cada um — atrito que faz a tabela comparativa da
  * contribuição D não acontecer. Com a env var:
  *
- *   $env:IZZE_MODELO="poolside/laguna-s-2.1:free"; npm run teste
+ *   $env:IRIS_MODELO="poolside/laguna-s-2.1:free"; npm run teste
  */
 export function modeloAtual(): string {
-  // O IZZE_MODELO continua vindo PRIMEIRO: a bancada troca de modelo por
+  // O IRIS_MODELO continua vindo PRIMEIRO: a bancada troca de modelo por
   // variável de ambiente, e ela não pode depender de alguém ter aberto a
   // tela de configurações antes de rodar.
-  return process.env.IZZE_MODELO ?? ler('llmModelo')
+  return process.env.IRIS_MODELO ?? process.env.IZZE_MODELO ?? ler('llmModelo')
 }
 
 /**

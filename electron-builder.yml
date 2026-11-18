@@ -1,5 +1,5 @@
-appId: com.izze.app
-productName: Izze
+appId: com.iris.app
+productName: I.R.I.S
 directories:
   buildResources: build
 files:
@@ -22,7 +22,7 @@ asarUnpack:
   - node_modules/sharp/**
   - node_modules/@img/**
 win:
-  executableName: izze
+  executableName: iris
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
